@@ -1,0 +1,36 @@
+name: Backend CI
+# feature → main PR을 검증한다. check·gitleaks는 main 브랜치의 필수 체크다
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: make lint
+      - run: make test
+
+  # 커밋 이력에 API 키 등 시크릿이 섞이지 않았는지 검사한다
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks scan
+        uses: docker://ghcr.io/gitleaks/gitleaks:latest
+        with:
+          args: detect --source=. --redact -v
