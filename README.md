@@ -101,9 +101,9 @@ graph TD;
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
 | `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → 종료, 또는 plan → prepare → `run_session`에서 멈춤 | 종료 요약 또는 새 계획·콘텐츠 |
 
-체크포인터는 지금 `InMemorySaver`(`app/agent/checkpoint.py`)라 서버를 다시 띄우면 진행 중인 세션이
-사라집니다. 운영 전에 `langgraph-checkpoint-postgres`로 바꿔 Supabase에 저장하고, 체크포인트 테이블은
-Data API에 노출되지 않는 스키마에 둡니다.
+체크포인터는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장합니다(`app/agent/checkpoint.py`).
+요청마다 다른 서버(서버리스 인스턴스)가 받아도 같은 세션을 이어 갑니다. `DATABASE_URL`이 비어 있으면
+`InMemorySaver`를 써서, 서버를 다시 띄우면 진행 중인 세션이 사라집니다.
 
 ## 시작하기
 
@@ -122,13 +122,16 @@ make run                # http://127.0.0.1:8000/health
 | `make lint` | ruff 검사 |
 | `make test` | pytest (그래프 흐름과 Planner 배선은 대본 모델로 확인해 LLM을 부르지 않는다) |
 | `make graph` | 세션 그래프를 Mermaid로 출력 |
+| `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 
 ## 데이터베이스 (Supabase)
 
 1. Supabase 프로젝트에 `supabase/migrations/20261021000000_init_evidence.sql`을 적용합니다.
    대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다.
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
-3. `make run` 후 `GET /health/db`로 연결과 확장(pgvector·pg_trgm) 설치를 확인합니다.
+3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
+   올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
+4. `make run` 후 `GET /health/db`로 연결, 확장(pgvector·pg_trgm) 설치, 체크포인트 테이블을 확인합니다.
 
 | 연결 방식 | 포트 | 네트워크 | 쓰는 곳 |
 | --- | --- | --- | --- |
@@ -136,16 +139,35 @@ make run                # http://127.0.0.1:8000/health
 | Shared pooler — session mode | 5432 | IPv4 | 로컬 개발, IPv4 네트워크의 상주 서버 |
 | Shared pooler — transaction mode | 6543 | IPv4 | 서버리스 함수 |
 
-트랜잭션 모드는 prepared statement를 지원하지 않습니다. `app/db.py`가 psycopg의 자동 prepare를 꺼 두어
-세 방식 모두 같은 코드로 동작합니다.
+트랜잭션 모드는 prepared statement를 지원하지 않습니다. `app/db.py`와 체크포인터 풀이 psycopg의 자동
+prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGraph의 `AsyncPostgresSaver.from_conn_string()`은
+모든 쿼리를 prepare하므로 쓰지 않습니다.
 
 | 테이블 | 내용 |
 | --- | --- |
 | `papers` | 논문 한 편. `id`는 근거 재분류 시트의 ID(P01…, N01…), DOI가 없으면 `url`로 원문을 가리킨다 |
 | `evidence_records` | 실험 단위 Evidence Record. 원문 구간(`content`), 메타데이터(`metadata` jsonb), 임베딩(`vector(1536)`) |
+| `langgraph.checkpoints` 등 4개 | 세션 체크포인트. `make checkpoint-setup`이 만들고, 적용한 버전을 `checkpoint_migrations`에 남긴다 |
 
 `public` 스키마의 테이블은 Data API로 노출되므로 RLS를 켜고 정책은 두지 않았습니다. publishable 키로는
 읽고 쓸 수 없고, 테이블 소유자인 `postgres` 역할로 접속하는 백엔드에는 영향이 없습니다.
+
+체크포인트 테이블은 Data API에 노출되지 않는 `langgraph` 스키마에 둡니다. 라이브러리가 테이블 이름에
+스키마를 붙이지 않아, 체크포인터 풀이 연결 옵션 `-c search_path=langgraph`로 스키마를 가리킵니다.
+트랜잭션 모드에서는 `SET`이 다음 트랜잭션까지 남지 않지만, Shared pooler(Supavisor)는 search_path마다
+풀을 따로 두어 이 옵션을 유지합니다. Dedicated pooler(PgBouncer)로 바꾸면 이 부분을 다시 확인합니다.
+
+체크포인터 DB 테스트(`tests/agent/test_checkpoint.py`)는 `TEST_DATABASE_URL`이 있을 때만 돌고, CI에서는
+건너뜁니다. 세션을 시작한 풀과 다른 풀에서 세션을 이어 가는지 봅니다. 로컬 Postgres는 Supabase처럼
+`extensions` 스키마를 search_path에 넣은 뒤 마이그레이션을 적용합니다.
+
+```bash
+docker run -d --name lumi-pg -e POSTGRES_PASSWORD=postgres -p 54329:5432 pgvector/pgvector:pg17
+psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema extensions' \
+  -c 'alter database postgres set search_path = "$user", public, extensions' \
+  -f supabase/migrations/20261021000000_init_evidence.sql
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
+```
 
 ## 브랜치·PR 규칙
 
@@ -171,7 +193,7 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 - 동시 복합의 호환 규칙과 활동 수. 지금은 순차 복합과 같은 2~3개로 검사합니다.
 - 목표별 사전·사후 척도. 지금은 스트레스 수준(0~10)만 봅니다.
 - Care Protocol DB·Session Outcome DB 테이블 (사용자 식별 방식과 함께 정한다)
-- 운영 체크포인터와 세션 API
+- 세션 API
 - FastAPI 서버의 호스트. Supabase Edge Functions는 TypeScript(Deno)라 FastAPI를 올릴 수 없어 별도
   호스트(예: Vercel, Render, Cloud Run)가 필요합니다.
 
@@ -179,7 +201,7 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 
 ```text
 app/
-├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀을 연다)
+├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다)
 ├─ config.py            .env 설정
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
@@ -188,7 +210,7 @@ app/
 │  ├─ graph.py          노드 배선·라우팅
 │  ├─ state.py          그래프 상태와 노드 입출력 스키마 (CarePlan, SessionReport …)
 │  ├─ context.py        실행 컨텍스트 (DB 풀 등. 체크포인트에 저장하지 않는다)
-│  ├─ checkpoint.py     체크포인터와 직렬화 허용 타입
+│  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
 │  ├─ prompts.py        Planner 프롬프트 초안
 │  ├─ nodes/            ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ tools/            Planner의 LangChain Tool

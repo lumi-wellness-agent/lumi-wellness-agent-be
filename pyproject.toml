@@ -13,6 +13,8 @@ dependencies = [
     "pgvector>=0.4",
     # 세션 그래프(app/agent/graph.py): 순환·분기·interrupt와 체크포인트
     "langgraph>=1.2",
+    # 세션 상태를 Supabase Postgres에 저장하는 체크포인터(app/agent/checkpoint.py)
+    "langgraph-checkpoint-postgres>=3.2",
     # Planner 에이전트(create_agent·Tool·구조화 출력). 모델 공급자 패키지는 정하면 추가한다
     "langchain>=1.4",
 ]
