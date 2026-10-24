@@ -182,6 +182,13 @@ feature → `main`으로 올립니다. 인프라가 Supabase 하나라 `dev`를 
 
 `main`은 PR 필수(승인 0명), 필수 체크 `check`·`gitleaks`, 강제 푸시·삭제 금지로 보호합니다.
 
+위 1~3을 자동화한 것이 **ship 하네스**입니다. 코드 수정을 끝낸 뒤 Claude Code에서는 `/ship`, Codex에서는
+`$ship`(또는 "ship"·"배포해줘")으로 부르면 검증(`make lint`·`make test`) → 이슈·브랜치 생성 → PR → CI 게이트
+→ squash 머지 → main CI 확인까지 진행합니다. 절차 원본은 하네스 중립 명세 `automation/ship.md`·
+`automation/pipeline.md`이고, `.claude/commands/ship.md`와 `.agents/skills/ship/SKILL.md`는 각 하네스의
+진입 어댑터입니다. 폴링·게이트 스크립트는 `automation/bin/`에 있고, `automation/bin/smoke-test.sh`가
+CI(`scripts` 잡)에서 회귀 검증합니다.
+
 Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된 것만 적용합니다. PR 단계의 스키마
 변경은 로컬 Postgres(예: `pgvector/pgvector` Docker 이미지)에서 먼저 확인합니다.
 
