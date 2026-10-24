@@ -34,3 +34,10 @@ jobs:
         uses: docker://ghcr.io/gitleaks/gitleaks:latest
         with:
           args: detect --source=. --redact -v
+
+  # automation/bin 게이트 스크립트 회귀 검증 — fail-closed 성질 + pr-gate.jq 판정 fixture + 민감 파일 훅
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: automation/bin/smoke-test.sh
