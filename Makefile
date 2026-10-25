@@ -1,7 +1,7 @@
 # 실행·검증 명령을 한곳에 모은다. 인자 전달: make test ARGS="tests/test_health.py -q"
-# .venv가 있으면 그 인터프리터를, 없으면 PATH의 python3를 쓴다.
+# .venv가 있으면 그 인터프리터(Windows는 .venv/Scripts/python.exe)를, 없으면 PATH의 python3를 쓴다.
 
-PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
+PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
 .PHONY: run lint test graph checkpoint-setup
 
