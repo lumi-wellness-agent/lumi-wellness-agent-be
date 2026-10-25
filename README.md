@@ -124,6 +124,10 @@ make run                # http://127.0.0.1:8000/health
 | `make graph` | 세션 그래프를 Mermaid로 출력 |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 
+Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
+설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
+(예: `-m ruff check .`, `-m pytest`, `-m uvicorn app.main:app --reload`).
+
 ## 데이터베이스 (Supabase)
 
 1. Supabase 프로젝트에 `supabase/migrations/20261021000000_init_evidence.sql`을 적용합니다.
@@ -186,8 +190,9 @@ feature → `main`으로 올립니다. 인프라가 Supabase 하나라 `dev`를 
 `$ship`(또는 "ship"·"배포해줘")으로 부르면 검증(`make lint`·`make test`) → 이슈·브랜치 생성 → PR → CI 게이트
 → squash 머지 → main CI 확인까지 진행합니다. 절차 원본은 하네스 중립 명세 `automation/ship.md`·
 `automation/pipeline.md`이고, `.claude/commands/ship.md`와 `.agents/skills/ship/SKILL.md`는 각 하네스의
-진입 어댑터입니다. 폴링·게이트 스크립트는 `automation/bin/`에 있고, `automation/bin/smoke-test.sh`가
-CI(`scripts` 잡)에서 회귀 검증합니다.
+진입 어댑터입니다. 폴링·게이트 스크립트(`automation/bin/`)는 표준 라이브러리만 쓰는 Python이라
+bash·jq가 필요 없고, `tests/automation/`이 `make test`로 회귀 검증합니다. 처음 쓰는 PC에서 할
+준비(도구 설치·로그인, Codex 설정, Windows)는 [`automation/README.md`](automation/README.md)에 있습니다.
 
 Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된 것만 적용합니다. PR 단계의 스키마
 변경은 로컬 Postgres(예: `pgvector/pgvector` Docker 이미지)에서 먼저 확인합니다.

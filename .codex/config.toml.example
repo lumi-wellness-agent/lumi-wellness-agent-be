@@ -6,3 +6,5 @@
 # workspace-write 샌드박스가 .git/ 쓰기를 기본 차단해 ship의 커밋·체크아웃·pull이 실패한다
 # (원격·CI는 정상인데 로컬 main만 뒤처짐). .git을 열어 ship이 완주하게 한다.
 writable_roots = ["/absolute/path/to/lumi-wellness-agent-be/.git"]
+# Windows는 작은따옴표 리터럴 문자열로 쓴다 — 큰따옴표면 백슬래시를 \\로 이스케이프해야 한다.
+# writable_roots = ['C:\Users\<사용자>\path\to\lumi-wellness-agent-be\.git']

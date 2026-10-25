@@ -7,13 +7,15 @@
 # - Codex       → .codex/hooks.json      (matcher "Bash", "$(git rev-parse --show-toplevel)"/automation/hooks/…)
 # 두 하네스 모두 stdin으로 {"tool_input":{"command":"…"}} JSON을 주고, stdout의
 # hookSpecificOutput.permissionDecision=deny(+ permissionDecisionReason)로 차단한다.
+# bash·jq로 돌아 Windows 네이티브 Codex(PowerShell)에서는 실행되지 않는다 — 그 환경에서는 훅을
+# 승인하지 않고 파이프라인 게이트(automation/bin/sensitive_gate.py)로만 검사한다.
 #
 # 설계 노트:
 # - 위협 모델은 '악의적 우회'가 아니라 'LLM의 부주의한 커밋'이다.
 #   deny는 민감 파일이 실제로 존재할 때만 발동하므로, 명령 감지의
 #   false positive 비용은 '검사 한 번 더 도는 것'뿐이다.
-# - 이 hook은 automation/bin/sensitive-gate.sh(파이프라인 게이트)와 병행하는
-#   이중 방어선이다. 패턴 원천은 sensitive-gate.sh의 정규식 — 변경 시 함께 갱신한다.
+# - 이 hook은 automation/bin/sensitive_gate.py(파이프라인 게이트)와 병행하는
+#   이중 방어선이다. 패턴 원천은 sensitive_gate.py의 정규식 — 변경 시 함께 갱신한다.
 #   .gitignore + GitHub push protection + CI 단 gitleaks와 병행하는 것을 전제로 한다.
 #
 set -e
@@ -50,7 +52,7 @@ matches_sensitive() {
   # 명시 인자 경로에서는 -f·-v 같은 옵션 토큰도 들어온다 — 파일이 아니므로 건너뛴다 (basename이 옵션으로 오해해 죽는 것도 막는다)
   case "$file" in -*) return ;; esac
   base=$(basename -- "$file")
-  # *.example은 플레이스홀더 템플릿이라 커밋 허용 — sensitive-gate.sh의 예외와 정합
+  # *.example은 플레이스홀더 템플릿이라 커밋 허용 — sensitive_gate.py의 예외와 정합
   case "$base" in
     *.example) return ;;
   esac

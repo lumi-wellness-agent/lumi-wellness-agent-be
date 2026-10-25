@@ -10,6 +10,13 @@
 >
 > 각 어댑터는 **폴링 모드**, **Co-Author 트레일러**, **안전 규칙 적용 방식**(훅 유무)을 지정한다. 배포(Phase 4)의 CI·PR 체크 폴링은 `automation/pipeline.md`의 「폴링 실행 규칙」에 정의된 **하네스별 모드**를 따른다.
 
+## 실행 환경
+
+macOS·Linux·WSL과 Windows(PowerShell)에서 같은 절차를 쓴다. 게이트·폴링 스크립트(`automation/bin/*.py`)는 표준 라이브러리만 쓰는 Python이라 bash·jq 없이 돈다.
+
+- **가상환경 인터프리터**: 명세는 `.venv/bin/python`·`.venv/bin/pip`로 적는다. Windows 가상환경은 `.venv\Scripts\python.exe`·`.venv\Scripts\pip.exe`이므로 그 경로로 바꿔 실행한다.
+- **셸 문법**: 명세의 명령은 bash 표기다. 셸이 PowerShell이면 `VAR=$(…)`·`&&` 같은 문법을 PowerShell로 옮긴다(Windows PowerShell 5.1에는 `&&`가 없다). 브랜치명을 감싸는 따옴표는 PowerShell에서도 필수다 — 따옴표 없는 `#`는 주석 시작이라 `feat/#12`가 `feat/`로 잘린다.
+
 ## 워크플로우 전제 (lumi-wellness-agent-be)
 
 README 「브랜치·PR 규칙」이 원천이다. 요약:
@@ -67,11 +74,11 @@ README 「브랜치·PR 규칙」이 원천이다. 요약:
 
 ## Phase 2: 검증
 
-CI(`.github/workflows/ci.yml`)의 **`check` 잡과 같은 명령을 같은 순서**로 로컬 선검증한다. `gitleaks` 잡(커밋 이력 시크릿 스캔)은 로컬 선검증 대상이 아니다 — Phase 4의 머지 게이트가 잡는다. `scripts` 잡(`automation/bin/smoke-test.sh`)은 `automation/bin/`을 고친 변경에서만 로컬로 돌린다.
+CI(`.github/workflows/ci.yml`)의 **`check` 잡과 같은 명령을 같은 순서**로 로컬 선검증한다. `gitleaks` 잡(커밋 이력 시크릿 스캔)은 로컬 선검증 대상이 아니다 — Phase 4의 머지 게이트가 잡는다. 게이트·폴링 스크립트의 테스트(`tests/automation/`)는 `make test`에 들어 있다.
 
 1. **의존성**: `.venv`가 없으면 README대로 만들고, `.venv`가 없었거나 `pyproject.toml`이 변경에 포함됐으면 `.venv/bin/pip install -e ".[dev]"`.
-2. **린트**: `make lint` (ruff)
-3. **테스트**: `make test` (pytest — `TEST_DATABASE_URL`이 없으면 DB 테스트는 건너뛴다. CI와 같은 조건이다)
+2. **린트**: `make lint` (ruff). `make`가 없으면(Windows 기본) 같은 명령인 `.venv/bin/python -m ruff check .`
+3. **테스트**: `make test` (pytest — `TEST_DATABASE_URL`이 없으면 DB 테스트는 건너뛴다. CI와 같은 조건이다). `make`가 없으면 `.venv/bin/python -m pytest`
 4. **환경변수 체크**: 새 환경변수가 도입됐으면 `automation/pipeline.md`의 「환경변수 추가 체크리스트」를 확인한다.
 5. **마이그레이션 체크**: `supabase/migrations/*.sql`이 변경에 포함됐으면 `automation/pipeline.md`의 「DB 마이그레이션 원칙」에 따라 파괴적 변경 여부를 판정한다. **파괴적이면** 2단계 분리가 필요하다고 보고하고 사용자가 명시적으로 진행을 승인한 경우에만 계속한다. 비파괴면 머지 후 적용 안내 대상으로 기록한다(Phase 4에 전달).
 6. 린트·테스트 실패 시 → 사용자에게 실패 내용을 보고하고 **중단**한다 (자동 수정하지 않는다). 원인 확인은 파일 읽기 도구로 최소한만 하고, 심층 진단하지 않는다.
