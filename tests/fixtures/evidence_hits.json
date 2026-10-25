@@ -1,0 +1,806 @@
+[
+  {
+    "evidence_record_id": 101,
+    "paper": {
+      "paper_id": "P24",
+      "title": "Default mode network connectivity contributes the augment effect stress recovery by natural viewing",
+      "authors": "Chen et al.",
+      "year": 2025,
+      "doi": "10.1016/j.ynstr.2025.100759",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12481074/",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P24-E1",
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P24-E1 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 스트레스 유발 후 자연/도시 이미지 감상(시간 원문 확인). 건강 대학생 131명(68/63).",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P24-E1 자연 vs 도시 이미지",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_STRESS"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": 131,
+      "n_detail": "131 (68/63)",
+      "population_detail": "건강 대학생(중국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "AFFECT",
+          "effect": "POSITIVE",
+          "measure": "PA",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.010"
+        },
+        {
+          "outcome": "AFFECT",
+          "effect": "POSITIVE",
+          "measure": "NA",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.003"
+        },
+        {
+          "outcome": "RUMINATION",
+          "effect": "POSITIVE",
+          "measure": "state rumination",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.037"
+        },
+        {
+          "outcome": "PHYSIO",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "salivary cortisol",
+          "comparison": "자연 vs 도시 집단 차이"
+        }
+      ]
+    },
+    "score": 0.031,
+    "dense_rank": 9,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 102,
+    "paper": {
+      "paper_id": "P24",
+      "title": "Default mode network connectivity contributes the augment effect stress recovery by natural viewing",
+      "authors": "Chen et al.",
+      "year": 2025,
+      "doi": "10.1016/j.ynstr.2025.100759",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12481074/",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P24-E1",
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P24-E1 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연: PA↑(p=.010) NA↓(p=.003) 상태 반추↓(p=.037); 코르티솔 집단 차이 비유의.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P24-E1 자연 vs 도시 이미지",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_STRESS"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": 131,
+      "n_detail": "131 (68/63)",
+      "population_detail": "건강 대학생(중국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "AFFECT",
+          "effect": "POSITIVE",
+          "measure": "PA",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.010"
+        },
+        {
+          "outcome": "AFFECT",
+          "effect": "POSITIVE",
+          "measure": "NA",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.003"
+        },
+        {
+          "outcome": "RUMINATION",
+          "effect": "POSITIVE",
+          "measure": "state rumination",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "stat": "p=.037"
+        },
+        {
+          "outcome": "PHYSIO",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "salivary cortisol",
+          "comparison": "자연 vs 도시 집단 차이"
+        }
+      ]
+    },
+    "score": 0.035,
+    "dense_rank": 1,
+    "keyword_rank": 1
+  },
+  {
+    "evidence_record_id": 111,
+    "paper": {
+      "paper_id": "P33",
+      "title": "An Experimental Exploration of the Effects of Exposure to Images of Nature on Rumination",
+      "authors": "Golding, Gatersleben & Cropley",
+      "year": 2018,
+      "doi": "10.3390/ijerph15020300",
+      "url": "https://doi.org/10.3390/ijerph15020300",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P33-E1",
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P33-E1 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 발표 과제로 반추 유도 → 자연/도시 슬라이드쇼/대기. 대학생 58명(18/20/20).",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P33-E1 자연 vs 도시 슬라이드쇼 vs 대기",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_STRESS"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": 58,
+      "n_detail": "58 (18/20/20)",
+      "population_detail": "대학생(영국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "RUMINATION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "state rumination",
+          "comparison": "자연 vs 도시 vs 대기"
+        },
+        {
+          "outcome": "AFFECT",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "negative mood",
+          "comparison": "자연 vs 도시 vs 대기"
+        },
+        {
+          "outcome": "OTHER",
+          "effect": "POSITIVE",
+          "measure": "perceived restorativeness (being away, fascination)",
+          "comparison": "자연 vs 도시"
+        }
+      ]
+    },
+    "score": 0.0295,
+    "dense_rank": 10,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 112,
+    "paper": {
+      "paper_id": "P33",
+      "title": "An Experimental Exploration of the Effects of Exposure to Images of Nature on Rumination",
+      "authors": "Golding, Gatersleben & Cropley",
+      "year": 2018,
+      "doi": "10.3390/ijerph15020300",
+      "url": "https://doi.org/10.3390/ijerph15020300",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P33-E1",
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P33-E1 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 반추·부정 기분 조건 차이 비유의; 자연 조건 벗어남·매혹감↑.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P33-E1 자연 vs 도시 슬라이드쇼 vs 대기",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_STRESS"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": 58,
+      "n_detail": "58 (18/20/20)",
+      "population_detail": "대학생(영국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "RUMINATION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "state rumination",
+          "comparison": "자연 vs 도시 vs 대기"
+        },
+        {
+          "outcome": "AFFECT",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "negative mood",
+          "comparison": "자연 vs 도시 vs 대기"
+        },
+        {
+          "outcome": "OTHER",
+          "effect": "POSITIVE",
+          "measure": "perceived restorativeness (being away, fascination)",
+          "comparison": "자연 vs 도시"
+        }
+      ]
+    },
+    "score": 0.0335,
+    "dense_rank": 2,
+    "keyword_rank": 2
+  },
+  {
+    "evidence_record_id": 121,
+    "paper": {
+      "paper_id": "P03",
+      "title": "Exposure to restorative environments helps restore attentional capacity",
+      "authors": "Berto",
+      "year": 2005,
+      "doi": "10.1016/j.jenvp.2005.07.001",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0272494405000381",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P03-E1",
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P03-E1 · METHODS — 원문 적재 전 자리표시자. 시트 요약: SART로 피로 유도 → 사진 25장×15초 → SART.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P03-E1 회복적/비회복적/기하 사진",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생(이탈리아)",
+      "exposure_minutes": 6.25,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "measure": "SART",
+          "comparison": "회복적 vs 비회복적·기하 사진",
+          "timepoint": "직후"
+        }
+      ]
+    },
+    "score": 0.028,
+    "dense_rank": 11,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 122,
+    "paper": {
+      "paper_id": "P03",
+      "title": "Exposure to restorative environments helps restore attentional capacity",
+      "authors": "Berto",
+      "year": 2005,
+      "doi": "10.1016/j.jenvp.2005.07.001",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0272494405000381",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "P03-E1",
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P03-E1 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 회복적 환경 사진 집단만 SART 향상.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "P03-E1 회복적/비회복적/기하 사진",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생(이탈리아)",
+      "exposure_minutes": 6.25,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "measure": "SART",
+          "comparison": "회복적 vs 비회복적·기하 사진",
+          "timepoint": "직후"
+        }
+      ]
+    },
+    "score": 0.032,
+    "dense_rank": 3,
+    "keyword_rank": 3
+  },
+  {
+    "evidence_record_id": 131,
+    "paper": {
+      "paper_id": "P05",
+      "title": "The Cognitive Benefits of Interacting With Nature",
+      "authors": "Berman et al.",
+      "year": 2008,
+      "doi": "10.1111/j.1467-9280.2008.02225.x",
+      "url": "https://doi.org/10.1111/j.1467-9280.2008.02225.x",
+      "fulltext_status": "IMAGE_PDF"
+    },
+    "experiment_id": "P05-E2",
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P05-E2 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 사진 감상(시간 원문 확인; 이미지 PDF). 2차 자료 전사.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "SECONDARY",
+      "arm_label": "P05-E2 자연 vs 도시 사진",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생(미국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "measure": "Backward Digit Span",
+          "comparison": "자연 vs 도시 사진",
+          "timepoint": "직후"
+        }
+      ]
+    },
+    "score": 0.0265,
+    "dense_rank": 12,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 132,
+    "paper": {
+      "paper_id": "P05",
+      "title": "The Cognitive Benefits of Interacting With Nature",
+      "authors": "Berman et al.",
+      "year": 2008,
+      "doi": "10.1111/j.1467-9280.2008.02225.x",
+      "url": "https://doi.org/10.1111/j.1467-9280.2008.02225.x",
+      "fulltext_status": "IMAGE_PDF"
+    },
+    "experiment_id": "P05-E2",
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P05-E2 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연 사진 후 BDS 향상. 2차 자료 전사.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "SECONDARY",
+      "arm_label": "P05-E2 자연 vs 도시 사진",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생(미국)",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "measure": "Backward Digit Span",
+          "comparison": "자연 vs 도시 사진",
+          "timepoint": "직후"
+        }
+      ]
+    },
+    "score": 0.0305,
+    "dense_rank": 4,
+    "keyword_rank": 4
+  },
+  {
+    "evidence_record_id": 141,
+    "paper": {
+      "paper_id": "N19",
+      "title": "Restoration of sustained attention following virtual nature exposure: Undeniable or unreliable?",
+      "authors": "Hicks et al.",
+      "year": 2020,
+      "doi": "10.1016/j.jenvp.2020.101488",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0272494420304655",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "N19-E1",
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] N19-E1 · METHODS — 원문 적재 전 자리표시자. 시트 요약: SART → 자연/도시 이미지 → SART.",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "N19-E1 Berto 재현(가상 자연)",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "SART",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "note": "재현 실패(회복 효과 불안정)"
+        }
+      ]
+    },
+    "score": 0.025,
+    "dense_rank": 13,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 142,
+    "paper": {
+      "paper_id": "N19",
+      "title": "Restoration of sustained attention following virtual nature exposure: Undeniable or unreliable?",
+      "authors": "Hicks et al.",
+      "year": 2020,
+      "doi": "10.1016/j.jenvp.2020.101488",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0272494420304655",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": "N19-E1",
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] N19-E1 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 회복 효과 불안정(재현 실패).",
+    "metadata": {
+      "record_type": "ARM",
+      "study_design": "RANDOMIZED_EXPERIMENT",
+      "verification": "FULL_TEXT",
+      "arm_label": "N19-E1 Berto 재현(가상 자연)",
+      "media": [
+        "STATIC_IMAGE"
+      ],
+      "intervention_orders": [
+        "POST_FATIGUE"
+      ],
+      "population": "UNIVERSITY_STUDENT",
+      "clinical_status": "NON_CLINICAL",
+      "n": null,
+      "n_detail": "원문 확인",
+      "population_detail": "대학생",
+      "exposure_minutes": null,
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "SART",
+          "comparison": "자연 vs 도시 이미지",
+          "timepoint": "직후",
+          "note": "재현 실패(회복 효과 불안정)"
+        }
+      ]
+    },
+    "score": 0.029,
+    "dense_rank": 5,
+    "keyword_rank": 5
+  },
+  {
+    "evidence_record_id": 151,
+    "paper": {
+      "paper_id": "N24",
+      "title": "The effects of digital nature and actual nature on stress reduction: A meta-analysis and systematic review",
+      "authors": "Fan & Baharum",
+      "year": 2024,
+      "doi": "10.1016/j.invent.2024.100772",
+      "url": "https://doi.org/10.1016/j.invent.2024.100772",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] N24 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 정적 이미지·영상·360° 등 디지털 자연(AI 생성 이미지 미포함). 10편, 886명.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "메타: 디지털 자연 vs 실제 자연",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "VR"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": 886,
+      "n_studies": 10,
+      "n_detail": "10편, 886명",
+      "results": [
+        {
+          "outcome": "SUBJECTIVE_STRESS",
+          "effect": "POSITIVE",
+          "comparison": "디지털 자연 노출(통합)",
+          "stat": "디지털 = 실제 자연, SMD −0.01"
+        },
+        {
+          "outcome": "PHYSIO",
+          "effect": "UNCLEAR",
+          "comparison": "디지털 자연 노출(통합)",
+          "note": "[fixture] 통합 효과 방향은 원문 확인 전"
+        }
+      ]
+    },
+    "score": 0.0235,
+    "dense_rank": 14,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 152,
+    "paper": {
+      "paper_id": "N24",
+      "title": "The effects of digital nature and actual nature on stress reduction: A meta-analysis and systematic review",
+      "authors": "Fan & Baharum",
+      "year": 2024,
+      "doi": "10.1016/j.invent.2024.100772",
+      "url": "https://doi.org/10.1016/j.invent.2024.100772",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] N24 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 디지털 자연 = 실제 자연(SMD −0.01); 둘 다 스트레스 감소.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "메타: 디지털 자연 vs 실제 자연",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "VR"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": 886,
+      "n_studies": 10,
+      "n_detail": "10편, 886명",
+      "results": [
+        {
+          "outcome": "SUBJECTIVE_STRESS",
+          "effect": "POSITIVE",
+          "comparison": "디지털 자연 노출(통합)",
+          "stat": "디지털 = 실제 자연, SMD −0.01"
+        },
+        {
+          "outcome": "PHYSIO",
+          "effect": "UNCLEAR",
+          "comparison": "디지털 자연 노출(통합)",
+          "note": "[fixture] 통합 효과 방향은 원문 확인 전"
+        }
+      ]
+    },
+    "score": 0.0275,
+    "dense_rank": 6,
+    "keyword_rank": 6
+  },
+  {
+    "evidence_record_id": 161,
+    "paper": {
+      "paper_id": "P01",
+      "title": "Attention Restoration Theory: A Systematic Review of the Attention Restoration Potential of Exposure to Natural Environments",
+      "authors": "Ohly et al.",
+      "year": 2016,
+      "doi": "10.1080/10937404.2016.1196155",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27668460/",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P01 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 주의 회복 이론 체계적 고찰, 31편.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "SR: 주의 회복 이론",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "OUTDOOR_WALK"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": null,
+      "n_studies": 31,
+      "n_detail": "31편",
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "comparison": "자연 vs 비자연 환경(통합)"
+        }
+      ]
+    },
+    "score": 0.022,
+    "dense_rank": 15,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 162,
+    "paper": {
+      "paper_id": "P01",
+      "title": "Attention Restoration Theory: A Systematic Review of the Attention Restoration Potential of Exposure to Natural Environments",
+      "authors": "Ohly et al.",
+      "year": 2016,
+      "doi": "10.1080/10937404.2016.1196155",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27668460/",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P01 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연 노출 후 주의 수행 향상이 다수 연구에서 지지.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "SR: 주의 회복 이론",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "OUTDOOR_WALK"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": null,
+      "n_studies": 31,
+      "n_detail": "31편",
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "comparison": "자연 vs 비자연 환경(통합)"
+        }
+      ]
+    },
+    "score": 0.026,
+    "dense_rank": 7,
+    "keyword_rank": 7
+  },
+  {
+    "evidence_record_id": 171,
+    "paper": {
+      "paper_id": "P04",
+      "title": "The relationship between nature exposures and attention restoration, as moderated by exposure duration: A systematic review and meta-analysis",
+      "authors": "Bell et al.",
+      "year": 2025,
+      "doi": "10.1016/j.jenvp.2025.102632",
+      "url": "https://doi.org/10.1016/j.jenvp.2025.102632",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "METHODS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P04 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 자연 노출 시간과 주의 회복 메타분석, 273개 결과.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "메타: 자연 노출 시간과 주의",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "OUTDOOR_WALK"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": null,
+      "n_studies": null,
+      "n_detail": "273 결과",
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "comparison": "자연 vs 비자연 노출(통합)",
+          "note": "노출 시간이 효과를 비선형으로 조절"
+        }
+      ]
+    },
+    "score": 0.0205,
+    "dense_rank": 16,
+    "keyword_rank": null
+  },
+  {
+    "evidence_record_id": 172,
+    "paper": {
+      "paper_id": "P04",
+      "title": "The relationship between nature exposures and attention restoration, as moderated by exposure duration: A systematic review and meta-analysis",
+      "authors": "Bell et al.",
+      "year": 2025,
+      "doi": "10.1016/j.jenvp.2025.102632",
+      "url": "https://doi.org/10.1016/j.jenvp.2025.102632",
+      "fulltext_status": "TEXT"
+    },
+    "experiment_id": null,
+    "section": "RESULTS",
+    "chunk_idx": 0,
+    "excerpt": "[fixture] P04 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연 노출의 주의 효과 유의; 노출 시간이 비선형 조절.",
+    "metadata": {
+      "record_type": "SYNTHESIS",
+      "study_design": "SYSTEMATIC_REVIEW_META",
+      "verification": "FULL_TEXT",
+      "arm_label": "메타: 자연 노출 시간과 주의",
+      "media": [
+        "STATIC_IMAGE",
+        "VIDEO",
+        "OUTDOOR_WALK"
+      ],
+      "intervention_orders": [],
+      "population": "MIXED",
+      "clinical_status": null,
+      "n": null,
+      "n_studies": null,
+      "n_detail": "273 결과",
+      "results": [
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
+          "comparison": "자연 vs 비자연 노출(통합)",
+          "note": "노출 시간이 효과를 비선형으로 조절"
+        }
+      ]
+    },
+    "score": 0.0245,
+    "dense_rank": 8,
+    "keyword_rank": 8
+  }
+]

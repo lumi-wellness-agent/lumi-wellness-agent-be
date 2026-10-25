@@ -2,26 +2,12 @@
 
 import asyncio
 
-from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
-from pydantic import Field
 
 from app.agent.context import AgentContext
 from app.agent.nodes.planner import make_agent_planner
 from app.schemas.care import CareGoal, CareRequest
-
-
-class ScriptedChatModel(GenericFakeChatModel):
-    """`messages` 순서대로 AIMessage를 돌려준다. OpenAI 등 실제 LLM을 부르지 않는다.
-
-    create_agent가 거치는 bind_tools는 받은 Tool 이름을 남기고 자신을 돌려준다.
-    """
-
-    offered: list[list[str]] = Field(default_factory=list)
-
-    def bind_tools(self, tools, **kwargs):
-        self.offered.append([tool.name for tool in tools])
-        return self
+from tests.agent.fakes import ScriptedChatModel
 
 
 def test_agent_planner_returns_submitted_plan():
@@ -43,6 +29,7 @@ def test_agent_planner_returns_submitted_plan():
     plan = asyncio.run(planner(state, AgentContext(), []))
 
     assert [a.protocol_id for a in plan.activities] == ["s1-mindfulness"]
+    assert plan.activities[0].evidence_record_ids == []
     assert model.offered[0] == [
         "search_evidence",
         "validate_evidence",

@@ -1,16 +1,252 @@
 """EvidenceValidationTool — 검색한 근거를 세션에 쓰기 전에 따로 검증한다.
 
-| 검증 대상 | 검사 |
-| --- | --- |
-| 논문 근거 | 실제 존재하는 DOI와 원문인가? |
-| 중재 일치 | 논문에서 사용한 이미지·노출 방식과 일치하는가? |
-| 대상 적합성 | 연구 대상과 실제 사용자 집단이 얼마나 유사한가? |
-| 주장 검증 | 논문이 해당 효과를 실제로 측정했는가? |
-| 상충 근거 | 같은 중재에 효과가 없다고 보고한 연구도 있는가? |
-| 생성 이미지 | 연구의 원본 자극과 달라져 추가 검증이 필요한가? |
+| 검사 | Check | 실패 시 |
+| --- | --- | --- |
+| 출처 — 원문(DOI·URL + 파일)에서 온 chunk인가 | SOURCE_EXISTS | 차단 |
+| 중재 — 제공 구성이 연구 매체·사용자 상태에 맞는가 | INTERVENTION_MATCH | 차단 |
+| 대상 — 임상 표본은 아닌가 | POPULATION_FIT | 플래그 POPULATION_MISMATCH |
+| 주장 — 목표의 1차 지표를 측정했는가 | OUTCOME_MEASURED | 차단 |
+| 상충 — 같은 매체·지표에 비유의·반대 arm | CONFLICT_SCAN | 플래그 CONFLICTING_EVIDENCE |
+| 자극 — 연구 자극과 같은 구성인가 | STIMULUS_FIDELITY | 플래그 ADAPTED_STIMULUS |
 
-이미지 생성·음성 안내·중재 활동을 여러 개 결합한 세션은 개별 연구가 있어도 통합 효과를
-'미검증'으로 표시한다.
+검증은 콘텐츠를 막지 않는다. AI 생성 이미지·조합 세션은 인용할 수 있되 ADAPTED_STIMULUS로
+연구 자극과의 차이를 Reference 카드에 밝힌다. 활동을 여러 개 결합한 세션은 개별 연구가 있어도
+통합 효과를 '미검증'으로 표시한다.
 
-Planner는 validate_evidence Tool(app/agent/tools/evidence.py)로 이 모듈을 부른다.
+judge()는 DB 없는 순수 규칙이다. validate()가 evidence_records에서 레코드와 상충 후보를
+읽어 judge()를 부른다. Planner는 validate_evidence Tool(app/agent/tools/evidence.py)로
+validate()를 부른다.
 """
+
+from collections.abc import Iterable, Sequence
+
+from psycopg_pool import AsyncConnectionPool
+
+from app.schemas.care import CareGoal
+from app.schemas.evidence import (
+    STUDY_MEDIUM_FOR,
+    ClinicalStatus,
+    Effect,
+    FulltextStatus,
+    InterventionOrder,
+    Medium,
+    RecordType,
+    Verification,
+    study_medium,
+)
+from app.schemas.retrieval import (
+    BLOCKING_CHECKS,
+    GOAL_OUTCOMES,
+    ORDER_COMPATIBILITY,
+    Check,
+    CheckResult,
+    EvidenceHit,
+    EvidenceVerdict,
+    Flag,
+    MediaMatch,
+)
+
+_CONFLICT_EFFECTS = frozenset({Effect.NOT_SIGNIFICANT, Effect.NEGATIVE})
+_CONFLICT_TYPES = frozenset({RecordType.ARM, RecordType.SYNTHESIS})
+
+
+def media_match(delivered: Iterable[Medium], studied: Iterable[Medium]) -> MediaMatch:
+    """제공 구성(AI_IMAGE는 STATIC_IMAGE로 비교)과 연구 매체 집합을 비교한다."""
+    want = {study_medium(m) for m in delivered}
+    have = set(studied)
+    if not want or not have:
+        return MediaMatch.NONE
+    if want == have:
+        return MediaMatch.EXACT
+    return MediaMatch.PARTIAL if want & have else MediaMatch.NONE
+
+
+def _source_check(hit: EvidenceHit) -> CheckResult:
+    paper, verification = hit.paper, hit.metadata.verification
+    locator = paper.doi or paper.url
+    if verification is Verification.SECONDARY:
+        passed, reason = False, "2차 자료에서 옮긴 내용이라 원문 출처로 쓸 수 없다"
+    elif not locator:
+        passed, reason = False, f"{paper.paper_id}에 DOI·URL이 없다"
+    elif paper.fulltext_status in (None, FulltextStatus.MISSING):
+        passed, reason = False, f"{paper.paper_id} 원문 파일 미확보({paper.fulltext_status})"
+    elif (
+        paper.fulltext_status is FulltextStatus.ABSTRACT_ONLY
+        and verification is not Verification.ABSTRACT
+    ):
+        passed, reason = False, f"{paper.paper_id}는 초록만 확보했는데 본문 chunk로 표시됐다"
+    else:
+        passed, reason = True, f"{paper.paper_id} {locator} · {verification}"
+    return CheckResult(check=Check.SOURCE_EXISTS, passed=passed, reason=reason)
+
+
+def _order_check(
+    orders: Sequence[InterventionOrder], studied: Sequence[InterventionOrder]
+) -> tuple[bool, str]:
+    if not orders:
+        return True, "순서 미지정(매체만 검사)"
+    if not studied:
+        return True, "연구 조건 미상"
+    allowed = frozenset().union(*(ORDER_COMPATIBILITY[o] for o in orders))
+    names = [o.value for o in studied]
+    if allowed & set(studied):
+        return True, f"연구 조건 {names}을 {[o.value for o in orders]}에 인용 가능"
+    return False, f"연구 조건 {names}은 {[o.value for o in orders]}에 맞지 않는다"
+
+
+def missing_verdict(evidence_record_id: int) -> EvidenceVerdict:
+    """없는 ID. 출처 검사만 실패이고 나머지는 평가하지 않았다(None)."""
+    checks = [
+        CheckResult(
+            check=check,
+            passed=False if check is Check.SOURCE_EXISTS else None,
+            reason="레코드가 없다"
+            if check is Check.SOURCE_EXISTS
+            else "레코드가 없어 평가하지 않았다",
+        )
+        for check in Check
+    ]
+    return EvidenceVerdict(
+        evidence_record_id=evidence_record_id,
+        usable=False,
+        supports_goal=False,
+        media_match=MediaMatch.NONE,
+        checks=checks,
+    )
+
+
+def judge(
+    hit: EvidenceHit,
+    *,
+    goal: CareGoal,
+    media: Sequence[Medium],
+    orders: Sequence[InterventionOrder] = (),
+    candidates: Sequence[EvidenceHit] = (),
+) -> EvidenceVerdict:
+    """레코드 하나의 판정. orders는 사용자 상태 또는 프로토콜 허용 시점(비면 매체만 검사),
+    candidates는 상충 후보 레코드(보통 같은 연구 매체·지표로 DB에서 추린 것). 순수 함수."""
+    meta = hit.metadata
+    goal_outcomes = GOAL_OUTCOMES[goal]
+    primary = set(goal_outcomes.primary)
+    results = meta.results
+
+    source = _source_check(hit)
+
+    match = media_match(media, meta.media)
+    order_ok, order_reason = _order_check(orders, meta.intervention_orders)
+    delivered = [m.value for m in media]
+    studied = [m.value for m in meta.media]
+    intervention = CheckResult(
+        check=Check.INTERVENTION_MATCH,
+        passed=match is not MediaMatch.NONE and order_ok,
+        reason=f"제공 {delivered} vs 연구 {studied} → {match.value}; {order_reason}",
+    )
+
+    clinical = meta.clinical_status
+    population = CheckResult(
+        check=Check.POPULATION_FIT,
+        passed=clinical is not ClinicalStatus.CLINICAL,
+        reason=(
+            "임상 여부 미상"
+            if clinical is None
+            else f"{clinical.value}"
+            + (f" ({meta.population_detail})" if meta.population_detail else "")
+        ),
+    )
+
+    measured = {r.outcome for r in results}
+    hit_primary = sorted(o.value for o in primary & measured)
+    outcome = CheckResult(
+        check=Check.OUTCOME_MEASURED,
+        passed=bool(hit_primary),
+        reason=(
+            f"{goal.value} 1차 지표 측정: {hit_primary}"
+            if hit_primary
+            else f"{goal.value} 1차 지표 {[o.value for o in goal_outcomes.primary]} 미측정"
+            f" (측정: {sorted(o.value for o in measured)})"
+        ),
+    )
+
+    own_arm = (hit.paper.paper_id, hit.experiment_id)
+    conflicts: dict[tuple[str, str | None], int] = {}
+    for other in candidates:
+        arm = (other.paper.paper_id, other.experiment_id)
+        if arm == own_arm or arm in conflicts:
+            continue
+        if other.metadata.record_type not in _CONFLICT_TYPES:
+            continue
+        if media_match(media, other.metadata.media) is MediaMatch.NONE:
+            continue
+        if any(
+            r.outcome in primary and r.effect in _CONFLICT_EFFECTS for r in other.metadata.results
+        ):
+            conflicts[arm] = other.evidence_record_id
+    conflict = CheckResult(
+        check=Check.CONFLICT_SCAN,
+        passed=not conflicts,
+        reason=(
+            "같은 매체·1차 지표에서 비유의·반대 결과: "
+            + ", ".join(exp or pid for pid, exp in conflicts)
+            if conflicts
+            else "상충 후보 없음"
+        ),
+        related_record_ids=list(conflicts.values()),
+    )
+
+    adapted = [m.value for m in media if m in STUDY_MEDIUM_FOR]
+    if adapted:
+        fidelity_reason = f"{adapted}는 생성·변형 자극(연구는 {studied})"
+    elif match is MediaMatch.EXACT:
+        fidelity_reason = "연구 자극과 같은 구성"
+    else:
+        fidelity_reason = f"제공 구성 {delivered}이 연구 자극 {studied}과 다르다"
+    fidelity = CheckResult(
+        check=Check.STIMULUS_FIDELITY,
+        passed=match is MediaMatch.EXACT and not adapted,
+        reason=fidelity_reason,
+    )
+
+    checks = [source, intervention, population, outcome, conflict, fidelity]
+    usable = all(c.passed is True for c in checks if c.check in BLOCKING_CHECKS)
+    supported = [
+        o
+        for o in goal_outcomes.primary
+        if any(r.outcome is o and r.effect is Effect.POSITIVE for r in results)
+    ]
+    flags = []
+    if not population.passed:
+        flags.append(Flag.POPULATION_MISMATCH)
+    if conflicts:
+        flags.append(Flag.CONFLICTING_EVIDENCE)
+    if not fidelity.passed:
+        flags.append(Flag.ADAPTED_STIMULUS)
+    if usable and not supported:
+        flags.append(Flag.NOT_SUPPORTING)
+    relevant = primary | set(goal_outcomes.secondary)
+    return EvidenceVerdict(
+        evidence_record_id=hit.evidence_record_id,
+        usable=usable,
+        supports_goal=bool(supported),
+        supported_outcomes=supported,
+        media_match=match,
+        flags=flags,
+        checks=checks,
+        goal_results=[r for r in results if r.outcome in relevant],
+    )
+
+
+async def validate(
+    pool: AsyncConnectionPool | None,
+    *,
+    evidence_record_ids: Sequence[int],
+    goal: CareGoal,
+    media: Sequence[Medium],
+    protocol_id: str | None = None,
+    user_order: InterventionOrder | None = None,
+) -> list[EvidenceVerdict]:
+    """레코드·논문·상충 후보를 DB에서 읽어 judge()를 부른다. 입력 ID 순서대로 돌려준다.
+
+    orders = [user_order], 없으면 protocol_id의 허용 시점(intervention_order), 둘 다 없으면 [].
+    상충 후보 = 같은 연구 매체 + goal 1차 지표를 가진 ARM·SYNTHESIS 레코드.
+    """
+    raise NotImplementedError("PR-C: DB 조회를 붙인다. 규칙은 judge()에 있다")

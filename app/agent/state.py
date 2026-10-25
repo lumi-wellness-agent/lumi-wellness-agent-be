@@ -27,7 +27,7 @@ class PlannedActivity(BaseModel):
     goal: CareGoal = Field(description="이 활동이 겨냥하는 세션")
     medium: Medium = Field(description="활동 매체")
     minutes: int = Field(gt=0, description="활동 시간(분)")
-    evidence_ids: list[int] = Field(
+    evidence_record_ids: list[int] = Field(
         default_factory=list, description="validate_evidence를 통과한 근거의 Evidence Record ID"
     )
 
