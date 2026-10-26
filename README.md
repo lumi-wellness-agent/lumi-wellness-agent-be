@@ -166,7 +166,22 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
-4. `make run` 후 `GET /health/db`로 연결, 확장(pgvector·pg_trgm) 설치, 체크포인트 테이블을 확인합니다.
+4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 82편이 `papers`로, 근거 arm 시트
+   65행이 레코드 61개 × chunk 2개(METHODS · RESULTS) = 122행으로 `evidence_records`에 들어갑니다. 먼저
+   dry-run으로 건수와 검토 목록(`evidence_review.csv`)을 보고 대상 DB를 적어 넣습니다. 임베딩에
+   `OPENAI_API_KEY`가 필요합니다.
+
+   ```bash
+   XLSX=../Research_paper/LUMI_R_C_Research_2026-10-22/LUMI_측정도구_프로토콜_2026-10-23.xlsx
+   make seed-evidence XLSX=$XLSX ARGS=--dry-run
+   make seed-evidence XLSX=$XLSX ARGS="--database-url <연결 문자열>"
+   ```
+
+   대상 DB는 매번 적습니다 — `.env`의 공용 Supabase에 실수로 쓰지 않도록 기본값을 두지 않았습니다.
+   다시 돌려도 (`paper_id`, `experiment_id`, `section`, `chunk_idx`)가 같으면 갱신만 해 id가 유지됩니다.
+   활동 노드 JSON의 `evidence_record_ids`가 이 id를 가리키므로 행을 지우고 다시 넣지 않습니다. 사람이
+   원문으로 확정한 값은 `data/evidence_overrides.json`에 적고 다시 돌립니다(`data/README.md`).
+5. `make run` 후 `GET /health/db`로 연결, 확장(pgvector·pg_trgm) 설치, 체크포인트 테이블을 확인합니다.
 
 | 연결 방식 | 포트 | 네트워크 | 쓰는 곳 |
 | --- | --- | --- | --- |
@@ -290,13 +305,15 @@ app/
 data/
 ├─ protocols/           활동 노드 JSON 21개 (PR-01 완성 예시, 나머지 초안)
 ├─ instruments/         측정 도구 3개 (SAM · STAI-6 · BSRI)
+├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 └─ manifest.csv         논문 82편 매니페스트
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
+scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
 ├─ agent/               그래프 흐름 · Planner 배선 · 검증 규칙(대본 모델) · 검증 DB 조회
 ├─ intake/ measure/ protocols/   역할별 테스트 (TEAM.md)
 ├─ retrieval/           근거 검색 (DB 테스트는 TEST_DATABASE_URL이 있을 때만)
-└─ schemas/             근거 계약 테스트
+└─ schemas/             근거 계약 테스트 (시트 → 적재 레코드는 워크북이 있을 때만)
 ```
