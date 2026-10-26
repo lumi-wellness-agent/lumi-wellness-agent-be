@@ -7,8 +7,10 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 
 현재는 에이전트 아키텍처 v2의 뼈대 단계입니다. 그래프 배선(intake → 사전 측정 → 계획 → 실행 대기 →
 사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 3개의
-계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. intake·plan의 실제 LLM 호출,
-근거 적재·검색, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는 [TEAM.md](TEAM.md)에 있습니다.
+계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
+적재해 하이브리드 검색·검증이 돌고, intake·plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
+통과했습니다(`make plan-trial`). Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
+[TEAM.md](TEAM.md)에 있습니다.
 
 ## 구조
 
@@ -102,8 +104,13 @@ graph TD;
   HTTP 요청이 나뉘어도 세션이 이어집니다.
 - **LangChain — Planner와 intake.** `create_agent`가 LLM에 Tool(`get_care_protocols`, `search_evidence`,
   `validate_evidence`)을 골라 부르게 하고, `CarePlan`을 구조화 출력(`ToolStrategy`)으로 받습니다.
-  받은 계획은 `check_plan`이 후검증하고, 어기면 거부 사유를 붙여 한 번 다시 묻습니다. intake는
-  `with_structured_output`(json_schema) 한 번입니다. 모델은 OpenAI `gpt-4o-mini` 하나로 통일했고
+  세션에서 이미 정해진 값(목표 · 사용자 상태 · 시간 · 이미지 선호 · 직전 라운드에서 바꾸기로 한 활동)은
+  LLM이 인자로 넘기지 않고 Tool이 `PlannerContext`에서 읽습니다 — LLM은 고르는 값(프로토콜 · 검색 질의 ·
+  인용할 근거)만 넘깁니다. 받은 계획은 `check_plan`이 후검증하고, 어기면 거부 사유를 붙여 한 번 다시
+  묻습니다. 통과한 계획의 인용 근거는 `keep_usable_evidence`가 다시 검증해 usable만 남깁니다(근거는
+  활동을 막지 않으므로 다시 묻지 않습니다). Tool 루프는 모델 호출 8회째에 Tool을 빼고 제출만 남기는
+  미들웨어와 LangGraph `recursion_limit`으로 끝을 보장합니다. intake는 `with_structured_output`(json_schema)
+  한 번입니다. 모델은 OpenAI `gpt-4o-mini` 하나로 통일했고
   (`LLM_MODEL`), Anthropic 키가 있으면 `claude-haiku-5-5`를 폴백으로 등록합니다(`FALLBACK_MODEL`,
   `app/agent/assembly.py`). 호출 규칙(`app/agent/llm.py`)은 cure-agent-be를 따릅니다 — 5xx·네트워크
   오류는 같은 공급자에 1회 재시도, 4xx는 재시도 없이 바로 폴백, 전부 실패하면 `LlmExhaustedError`.
@@ -152,6 +159,7 @@ make run                # http://127.0.0.1:8000/health
 | `make graph` | 세션 그래프를 Mermaid로 출력 |
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
+| `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -293,9 +301,9 @@ app/
 │  ├─ state.py          그래프 상태와 노드 입출력 스키마 (IntakeResult, CarePlan, Round …)
 │  ├─ assembly.py       설정으로 모델·그래프 조립 (OpenAI → Anthropic 폴백)
 │  ├─ llm.py            재시도(5xx 1회)·폴백(4xx 즉시) 규칙
-│  ├─ context.py        실행 컨텍스트 (DB 풀 등. 체크포인트에 저장하지 않는다)
+│  ├─ context.py        실행 컨텍스트 — AgentContext(DB 풀) · PlannerContext(세션 값. Tool이 읽는다)
 │  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
-│  ├─ prompts.py        intake · Planner 프롬프트 초안
+│  ├─ prompts.py        intake · Planner 프롬프트와 입력 메시지
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ tools/            Planner의 LangChain Tool (get_care_protocols · search_evidence · validate_evidence)
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
@@ -310,6 +318,7 @@ data/
 └─ manifest.csv         논문 82편 매니페스트
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
+scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
