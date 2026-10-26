@@ -244,8 +244,9 @@
     "E19: 안내형 참여가 추가 이점 없음"
   ],
   "safety": [
-    "안전한 경로·날씨",
-    "신체 상태"
+    "walking_environment: 보행할 장소와 경로가 충분히 안전한지 사용자가 확인",
+    "body_condition: 현재 몸 상태로 활동할 수 있는지 사용자가 확인",
+    "두 조건이 모두 확인되지 않으면 시작하지 않음"
   ],
   "unverified_claims": [
     "20분 미만 보행",
@@ -272,9 +273,21 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
-      "시트 비고: 앱 밖 활동이라 FE는 타이머·사전사후만"
+      "steps · content_spec · guide 문안은 scratch/pr11 실행 계약과 대조 검수 필요",
+      "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 현재 실행 계약에 넣지 않음",
+      "앱 밖 활동이므로 FE는 타이머와 진행률만 실행하며 현재 버전에서는 활동 후 자기보고를 수집하지 않음",
+      "20분(E19)과 90분(N20)은 참고 근거로 기록하지만 현재 UI에는 노출하지 않음",
+      "안전·불편 중단의 실제 FE 핸들러와 stop_reason 기록 연결은 FE 구현 검수 필요",
+      "paused_seconds 계산과 백엔드 SessionReport 매핑은 공통 계약 확인 후 확정",
+      "시작 전 pre_activity_check 두 필드, 완료·중단 버튼과 확인창의 실제 FE 동작은 FE 구현 검수 필요",
+      "활동 후 자기보고 필드는 팀 논의 후 추가 예정",
+      "JSON content_spec 슬롯 누락 시 fallback_text를 사용하고, 문구 버전 관리는 하지 않음",
+      "TTS는 시작 직후와 진행률 최초 100% 도달 시에만 재생",
+      "TARGET_REACHED를 별도 phase로 기록하고 활동 후 자기보고는 정상 완료 후 단계로 추가 검토",
+      "일시정지는 최초 일시정지 이벤트만 기록하고 paused_seconds는 구현하지 않음",
+      "잘못된 selected_duration_option은 자동 대체하지 않고 오류 처리",
+      "선택적 활동 중 문구가 없으면 화면에서 숨기고 슬롯명을 개발 로그에 기록",
+      "안전 확인 문구는 runtime labels를 fallback으로 사용하고 둘 다 없으면 시작 차단"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-11, 근거 arm 6행",
     "reviewed_by": null,

@@ -1,1 +1,67 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:lumi:pr11:result:1","type":"object","required":["record_schema_version","protocol_id","timer","user_report","verification","step_tracking"],"properties":{"record_schema_version":{"type":"string"},"protocol_id":{"const":"PR-11"},"timer":{"type":"object","required":["planned_seconds","elapsed_seconds","normal_time_end","early_stopped","target_reached","timer_status"],"properties":{"planned_seconds":{"type":"integer","const":3000},"elapsed_seconds":{"type":"number","minimum":0},"paused_seconds":{"type":"number","minimum":0},"normal_time_end":{"type":"boolean"},"early_stopped":{"type":"boolean"},"target_reached":{"type":"boolean"},"timer_status":{"enum":["READY","RUNNING","PAUSED","STOPPED"]},"test_mode":{"type":"boolean"},"pause_count":{"type":"integer","minimum":0}}},"user_report":{"type":"object","required":["walked_outdoors","walked_minutes","completed_activity"],"properties":{"walked_outdoors":{"type":"boolean"},"walked_minutes":{"type":"integer","minimum":0},"completed_activity":{"type":"boolean"},"discomfort":{"type":"string"},"reflection":{"type":"string"}}},"verification":{"type":"object","required":["automatic_walking","gps","self_report_basis"],"properties":{"automatic_walking":{"const":"not_performed"},"gps":{"const":"disabled"},"self_report_basis":{"const":true}}},"step_tracking":{"type":"object","required":["status"],"properties":{"status":{"const":"not_measured"},"estimated_steps":{"type":["integer","null"],"minimum":0},"confidence":{"type":["number","null"],"minimum":0,"maximum":1}}},"execution_context":{"type":"object"},"stop_reason":{"enum":["USER_CHOICE","SAFETY","DISCOMFORT","OTHER"]},"timestamps":{"type":"object"}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:lumi:pr11:result:1",
+  "type": "object",
+  "required": ["record_schema_version", "protocol_id", "selected_duration_option", "pre_activity_check", "phase_history", "terminal_phase", "timer", "completion", "verification", "step_tracking"],
+  "properties": {
+    "record_schema_version": {"type": "string"},
+    "protocol_id": {"const": "PR-11"},
+    "selected_duration_option": {"enum": ["PR11-20", "PR11-50", "PR11-90"]},
+    "phase_history": {"type": "array", "items": {"type": "object", "required": ["event", "at"], "properties": {"event": {"enum": ["PRE_ACTIVITY_CHECK_CONFIRMED", "ACTIVITY_STARTED", "PAUSED", "RESUMED", "TARGET_REACHED", "COMPLETED", "STOPPED"]}, "at": {"type": "string"}}}},
+    "terminal_phase": {"enum": ["COMPLETED", "STOPPED"]},
+    "pre_activity_check": {
+      "type": "object",
+      "required": ["walking_environment", "body_condition"],
+      "properties": {
+        "walking_environment": {"const": true},
+        "body_condition": {"const": true}
+      }
+    },
+    "timer": {
+      "type": "object",
+      "required": ["planned_seconds", "elapsed_seconds", "normal_time_end", "early_stopped", "target_reached", "timer_status"],
+      "properties": {
+        "planned_seconds": {"type": "integer", "enum": [3000]},
+        "elapsed_seconds": {"type": "number", "minimum": 0},
+        "paused_seconds": {"type": "number", "minimum": 0},
+        "normal_time_end": {"type": "boolean"},
+        "early_stopped": {"type": "boolean"},
+        "target_reached": {"type": "boolean"},
+        "timer_status": {"enum": ["READY", "RUNNING", "PAUSED", "STOPPED"]},
+        "test_mode": {"type": "boolean"},
+        "pause_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "completion": {
+      "type": "object",
+      "required": ["status", "user_action", "confirmed"],
+      "properties": {
+        "status": {"enum": ["COMPLETED", "STOPPED"]},
+        "user_action": {"enum": ["DONE_BUTTON", "STOP_BUTTON"]},
+        "confirmed": {"type": "boolean"}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["automatic_walking", "gps", "self_report_basis"],
+      "properties": {
+        "automatic_walking": {"const": "not_performed"},
+        "gps": {"const": "disabled"},
+        "self_report_basis": {"const": false}
+      }
+    },
+    "step_tracking": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"const": "not_measured"},
+        "estimated_steps": {"type": ["integer", "null"], "minimum": 0},
+        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    },
+    "execution_context": {"type": "object"},
+    "stop_reason": {"type": ["string", "null"], "enum": ["SAFETY", "DISCOMFORT", null]},
+    "timestamps": {"type": "object"},
+    "storage": {"type": "object"}
+  }
+}

@@ -89,6 +89,46 @@
           "llm_rewrite": "FORBIDDEN"
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "INTRO_GUIDE",
+        "phase": "PRE_ACTIVITY_CHECK",
+        "required": true,
+        "text": "권장 시간 동안 편안한 속도로 걸으며 주변의 자연물을 바라보고, 불편하거나 위험하다고 느끼면 무리하지 말고 중단하세요.",
+        "fallback_text": "권장 시간 동안 편안한 속도로 걸으며 주변의 자연물을 바라보고, 불편하거나 위험하다고 느끼면 무리하지 말고 중단하세요.",
+        "source_policy": {"fixed_text": "ALLOWED", "tts": "ALLOWED", "llm_rewrite": "FORBIDDEN"}
+      },
+      {
+        "slot": "DURING_ACTIVITY_GUIDE",
+        "phase": "RUNNING",
+        "required": false,
+        "text": "화면을 계속 바라보기보다 타이머를 가끔 확인하며 주변의 자연물을 보세요.",
+        "fallback_text": "주변의 자연물을 바라보며 활동을 이어가세요.",
+        "source_policy": {"fixed_text": "ALLOWED", "tts": "FORBIDDEN", "llm_rewrite": "FORBIDDEN"}
+      },
+      {
+        "slot": "TARGET_REACHED_GUIDE",
+        "phase": "TARGET_REACHED",
+        "required": true,
+        "text": "권장 시간에 도달했습니다. 활동을 마쳤다면 완료를 눌러주세요.",
+        "fallback_text": "권장 시간에 도달했습니다. 활동을 마쳤다면 완료를 눌러주세요.",
+        "source_policy": {"fixed_text": "ALLOWED", "tts": "ALLOWED", "llm_rewrite": "FORBIDDEN"}
+      },
+      {
+        "slot": "STOP_CONFIRMATION",
+        "phase": "STOP_CONFIRMATION",
+        "required": true,
+        "text": "활동을 중단하시겠습니까?",
+        "fallback_text": "활동을 중단하시겠습니까?",
+        "source_policy": {"fixed_text": "ALLOWED", "tts": "FORBIDDEN", "llm_rewrite": "FORBIDDEN"}
+      },
+      {
+        "slot": "LIMITATION_NOTICE",
+        "phase": "RESULT",
+        "required": true,
+        "text": "이 활동은 실제 보행 여부나 개인별 효과를 자동으로 확인하거나 검증하지 않습니다.",
+        "fallback_text": "실제 보행 여부나 개인별 효과는 자동으로 확인되지 않습니다.",
+        "source_policy": {"fixed_text": "ALLOWED", "tts": "FORBIDDEN", "llm_rewrite": "FORBIDDEN"}
       }
     ]
   },
@@ -272,9 +312,9 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "content_spec.slots의 phase 매핑과 고정 문구 검수 필요",
       "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
-      "시트 비고: 앱 밖 활동이라 FE는 타이머·사전사후만"
+      "시트 비고: 앱 밖 활동이라 FE는 타이머와 시작 전 확인만 실행하며 활동 후 자기보고는 보류"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-11, 근거 arm 6행",
     "reviewed_by": null,
@@ -284,6 +324,8 @@
     "status": "proposal_only",
     "runtime_definition_ref": "pr11-runtime.json",
     "result_example_ref": "pr11-result.example.json",
-    "note": "원본 활동 정의·연구 근거 필드는 변경하지 않고 웹 실행 설정만 별도 계층으로 둔다."
+    "note": "원본 활동 정의·연구 근거 필드는 변경하지 않고 웹 실행 설정만 별도 계층으로 둔다.",
+    "content_output": "FE reads content_spec.slots by phase and uses fallback_text when text is missing",
+    "duration_input_ref": "pr11-runtime.json#/duration_options"
   }
 }
