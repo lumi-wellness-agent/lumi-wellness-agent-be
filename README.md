@@ -192,11 +192,12 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 트랜잭션 모드에서는 `SET`이 다음 트랜잭션까지 남지 않지만, Shared pooler(Supavisor)는 search_path마다
 풀을 따로 두어 이 옵션을 유지합니다. Dedicated pooler(PgBouncer)로 바꾸면 이 부분을 다시 확인합니다.
 
-DB 테스트(`tests/agent/test_checkpoint.py`·`tests/retrieval/test_hybrid_db.py`)는 `TEST_DATABASE_URL`이
-있을 때만 돌고, CI에서는 건너뜁니다. 체크포인터는 세션을 시작한 풀과 다른 풀에서 세션을 이어 가는지,
-근거 검색은 `evidence_records`를 fixture 16건으로 바꾼 트랜잭션 안에서 필터·키워드·RRF를 보고 끝에
-되돌립니다(적재해 둔 근거는 남습니다). 로컬 Postgres는 Supabase처럼 `extensions` 스키마를 search_path에
-넣은 뒤 마이그레이션을 적용합니다.
+DB 테스트(`tests/agent/test_checkpoint.py`·`tests/retrieval/test_hybrid_db.py`·
+`tests/agent/test_validation_db.py`)는 `TEST_DATABASE_URL`이 있을 때만 돌고, CI에서는 건너뜁니다.
+체크포인터는 세션을 시작한 풀과 다른 풀에서 세션을 이어 가는지 봅니다. 근거 검색·검증은
+`evidence_records`를 fixture 16건으로 바꾼 트랜잭션(`tests/evidence_db.py`) 안에서 필터·키워드·RRF와
+판정을 보고 끝에 되돌립니다(적재해 둔 근거는 남습니다). 로컬 Postgres는 Supabase처럼 `extensions`
+스키마를 search_path에 넣은 뒤 마이그레이션을 적용합니다.
 
 ```bash
 docker run -d --name lumi-pg -e POSTGRES_PASSWORD=postgres -p 54329:5432 pgvector/pgvector:pg17
@@ -294,7 +295,7 @@ scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
-├─ agent/               그래프 흐름 · Planner 배선 · 검증 규칙 (대본 모델)
+├─ agent/               그래프 흐름 · Planner 배선 · 검증 규칙(대본 모델) · 검증 DB 조회
 ├─ intake/ measure/ protocols/   역할별 테스트 (TEAM.md)
 ├─ retrieval/           근거 검색 (DB 테스트는 TEST_DATABASE_URL이 있을 때만)
 └─ schemas/             근거 계약 테스트
