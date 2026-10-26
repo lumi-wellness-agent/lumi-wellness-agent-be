@@ -159,8 +159,10 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 
 ## 데이터베이스 (Supabase)
 
-1. Supabase 프로젝트에 `supabase/migrations/20261021000000_init_evidence.sql`을 적용합니다.
-   대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다.
+1. Supabase 프로젝트에 마이그레이션을 이름 순서대로 적용합니다 — `supabase/migrations/20261021000000_init_evidence.sql`,
+   `supabase/migrations/20261026000000_evidence_contracts.sql`. 대시보드 SQL Editor에 붙여 실행하거나
+   `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은 `papers`·`evidence_records`가 비어 있을 때만
+   적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다.
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
@@ -178,8 +180,8 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 
 | 테이블 | 내용 |
 | --- | --- |
-| `papers` | 논문 한 편. `id`는 R/C 마스터 ID(`data/manifest.csv`의 `rc_id`), DOI가 없으면 `url`로 원문을 가리킨다. 초기 마이그레이션 주석의 36편 시트 ID는 다음 마이그레이션에서 바꾼다 |
-| `evidence_records` | 실험 단위 Evidence Record. 원문 구간(`content`), 메타데이터(`metadata` jsonb), 임베딩(`vector(1536)`) |
+| `papers` | 논문 한 편 = `data/manifest.csv` 한 행. `id`는 R/C 마스터 ID(`rc_id`)이고 36편 시트의 옛 ID는 `legacy_36_id`에 둔다(조인 키 아님). `study_design`·`fulltext_status`는 manifest 값 그대로, DOI가 없으면 `url`로 원문을 가리킨다 |
+| `evidence_records` | 실험 단위 Evidence Record. 원문 구간(`content`), 메타데이터(`metadata` jsonb), 임베딩(`vector(1536)`)과 만든 모델(`embedding_model`). (`paper_id`, `experiment_id`, `section`, `chunk_idx`)마다 한 행 |
 | `langgraph.checkpoints` 등 4개 | 세션 체크포인트. `make checkpoint-setup`이 만들고, 적용한 버전을 `checkpoint_migrations`에 남긴다 |
 
 `public` 스키마의 테이블은 Data API로 노출되므로 RLS를 켜고 정책은 두지 않았습니다. publishable 키로는
@@ -198,7 +200,8 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 docker run -d --name lumi-pg -e POSTGRES_PASSWORD=postgres -p 54329:5432 pgvector/pgvector:pg17
 psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema extensions' \
   -c 'alter database postgres set search_path = "$user", public, extensions' \
-  -f supabase/migrations/20261021000000_init_evidence.sql
+  -f supabase/migrations/20261021000000_init_evidence.sql \
+  -f supabase/migrations/20261026000000_evidence_contracts.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
