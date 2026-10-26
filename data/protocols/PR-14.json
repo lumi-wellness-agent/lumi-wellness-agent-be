@@ -1,0 +1,291 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-14",
+  "name": "만다라·구조 도안 컬러링 20분",
+  "name_en": null,
+  "summary": "만다라·구조 도안 컬러링 20분. 약 20분. 매체 COLORING. 허용 사용자 상태 POST_STRESS.",
+  "goal": "S2",
+  "secondary_goals": [
+    "S1"
+  ],
+  "media": [
+    "COLORING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP_OR_PAPER",
+  "intervention_order": [
+    "POST_STRESS"
+  ],
+  "duration_minutes": {
+    "default": 20.0,
+    "min": null,
+    "max": null,
+    "evidence": "20분(E01·E02·P31·P30). 디지털 E03은 원문 확인"
+  },
+  "eligibility": {
+    "min_minutes_available": 20.0,
+    "needs": [
+      "SCREEN"
+    ],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 만다라·구조 도안 컬러링 20분을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr14_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "컬러링 20분",
+      "minutes": 20.0,
+      "slots": [
+        "COLORING_TEMPLATE"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6",
+      "S1": "INS-BSRI"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-STAI6 (S1 목적이면 INS-BSRI). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "COLORING_TEMPLATE",
+        "required": true,
+        "evidence_stimulus": "E01-E1: 불안 유발(두려웠던 경험 쓰기) → 20분 컬러링; E02-E1: 불안 유발 → 20분 컬러링; E03-E1: 불안 유발(글쓰기 4분) → 디지털 컬러링(시간 원문 확인); P31-E1: 20분 컬러링 vs 20분 독서; P32-E1: 반추 유도 → 조건; P30-E1: 불안 유발 → 20분 컬러링",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "P32-E1"
+      ],
+      "conflicts": [],
+      "note": "P32: 반추 유도 후 NA↓"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "A",
+      "support": [
+        "E01-E1",
+        "E02-E1",
+        "P31-E1",
+        "E03-E1",
+        "E04"
+      ],
+      "conflicts": [],
+      "note": "E01·E02·P31·E03 + E04"
+    },
+    "RUMINATION": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "P32-E1"
+      ],
+      "note": "P32: SRQ 비유의"
+    },
+    "ATTENTION": {
+      "grade": "B",
+      "support": [
+        "P31-E1"
+      ],
+      "conflicts": [],
+      "note": "P31: 선택 주의↑"
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "E03-E1"
+      ],
+      "conflicts": [],
+      "note": "E03 HRV 일부, 원문 확인"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E01",
+      "experiment_id": "E01-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 84,
+      "order": "POST_STRESS",
+      "population": "대학생(미국)",
+      "stimulus": "불안 유발(두려웠던 경험 쓰기) → 20분 컬러링",
+      "outcomes": [
+        "SUBJECTIVE_STRESS"
+      ],
+      "result": "만다라·격자 불안↓(기저 이하), 자유 컬러링은 아님",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E02",
+      "experiment_id": "E02-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "POST_STRESS",
+      "population": "대학생(미국)",
+      "stimulus": "불안 유발 → 20분 컬러링",
+      "outcomes": [
+        "SUBJECTIVE_STRESS"
+      ],
+      "result": "만다라 불안 감소 재현(초록 기준)",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E03",
+      "experiment_id": "E03-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": "60 / 30",
+      "order": "POST_STRESS",
+      "population": "대학생(중국)",
+      "stimulus": "불안 유발(글쓰기 4분) → 디지털 컬러링(시간 원문 확인)",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "PHYSIO",
+        "OTHER"
+      ],
+      "result": "불안↓, 몰입이 매개; HRV 일부 지표",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P31",
+      "experiment_id": "P31-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": "47 / 52",
+      "order": "무관",
+      "population": "대학생(영국)",
+      "stimulus": "20분 컬러링 vs 20분 독서",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "ATTENTION"
+      ],
+      "result": "불안↓, 암묵 공포↓, 선택 주의↑, 독창적 발상↑",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P32",
+      "experiment_id": "P32-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 90,
+      "order": "POST_STRESS(반추 유도)",
+      "population": "성인(영국, 학위논문)",
+      "stimulus": "반추 유도 → 조건",
+      "outcomes": [
+        "AFFECT",
+        "RUMINATION"
+      ],
+      "result": "컬러링·주의분산 NA↓; 상태 반추 조건 차이 비유의(p=.81)",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P30",
+      "experiment_id": "P30-E1",
+      "role": "PRIMARY",
+      "design": "QUASI_EXPERIMENT",
+      "n": 188,
+      "order": "POST_STRESS",
+      "population": "성인",
+      "stimulus": "불안 유발 → 20분 컬러링",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "ATTENTION",
+        "OTHER"
+      ],
+      "result": "몰입·즐거움·불안 관련 사고가 불안 감소와 연관",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E04",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "8편",
+      "order": "—",
+      "population": "성인",
+      "stimulus": null,
+      "outcomes": [
+        "SUBJECTIVE_STRESS"
+      ],
+      "result": "만다라가 자유 그리기보다 상태 불안 감소 큼",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "P32 상태 반추 비유의",
+    "자연 도안·3–5분 단축 근거 없음(→ PR-15)"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "반추 감소, 3–5분 단축",
+    "자연 도안 동등성"
+  ],
+  "population_validated": [
+    "대학생"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: S1에 넣더라도 '불안·부정 정서 완화'로만 설명"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-14, 근거 arm 7행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

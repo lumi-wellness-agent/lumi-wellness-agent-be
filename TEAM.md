@@ -1,0 +1,137 @@
+# 역할별 개발 가이드 (발표 2026-10-30, 코드 마감 10-29 목)
+
+경로는 저장소 루트 기준입니다. 에이전트 아키텍처 v2(`서비스아키텍처/에이전트 아키텍처 v2.png`)를 LangGraph
+그래프 하나로 옮긴 뼈대가 `main`에 있습니다. 노드·state·프로토콜 로더·측정 도구 계약은 다 연결돼 있고,
+각 담당은 **자기 파일의 본문**(LLM 호출 · 척도 문항 · 활동 노드 JSON)을 채웁니다. 실행·검증 환경과
+브랜치·PR 규칙은 [README](README.md)에 있습니다.
+
+## 원칙
+
+- **라운드당 활동 노드 1개.** 플래너는 검수된 프로토콜(`data/protocols/*.json`)에서 고를 뿐 조합하지 않는다.
+  조합은 `VALIDATED_MULTIMODAL` 프로토콜 자체로만 제공한다(PR-02 · 10 · 12).
+- **LLM은 두 군데뿐이다.** `intake`(구조화 출력 1회)와 `plan`(Tool 루프). 측정·평가·재계획은 코드다.
+- **측정은 RAG가 아니다.** 척도는 `data/instruments/*.json`에 있고 LLM은 문항을 만들거나 바꾸거나 점수를
+  계산하지 않는다. LLM 번역 금지 — 번역·타당화된 문항만 쓴다.
+- **근거는 막지 않는다.** 검증은 출처 실재 · 중재 관련 · 지표 측정 세 가지만 차단하고, AI 생성·조합 콘텐츠는
+  `ADAPTED_STIMULUS`로 Reference 카드에 밝힌다(`app/schemas/retrieval.py`).
+- **발표 범위에서 뺀 것.** intake의 칩 되묻기 루프(빈 슬롯은 요청의 칩 값 → 기본값), Docling·LLM 원문 추출
+  파이프라인(근거 arm 시트 65행을 적재), 콘텐츠 생성(이미지·음성), Protocol DB 테이블(JSON 파일 로더).
+
+## 구조
+
+```text
+POST /sessions …(API는 통합 담당이 붙인다)
+  ↓
+intake          LLM 호출 1회 → IntakeResult(goal · order_condition · minutes · place · constraints · safety)
+  ↓             안전 신호 · 목표 미정이면 세션을 열지 않는다(ended = SAFETY | NO_GOAL)
+measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 없음)
+  ↓
+plan            Adaptive Care Planning Agent — get_care_protocols · search_evidence · validate_evidence → CarePlan
+  ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
+prepare         프로토콜의 steps · guide → ActivityContent
+run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
+measure_post ⏸  SAM
+evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 기준 없음)
+replan          종료 · 활동 변경 · 추가 세션 제안 (라운드 ≤ 3)
+confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
+measure_final ⏸ 종료 경로에서 목표 척도 1회 (S3는 건너뜀)
+```
+
+`app/agent/state.py`가 노드 사이 계약이고, `app/agent/graph.py`만 노드를 배선한다. ⏸는 interrupt —
+payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermaid를 출력한다.
+
+## 담당 파일과 할 일
+
+### 공통 (통합 담당 · 구준휘)
+
+| 상태 | 파일 | 내용 |
+| --- | --- | --- |
+| 완료 | `app/agent/state.py` `graph.py` `checkpoint.py` | v2 state · 배선 · 직렬화 허용 타입 |
+| 완료 | `app/agent/nodes/intake.py` `measure.py` `executor.py` `evaluator.py` `replanner.py` | 노드 뼈대. intake·measure는 담당이 본문을 채운다 |
+| 완료 | `app/schemas/protocol.py` `app/protocols.py` `app/agent/tools/protocol.py` | 활동 노드 본문 스키마 · JSON 로더 · `get_care_protocols` |
+| 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO |
+| 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
+| 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
+| 화 | `supabase/migrations/20261026000000_evidence_contracts.sql` · 근거 arm 적재 스크립트 · `app/retrieval/hybrid.py` · `app/agent/validation.py` validate 본문 | 근거 65건 적재 · 검색 · 검증 |
+| 수 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/reference_card.py` | plan을 실제 모델로. check_plan의 근거 ID 재검증. Reference 카드 |
+| 수 | `app/api/routes.py` | 세션 API 세 개(README 「세션 API」) + FE |
+| 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
+
+### 활동 노드 담당 (JSON 21개 — 셋이 7개씩, 월·화)
+
+| 파일 | 할 일 |
+| --- | --- |
+| `data/protocols/PR-*.json` | 초안을 완성한다. `review.open_items`에 적힌 확인 항목부터. 시나리오가 지나가는 PR-06 · PR-01 · PR-02 · PR-09 · PR-21 · PR-11을 먼저 |
+| 같은 파일 `steps` · `content_spec.slots` · `guide.intro_text` | 단계 문안, 슬롯별 `selection` · `render` · `personalization` · `generation`(PR-01.json이 완성 예시), 시작 안내 문안 |
+| 같은 파일 `grades` · `evidence` | 등급 셀에서 푼 `support`/`conflicts`가 맞는지, `outcomes`에 더해 둔 지표가 실제 측정된 것인지 원문으로 확인 |
+| 합격 기준 | `make test-protocols` 통과. 스키마를 바꿔야 하면 통합 담당과 먼저 맞춘다 |
+
+묶음 제안: A = PR-01 02 03 04 05 20 21(자연 자극 감상) · B = PR-06 07 08 09 10 17 22(호흡·이완·명상·그라운딩) ·
+C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문을 한 사람이 읽도록 매체로 묶었다.
+
+### measure 담당 (먼저 끝난 사람, 화)
+
+| 파일 | 할 일 |
+| --- | --- |
+| `data/instruments/INS-STAI6.json` `INS-BSRI.json` | 문항 원문 `text`와 `instruction`을 채우고 `status`를 `READY`로. STAI는 Mind Garden 허가·한국어판, BSRI는 한국어판 출처 확인. **LLM 번역 금지** |
+| `app/instruments.py` | 채점은 되어 있다(STAI-6 역채점 후 합 × 20/6, BSRI 평균, SAM 문항별). 제시 형식(`present`)에 FE가 필요한 값을 더한다 |
+| `app/agent/nodes/measure.py` | interrupt payload·resume 모양을 FE와 맞춘다. 사전은 SAM + 목표 척도, 라운드 사이는 SAM만, 종료는 목표 척도만 |
+| `tests/measure/` | `make test-measure` |
+
+### intake 담당 (먼저 끝난 사람, 화)
+
+| 파일 | 할 일 |
+| --- | --- |
+| `app/agent/prompts.py` `INTAKE_SYSTEM_PROMPT` `build_intake_input` | 분류 규칙 다듬기. 점수 추정 금지, 2턴 이내, 안전 신호 |
+| `app/agent/nodes/intake.py` | `make_llm_intaker`(구조화 출력, OpenAI json_schema)를 실제 키로 돌려 본다. 칩 값 우선·기본값 규칙은 `resolve()` |
+| `app/agent/state.py` `IntakeResult` | 필드 `description`이 LLM이 읽는 설명이다. 필드를 바꾸면 통합 담당과 먼저 맞춘다 |
+| `tests/intake/` | `make test-intake`. 실제 호출 결과는 `tests/intake/`에 녹화본(JSON)으로 남긴다 |
+
+### plan (통합 담당 겸임)
+
+`app/agent/nodes/planner.py` · `prompts.py` · `tools/*`. 지금은 fixture(`tests/fixtures/evidence_hits.json`)로
+도구를 흉내 낸 테스트(`tests/agent/`)만 있다. 화요일 적재 뒤 실제 모델로 돌린다.
+
+## 계약
+
+| 항목 | 정의 | 위치 |
+| --- | --- | --- |
+| `CareRequest` | `text` + 칩(`goal` `minutes_available` `place`) + `profile` | `app/schemas/care.py` |
+| `IntakeResult` | intake의 구조화 출력. 칩 값이 분류보다 우선 | `app/agent/state.py` |
+| `Measurement` · `GOAL_SCALE` | 도구 × 시점 × 라운드, `answers` · `scores` | `app/schemas/measure.py` |
+| 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
+| `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
+| `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
+| `get_care_protocols` | `protocols.compact()` 목록. 주 목표가 앞, 단계 모듈 제외 | `app/agent/tools/protocol.py` |
+| `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
+| 세션 종료 | `ended = SAFETY | NO_GOAL` (intake), `final`(목표 척도) | `app/agent/state.py` |
+
+## 작업 순서 (10/26 월 ~ 10/29 목)
+
+1. **월** 이 뼈대를 머지한다. 전원 `.venv`를 새로 만들고(`pip install -e ".[dev]"`) `make test`가 통과하는지,
+   `make graph`가 그래프를 내는지 확인한다. 활동 노드 담당은 자기 묶음 JSON을 시작한다.
+2. **화** 통합: 근거 적재·검색·검증. 먼저 끝난 두 사람이 measure · intake를 맡는다(각 하루).
+3. **수** 통합: plan 실제 모델 · Reference 카드 · 세션 API. 나머지는 JSON 합류.
+4. **목** 통합 실행 · 시나리오 반복("발표 앞두고 긴장돼요" → S2 → SAM·STAI-6 → PR-06 → 세션 → SAM Δ → replan) ·
+   `evidence_record_ids` 역기입 · 리허설. **수요일 저녁까지 안 오면 대체:** intake는 폼 값으로 IntakeResult를 채우고,
+   measure는 SAM만 받는다.
+
+## PR 규칙과 테스트 명령
+
+- 이슈 → `<타입>/#<번호>` 브랜치 → `main` PR(squash). 자세한 규칙과 `/ship` 하네스는 README.
+- 자기 파일과 자기 테스트 디렉터리만 고친다. `state.py` · `graph.py` · `schemas/*`의 계약을 바꿔야 하면 통합 담당과 먼저 맞춘다.
+- `.env`와 키는 커밋하지 않는다. `OPENAI_API_KEY`(와 폴백용 `ANTHROPIC_API_KEY`)는 통합 담당이 나눠 준다. 모델은 gpt-4o-mini 하나, 폴백은 claude-haiku-5-5다.
+
+```bash
+make test-intake ARGS="-q"      # intake
+make test-measure ARGS="-q"     # 측정 도구 · 측정 노드
+make test-protocols ARGS="-q"   # 활동 노드 JSON 21개 + 근거 계약
+make test-planner ARGS="-q"     # 그래프 · 플래너 (대본 모델, LLM 없이)
+make test ARGS="-q"
+make lint
+make graph                      # Mermaid 그래프 출력
+make protocols-scaffold XLSX=../Research_paper/LUMI_R_C_Research_2026-10-22/LUMI_측정도구_프로토콜_2026-10-23.xlsx
+```
+
+대본 모델로 그래프를 테스트하는 방법은 `tests/agent/test_graph.py`(FakeIntaker · FakePlanner · interrupt 재개 대본)와
+`tests/agent/fakes.py`(ScriptedChatModel · fixture 기반 가짜 검색·검증)를 참고한다.

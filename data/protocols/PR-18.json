@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-18",
+  "name": "강렬한 긍정 경험 글쓰기 20분",
+  "name_en": null,
+  "summary": "강렬한 긍정 경험 글쓰기 20분. 약 20분. 매체 WRITING. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "WRITING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 20.0,
+    "min": null,
+    "max": null,
+    "evidence": "20분 × 3일(E14)"
+  },
+  "eligibility": {
+    "min_minutes_available": 20.0,
+    "needs": [],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 강렬한 긍정 경험 글쓰기 20분을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr18_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "글쓰기 20분",
+      "minutes": 20.0,
+      "slots": [
+        "WRITING_PROMPT"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-PANAS(moment). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "WRITING_PROMPT",
+        "required": true,
+        "evidence_stimulus": "E14-E1: 20분 × 3일",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "E14-E1",
+        "E15"
+      ],
+      "conflicts": [],
+      "note": "E14 글쓰기 직후 긍정 기분↑; E15 결과 혼재"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "B",
+      "support": [
+        "E13"
+      ],
+      "conflicts": [],
+      "note": "E13 지연 효과; 원문 미확보"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E14",
+      "experiment_id": "E14-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 90,
+      "order": "무관",
+      "population": "대학생(미국)",
+      "stimulus": "20분 × 3일",
+      "outcomes": [
+        "AFFECT"
+      ],
+      "result": "긍정 기분↑; 질병 방문↓",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E15",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": "비임상",
+      "stimulus": null,
+      "outcomes": [
+        "OTHER",
+        "AFFECT"
+      ],
+      "result": "결과 지표 이질적; 가장 신뢰할 지표 불명확",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E13",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "OTHER"
+      ],
+      "result": "지연·지속 효과(제목·초록 기준)",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E16",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": "임상",
+      "stimulus": null,
+      "outcomes": [
+        "OTHER"
+      ],
+      "result": "사전사후 −0.06 vs 대조 −0.01; 이질성 높음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "E15: 결과 지표 이질적",
+    "E16: 임상 집단 효과 작음"
+  ],
+  "safety": [
+    "부정 경험 글쓰기로 바꾸지 않음(설계 다름)"
+  ],
+  "unverified_claims": [
+    "단회 효과 크기"
+  ],
+  "population_validated": [
+    "대학생(미국)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "grades.AFFECT: 등급 셀이 E15를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "시트의 측정 도구 ['INS-PANAS']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
+      "시트 비고: 건강 효과(의료 방문↓)는 3개월 후 지표라 세션 설명에 쓰지 않음"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-18, 근거 arm 4행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-02",
+  "name": "자연 영상 + 자연음 감상(스트레스 후)",
+  "name_en": null,
+  "summary": "자연 영상 + 자연음 감상. 약 10분. 매체 VIDEO, NATURE_SOUND. 허용 사용자 상태 POST_STRESS.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "VIDEO",
+    "NATURE_SOUND"
+  ],
+  "composition": "VALIDATED_MULTIMODAL",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "POST_STRESS"
+  ],
+  "duration_minutes": {
+    "default": 10.0,
+    "min": null,
+    "max": null,
+    "evidence": "10분(P26·P25)"
+  },
+  "eligibility": {
+    "min_minutes_available": 10.0,
+    "needs": [
+      "SCREEN",
+      "AUDIO"
+    ],
+    "place": "ANY",
+    "quiet_required": true,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 자연 영상 + 자연음 감상을 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr02_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "영상 10분",
+      "minutes": 10.0,
+      "slots": [
+        "VISUAL_VIDEO",
+        "SOUNDSCAPE"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-STAI6. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "VISUAL_VIDEO",
+        "required": true,
+        "evidence_stimulus": "P26-E1: 스트레스 영화 → 소리 포함 10분 영상; P25-E1: 10분 스트레스 영화 → 10분 환경 영상(숲/개울/보행자/교통); N17-E1: 사무실 소음 작업 → 강 영상+소리 / 강 소리 / 정적 / 소음; N18-E1: VR TSST → 회복 조건; P37-E1: 교정 과제로 부하 → Posner 과제 → 영상 → Posner 과제",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "SOUNDSCAPE",
+        "required": true,
+        "evidence_stimulus": "P26-E1: 스트레스 영화 → 소리 포함 10분 영상; P25-E1: 10분 스트레스 영화 → 10분 환경 영상(숲/개울/보행자/교통); N17-E1: 사무실 소음 작업 → 강 영상+소리 / 강 소리 / 정적 / 소음; N18-E1: VR TSST → 회복 조건; P37-E1: 교정 과제로 부하 → Posner 과제 → 영상 → Posner 과제",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "A",
+      "support": [
+        "P26-E1",
+        "P25-E1"
+      ],
+      "conflicts": [],
+      "note": "P26, P25 초기 회복 일치; 효과 작음"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "B",
+      "support": [
+        "N24"
+      ],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "B",
+      "support": [
+        "P37-E1"
+      ],
+      "conflicts": [],
+      "note": "P37: 선택 주의 양상 변화, 향상으로 단정 불가"
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "P26-E1",
+        "N18-E1",
+        "P37-E1",
+        "N24"
+      ],
+      "conflicts": [
+        "P25-E1"
+      ],
+      "note": "상충 P25: 생리 지표 6개 환경 간 비유의"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "P26",
+      "experiment_id": "P26-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 120,
+      "order": "POST_STRESS",
+      "population": "대학생(미국)",
+      "stimulus": "스트레스 영화 → 소리 포함 10분 영상",
+      "outcomes": [
+        "AFFECT",
+        "PHYSIO"
+      ],
+      "result": "자연 영상에서 더 빠르고 완전한 회복(생리·정서)",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P25",
+      "experiment_id": "P25-E1",
+      "role": "CONFLICT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 959,
+      "order": "POST_STRESS",
+      "population": "대학생(NL·BE·UK·SE·US)",
+      "stimulus": "10분 스트레스 영화 → 10분 환경 영상(숲/개울/보행자/교통)",
+      "outcomes": [
+        "AFFECT",
+        "PHYSIO"
+      ],
+      "result": "자연 영상 초기 회복은 원 연구와 일치하는 방향이나 효과 작음; 공포 회복·여러 지표에서 6개 환경 간 비유의; 두 자연 영상 간 차이",
+      "verification": "본문(일부)",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "N17",
+      "experiment_id": "N17-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "POST_FATIGUE",
+      "population": "성인(스웨덴)",
+      "stimulus": "사무실 소음 작업 → 강 영상+소리 / 강 소리 / 정적 / 소음",
+      "outcomes": [
+        "AFFECT",
+        "ATTENTION"
+      ],
+      "result": "자연 영상(소리 포함) 조건 에너지↑; 소음 지속은 동기↓",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "N18",
+      "experiment_id": "N18-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 30,
+      "order": "POST_STRESS",
+      "population": "성인(스웨덴)",
+      "stimulus": "VR TSST → 회복 조건",
+      "outcomes": [
+        "PHYSIO"
+      ],
+      "result": "소리 포함 숲 VR만 부교감 활성 회복; 나머지는 변화 없음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P37",
+      "experiment_id": "P37-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "POST_FATIGUE",
+      "population": "대학생(노르웨이)",
+      "stimulus": "교정 과제로 부하 → Posner 과제 → 영상 → Posner 과제",
+      "outcomes": [
+        "ATTENTION",
+        "PHYSIO"
+      ],
+      "result": "자연 영상 중 IBI↑(심박↓); 자연 집단은 단서 타당성 효과 소실",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "N24",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "10편, 886명",
+      "order": "—",
+      "population": null,
+      "stimulus": "정적 이미지·영상·360° 등",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "PHYSIO"
+      ],
+      "result": "디지털 = 실제 자연(SMD −0.01); 둘 다 스트레스 감소",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "P25 다기관 재현에서 효과 크기 작고 공포 회복·생리 차이 비유의",
+    "급류 소음 영상은 효과 저하"
+  ],
+  "safety": [
+    "소리 크기 조절",
+    "움직임 최소화 설정 시 느린 장면만"
+  ],
+  "unverified_claims": [
+    "AI 생성 영상, 10분 미만 단축"
+  ],
+  "population_validated": [
+    "대학생",
+    "젊은 성인(NL",
+    "BE",
+    "UK",
+    "SE",
+    "US)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": "AI_IMAGE_UNVERIFIED"
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: S2의 1순위 시각 프로토콜"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-02, 근거 arm 6행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

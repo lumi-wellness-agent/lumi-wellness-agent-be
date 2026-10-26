@@ -1,0 +1,27 @@
+{
+  "instrument_id": "INS-SAM",
+  "name": "Self-Assessment Manikin (SAM)",
+  "paper_id": "N08",
+  "concept": "쾌(valence)·각성(arousal)",
+  "timeframe": "지금",
+  "instruction": "지금 느낌에 가장 가까운 그림을 고르세요.",
+  "items": [
+    {
+      "id": "valence",
+      "text": "지금 기분은 어떤가요?",
+      "low_label": "불쾌",
+      "high_label": "유쾌"
+    },
+    {
+      "id": "arousal",
+      "text": "지금 얼마나 들떠 있거나 긴장되어 있나요?",
+      "low_label": "차분",
+      "high_label": "흥분·긴장"
+    }
+  ],
+  "scale": {"min": 1, "max": 9, "step": 1, "kind": "PICTORIAL"},
+  "scoring": {"kind": "PER_ITEM", "range": [1, 9]},
+  "license_note": "Bradley & Lang 1994. 연구용 무료. 상업 사용은 출처 표기·확인",
+  "status": "READY",
+  "note": "지배(dominance) 차원은 생략(측정도구 시트). 그림 척도라 지시문·축 라벨만 한국어. 1=불쾌·차분, 9=유쾌·흥분. FE는 그림 5~9개로 렌더링한다"
+}

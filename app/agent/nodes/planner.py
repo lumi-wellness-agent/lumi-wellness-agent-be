@@ -1,13 +1,15 @@
-"""① Adaptive Care Planning Agent — 근거를 찾고 검증해 이번 라운드의 CarePlan을 만든다.
+"""① Adaptive Care Planning Agent — 근거를 찾고 검증해 이번 라운드의 활동 노드 1개를 고른다.
 
-LangChain `create_agent`의 Tool 호출 루프다. LLM이 Tool을 골라 부른다.
+LangChain `create_agent`의 Tool 호출 루프다. 시스템에서 Tool 루프를 도는 유일한 노드.
+- get_care_protocols: 검수된 Care Protocol 후보 (data/protocols)
 - search_evidence: Evidence Record 하이브리드 검색 (RAG 근거 검색)
 - validate_evidence: EvidenceValidationTool
-- get_care_protocols: 검수된 Care Protocol 조회 (Protocol DB 검증)
-그 결과로 활동 선택 · 조합 적합성 · 실행 순서를 정해 CarePlan을 제출한다(ToolStrategy).
+그 결과로 CarePlan(활동 1개 + rationale)을 제출한다(ToolStrategy).
 
 LLM의 계획은 그대로 믿지 않는다. check_plan(후검증)이 규칙을 확인하고, 어기면 거부 사유를 붙여
 한 번 다시 묻는다. 그래도 어기면 PlanRejected다.
+
+모델 조립은 app/agent/assembly.py(OpenAI, 모델 하나).
 """
 
 from collections.abc import Awaitable
@@ -21,8 +23,10 @@ from langgraph.runtime import Runtime
 
 from app.agent.context import AgentContext
 from app.agent.prompts import PLANNER_SYSTEM_PROMPT, build_planner_input
-from app.agent.state import CarePlan, CareState, PlanMode
+from app.agent.state import CarePlan, CareState, NextStep
 from app.agent.tools import PLANNER_TOOLS
+from app.protocols import get_protocol
+from app.schemas.protocol import Composition
 
 
 class Planner(Protocol):
@@ -37,22 +41,38 @@ class PlanRejected(Exception):
     """후검증을 두 번 통과하지 못한 계획."""
 
 
-def check_plan(plan: CarePlan) -> list[str]:
+def check_plan(plan: CarePlan, state: CareState) -> list[str]:
     """CarePlan 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
 
-    동시 복합의 활동 수는 아키텍처에 없어 순차 복합과 같은 2~3개로 둔다.
-    Protocol DB가 생기면 protocol_id가 검수된 프로토콜인지, 묶은 활동끼리 함께 실행할 수
-    있는지도 여기서 확인한다.
+    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 활동 변경 시 같은 프로토콜 금지.
+    TODO(plan 담당): evidence_record_ids를 validate_evidence 결과와 대조해 usable만 남긴다.
     """
+    intake, activity = state["intake"], plan.activity
+    protocol = get_protocol(activity.protocol_id)
+    if protocol is None:
+        return [f"{activity.protocol_id}는 검수된 프로토콜이 아니다"]
     problems = []
-    count = len(plan.activities)
-    if plan.mode is PlanMode.SINGLE and count != 1:
-        problems.append(f"단일 세션(SINGLE)은 활동이 1개여야 한다. 지금 {count}개다")
-    if plan.mode is not PlanMode.SINGLE and not 2 <= count <= 3:
-        problems.append(f"복합 세션({plan.mode})은 활동이 2~3개여야 한다. 지금 {count}개다")
-    protocol_ids = [activity.protocol_id for activity in plan.activities]
-    if len(set(protocol_ids)) != count:
-        problems.append("같은 프로토콜을 두 번 넣었다")
+    if protocol.composition is Composition.STAGE_MODULE:
+        problems.append(f"{activity.protocol_id}는 단계 모듈이라 단독 활동으로 쓸 수 없다")
+    if intake.goal and not protocol.serves(intake.goal):
+        problems.append(f"{activity.protocol_id}는 {intake.goal.value} 목표용이 아니다")
+    if not protocol.allows_order(intake.order_condition):
+        allowed = [o.value for o in protocol.intervention_order]
+        problems.append(f"사용자 상태 {intake.order_condition}는 허용 상태 {allowed}에 맞지 않는다")
+    duration = protocol.duration_minutes
+    if duration.min is not None and activity.minutes < duration.min:
+        problems.append(f"활동 시간 {activity.minutes}분이 최소 {duration.min}분보다 짧다")
+    if duration.max is not None and activity.minutes > duration.max:
+        problems.append(f"활동 시간 {activity.minutes}분이 최대 {duration.max}분보다 길다")
+    if intake.minutes and activity.minutes > intake.minutes:
+        problems.append(f"활동 시간 {activity.minutes}분이 가용 시간 {intake.minutes}분을 넘는다")
+    rounds = state.get("rounds") or []
+    if (
+        rounds
+        and rounds[-1].next_step is NextStep.CHANGE_ACTIVITY
+        and rounds[-1].plan.activity.protocol_id == activity.protocol_id
+    ):
+        problems.append("활동 변경을 골랐는데 같은 프로토콜을 다시 넣었다")
     return problems
 
 
@@ -67,7 +87,7 @@ def build_planner_agent(model: BaseChatModel):
 
 
 def make_agent_planner(model: BaseChatModel) -> Planner:
-    """LangChain 에이전트로 계획을 세우는 Planner. 모델 공급자는 아직 정하지 않았다."""
+    """LangChain 에이전트로 계획을 세우는 Planner."""
     agent = build_planner_agent(model)
 
     async def plan_with_agent(
@@ -85,7 +105,7 @@ def make_plan_node(planner: Planner):
         problems: list[str] = []
         for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
             care_plan = await planner(state, runtime.context, problems)
-            problems = check_plan(care_plan)
+            problems = check_plan(care_plan, state)
             if not problems:
                 return {"plan": care_plan}
         raise PlanRejected("; ".join(problems))

@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-15",
+  "name": "자연 도안 디지털 컬러링 3–5분",
+  "name_en": null,
+  "summary": "자연 도안 디지털 컬러링 3–5분. 약 3분. 매체 COLORING. 허용 사용자 상태 제한 없음.",
+  "goal": "S1",
+  "secondary_goals": [],
+  "media": [
+    "COLORING"
+  ],
+  "composition": "EXPERIMENTAL",
+  "channel": "IN_APP",
+  "intervention_order": [],
+  "duration_minutes": {
+    "default": 3.0,
+    "min": 3.0,
+    "max": 5.0,
+    "evidence": "3–5분(제안; 근거 없음)"
+  },
+  "eligibility": {
+    "min_minutes_available": 3.0,
+    "needs": [
+      "SCREEN"
+    ],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 자연 도안 디지털 컬러링 3–5분을 약 3분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr15_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "자연 도안 컬러링 3–5분",
+      "minutes": 3.0,
+      "slots": [
+        "COLORING_TEMPLATE"
+      ],
+      "user_can_stop": true
+    },
+    {
+      "order": 2,
+      "type": "NOTICE",
+      "label": "지금 느낌 알아차리기",
+      "minutes": 0.5,
+      "slots": [
+        "NOTICE_PROMPT"
+      ],
+      "optional": true,
+      "note": "한 단어 응답. 점수화하지 않음(E10 정서 명명 참고)"
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S1": "INS-BSRI"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-BSRI. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "COLORING_TEMPLATE",
+        "required": true,
+        "evidence_stimulus": "P34-E1: 자기선택: 경외/분홍/자연/파랑 vs 무관 이미지",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "NOTICE_PROMPT",
+        "required": false,
+        "evidence_stimulus": "P34-E1: 자기선택: 경외/분홍/자연/파랑 vs 무관 이미지",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "P34-E1"
+      ],
+      "note": "P34 자연 라운드 SWB p=.23"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "P34-E1"
+      ],
+      "note": "P34 불안 p=.29"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "P34",
+      "experiment_id": "P34-E1",
+      "role": "PRIMARY",
+      "design": "QUASI_EXPERIMENT",
+      "n": 248,
+      "order": "—",
+      "population": "온라인 플레이어(다국적)",
+      "stimulus": "자기선택: 경외/분홍/자연/파랑 vs 무관 이미지",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "OTHER",
+        "AFFECT"
+      ],
+      "result": "자연 라운드 SWB p=.23, 불안 p=.29 비유의; 경외 라운드 SWB 유의",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "P34는 자기선택 집단·다회 게임. 20분 만다라 결과를 3–5분 자연 도안에 일반화 금지(36편 엑셀 S1 주의)"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "전부(효과 자체)"
+  ],
+  "population_validated": [
+    "온라인 게임 플레이어"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": "EXPERIMENTAL",
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "grades.AFFECT: 등급 셀이 P34-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "시트 비고: S1 A/B 실험 전용. 사용자에게 '실험적' 표시"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-15, 근거 arm 1행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

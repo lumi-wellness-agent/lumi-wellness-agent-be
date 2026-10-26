@@ -1,0 +1,194 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-20",
+  "name": "온라인 예술 감상 1–2분",
+  "name_en": null,
+  "summary": "온라인 예술 감상 1–2분. 약 1분. 매체 ART_VIEWING. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "ART_VIEWING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 1.0,
+    "min": 1.0,
+    "max": 2.0,
+    "evidence": "1–2분(E06)"
+  },
+  "eligibility": {
+    "min_minutes_available": 1.0,
+    "needs": [
+      "SCREEN"
+    ],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 온라인 예술 감상 1–2분을 약 1분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr20_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "작품 감상 1–2분",
+      "minutes": 1.0,
+      "slots": [
+        "ARTWORK"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "ARTWORK",
+        "required": true,
+        "evidence_stimulus": "E06-E1: 온라인 전시 1–2분; E07-E1: 모네 작품 감상",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "C",
+      "support": [
+        "E06-E1"
+      ],
+      "conflicts": [],
+      "note": "E06: 준무작위; 비예술 대조도 동일 개선"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "C",
+      "support": [
+        "E06-E1"
+      ],
+      "conflicts": [],
+      "note": "E06 상태 불안↓"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E06",
+      "experiment_id": "E06-E1",
+      "role": "PRIMARY",
+      "design": "QUASI_EXPERIMENT",
+      "n": 84,
+      "order": "무관",
+      "population": "온라인 성인",
+      "stimulus": "온라인 전시 1–2분",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS",
+        "OTHER"
+      ],
+      "result": "두 조건 모두 개선(예술 특이 효과 없음)",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E07",
+      "experiment_id": "E07-E1",
+      "role": "PRIMARY",
+      "design": "QUASI_EXPERIMENT",
+      "n": null,
+      "order": "무관",
+      "population": "온라인 성인",
+      "stimulus": "모네 작품 감상",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS",
+        "OTHER"
+      ],
+      "result": "즐거움·의미감이 효과 예측",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "E06에서 비예술(요리 문화) 전시도 같은 개선 → 예술 특이 효과 없음"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "예술 특이 효과"
+  ],
+  "population_validated": [
+    "온라인 성인"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": "LIMITED_EVIDENCE",
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: '잠깐 멈춤' 효과로만 설명"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-20, 근거 arm 2행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

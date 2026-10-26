@@ -1,7 +1,7 @@
-"""계약 2 — 활동 노드 JSON의 근거 연결 부분. tests/fixtures/protocols/PR-*.json 전부를 파싱한다.
+"""계약 2 — 활동 노드 JSON의 근거 연결 부분. data/protocols/PR-*.json 전부를 파싱한다.
 
-protocols/는 계약을 통과하는 사본(수정 사유는 JSON note에)이고,
-protocols_raw/는 활동 노드 담당의 원본이다.
+data/protocols/는 계약을 통과하는 운영 파일(수정 사유는 JSON note에)이고,
+tests/fixtures/protocols_raw/는 활동 노드 담당의 원본이다.
 원본의 알려진 불일치가 고쳐지면 test_raw_pr01_still_has_known_grade_mismatch가 실패하므로 그때
 raw 사본을 지우거나 갱신한다.
 """
@@ -21,7 +21,8 @@ from app.schemas.protocol import (
 )
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
-PROTOCOLS = sorted((FIXTURES / "protocols").glob("PR-*.json"))
+PROTOCOL_DIR = FIXTURES.parent.parent / "data" / "protocols"
+PROTOCOLS = sorted(PROTOCOL_DIR.glob("PR-*.json"))
 
 
 @pytest.mark.parametrize("path", PROTOCOLS, ids=[p.stem for p in PROTOCOLS])
@@ -38,7 +39,7 @@ def test_raw_pr01_still_has_known_grade_mismatch():
 
 
 def pr01() -> dict:
-    return json.loads((FIXTURES / "protocols" / "PR-01.json").read_text(encoding="utf-8"))
+    return json.loads((PROTOCOL_DIR / "PR-01.json").read_text(encoding="utf-8"))
 
 
 def test_pr01_labels_are_normalized():

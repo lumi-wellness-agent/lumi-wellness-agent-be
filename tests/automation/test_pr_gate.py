@@ -155,9 +155,7 @@ def test_main_counts_only_consecutive_api_errors(fake_gh):
 
 
 # 판정 입력이 이상하면 TIMEOUT까지 기다리지 않고 바로 ERROR로 끝난다 (fail-closed)
-@pytest.mark.parametrize(
-    "response", ["", "not json", "[]", json.dumps({"statusCheckRollup": []})]
-)
+@pytest.mark.parametrize("response", ["", "not json", "[]", json.dumps({"statusCheckRollup": []})])
 def test_main_fails_closed_on_malformed_output(fake_gh, capsys, response):
     fake_gh(pr_gate, response)
 

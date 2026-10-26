@@ -28,8 +28,18 @@ def test_main_waits_until_run_succeeds(fake_gh, capsys):
     assert run_wait.main(ARGS) == 0
     assert last_line(capsys) == "RUN_RESULT result=success run_id=7"
     assert calls[0] == (
-        "run", "list", "--branch", "main", "--workflow", "ci.yml", "--commit", "abc123",
-        "--limit", "1", "--json", "status,conclusion,databaseId",
+        "run",
+        "list",
+        "--branch",
+        "main",
+        "--workflow",
+        "ci.yml",
+        "--commit",
+        "abc123",
+        "--limit",
+        "1",
+        "--json",
+        "status,conclusion,databaseId",
     )
 
 

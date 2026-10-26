@@ -1,0 +1,252 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-09",
+  "name": "3분 안내 마음챙김(순간)",
+  "name_en": null,
+  "summary": "3분 안내 마음챙김. 약 3분. 매체 MINDFULNESS. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S1",
+  "secondary_goals": [],
+  "media": [
+    "MINDFULNESS"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 3.0,
+    "min": 3.0,
+    "max": 5.0,
+    "evidence": "3분(N26) / 5분(P16 명상 arm)"
+  },
+  "eligibility": {
+    "min_minutes_available": 3.0,
+    "needs": [
+      "AUDIO"
+    ],
+    "place": "ANY",
+    "quiet_required": true,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 3분 안내 마음챙김을 약 3분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr09_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "GUIDE_AUDIO",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "오디오 안내 3분",
+      "minutes": 3.0,
+      "slots": [
+        "GUIDE_AUDIO"
+      ],
+      "user_can_stop": true
+    },
+    {
+      "order": 2,
+      "type": "NOTICE",
+      "label": "현재 감각 알아차리기",
+      "minutes": 0.5,
+      "slots": [
+        "NOTICE_PROMPT"
+      ],
+      "optional": true,
+      "note": "한 단어 응답. 점수화하지 않음(E10 정서 명명 참고)"
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S1": "INS-BSRI"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-BSRI. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "GUIDE_AUDIO",
+        "required": true,
+        "evidence_stimulus": "N26-E1: 하루 8회 × 10일, 짧은 오디오(약 3분); P16-E2: 매일 5분 × 1개월",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "NOTICE_PROMPT",
+        "required": false,
+        "evidence_stimulus": "N26-E1: 하루 8회 × 10일, 짧은 오디오(약 3분); P16-E2: 매일 5분 × 1개월",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "N26-E1"
+      ],
+      "conflicts": [],
+      "note": "N26 NA↓"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "B",
+      "support": [
+        "P16-E2"
+      ],
+      "conflicts": [],
+      "note": "P16 상태 불안↓, 호흡보다 작음"
+    },
+    "RUMINATION": {
+      "grade": "B",
+      "support": [
+        "N26-E1"
+      ],
+      "conflicts": [],
+      "note": "N26 단기 반추↓; 역동은 불변"
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "N26",
+      "experiment_id": "N26-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 91,
+      "order": "무관(일상)",
+      "population": "성인(원문 확인)",
+      "stimulus": "하루 8회 × 10일, 짧은 오디오(약 3분)",
+      "outcomes": [
+        "AFFECT",
+        "RUMINATION"
+      ],
+      "result": "마음챙김 후 반추·NA 단기↓; 둘의 역동 관계는 불변",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P16",
+      "experiment_id": "P16-E2",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 114,
+      "order": "무관",
+      "population": "일반 성인(미국)",
+      "stimulus": "매일 5분 × 1개월",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS"
+      ],
+      "result": "불안↓·NA↓; PA·호흡수 개선은 호흡법보다 작음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P14",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [
+        "RUMINATION",
+        "ATTENTION",
+        "OTHER"
+      ],
+      "result": "앱 집단이 대조보다 RNT·주의 조절·탈중심화 개선 경향; 다른 영역은 혼재",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P13",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": null,
+      "stimulus": "8주 프로그램",
+      "outcomes": [
+        "RUMINATION"
+      ],
+      "result": "프로그램 수준 효과(설계 불일치로 등급에 미반영)",
+      "verification": "초록",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "N26: 반추–부정정서 악순환 자체는 약화되지 않음",
+    "P13은 8주 MBCT라 설계 불일치"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "자연 이미지 병행(→ PR-21)",
+    "반추 '치료' 주장"
+  ],
+  "population_validated": [
+    "성인(원문 확인)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: S1 1순위"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-09, 근거 arm 4행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}
