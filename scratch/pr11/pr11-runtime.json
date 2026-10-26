@@ -1,0 +1,163 @@
+{
+  "runtime_schema_version": "1.0",
+  "protocol_id": "PR-11",
+  "source_protocol": "data/protocols/PR-11.json",
+  "ui": {
+    "title": "야외 자연 보행",
+    "show_safety_check": true,
+    "show_self_report": true
+  },
+  "timer": {
+    "recommended_duration_seconds": 3000,
+    "user_duration_options_minutes": [
+      20,
+      50,
+      90
+    ],
+    "default_user_duration_minutes": 50,
+    "display_mode": "PROGRESS_ELAPSED",
+    "progress_max_percent": 100,
+    "show_elapsed_time": true,
+    "show_remaining_time": true,
+    "auto_stop_on_target": false,
+    "continue_elapsed_after_target": true,
+    "clock": "wall_clock_ms",
+    "allow_pause": true,
+    "allow_early_stop": false,
+    "resume_from_local_storage": true,
+    "test_presets_seconds": [
+      30,
+      60
+    ],
+    "selection_mode": "FIXED_RECOMMENDED_PENDING_INTAKE",
+    "user_duration_selection_enabled": false
+  },
+  "safety_check": {
+    "required": true,
+    "items": [
+      "safe_walking_place",
+      "traffic_and_obstacles_checked",
+      "can_adjust_to_condition"
+    ],
+    "request_location_permission": false,
+    "request_sensor_permission": false
+  },
+  "self_report": {
+    "fields": {
+      "walked_outdoors": {
+        "type": "boolean",
+        "required": true
+      },
+      "walked_minutes": {
+        "type": "integer",
+        "minimum": 0,
+        "required": true
+      },
+      "completed_activity": {
+        "type": "boolean",
+        "required": true
+      },
+      "discomfort": {
+        "type": "string",
+        "required": false
+      },
+      "reflection": {
+        "type": "string",
+        "required": false
+      }
+    }
+  },
+  "verification": {
+    "automatic_walking": "disabled",
+    "gps": "disabled",
+    "sensor_steps": "disabled",
+    "self_report_is_not_objective_verification": true
+  },
+  "step_tracking_extension": {
+    "enabled": false,
+    "provider": "DeviceMotionEvent",
+    "permission_requested": false,
+    "estimated_steps": null,
+    "confidence": null,
+    "status": "not_measured"
+  },
+  "storage": {
+    "mode": "browser_local_storage",
+    "key": "lumi.pr11.outdoor.v1",
+    "official_server_record": false
+  },
+  "state_model": {
+    "screen_states": [
+      "INTRO",
+      "ACTIVITY",
+      "REPORT",
+      "RESULT"
+    ],
+    "timer_states": [
+      "READY",
+      "RUNNING",
+      "PAUSED",
+      "STOPPED"
+    ],
+    "transitions": [
+      "READY>RUNNING",
+      "RUNNING>PAUSED",
+      "PAUSED>RUNNING",
+      "RUNNING>STOPPED",
+      "PAUSED>STOPPED"
+    ]
+  },
+  "duration_selection": {
+    "default_minutes": 50,
+    "options": [
+      {
+        "minutes": 20,
+        "when": "limited_time_or_lower_capacity",
+        "evidence_level": "within_protocol_range_not_direct_PR11_duration"
+      },
+      {
+        "minutes": 50,
+        "when": "default",
+        "evidence_level": "direct_PR11_evidence"
+      },
+      {
+        "minutes": 90,
+        "when": "sufficient_time_and_condition",
+        "evidence_level": "direct_evidence_in_N20"
+      }
+    ]
+  },
+  "clock_policy": {
+    "clock_source": "wall_clock_ms",
+    "timestamp_format": "ISO-8601 UTC",
+    "exclude_paused_time": true,
+    "background_callback_guaranteed": false
+  },
+  "recovery": {
+    "on_refresh_running": "PAUSED",
+    "on_refresh_paused": "PAUSED",
+    "resume_requires_user_action": true,
+    "no_action_keeps_paused": true,
+    "safety_stop_available_in": [
+      "RUNNING",
+      "PAUSED"
+    ],
+    "safety_stop_terminal": true,
+    "store_refresh_count": true,
+    "show_refresh_count_to_user": false
+  },
+  "execution_context": {
+    "production_mode": "PROTOCOL_ACTIVITY",
+    "development_presets_seconds": [
+      30,
+      60
+    ],
+    "development_counts_as_protocol_completion": false
+  },
+  "stop_policy": {
+    "general_early_stop_ui": false,
+    "safety_stop_always_allowed": true,
+    "safety_stop_reason": "SAFETY_OR_DISCOMFORT",
+    "record_for_follow_up": true
+  }
+}

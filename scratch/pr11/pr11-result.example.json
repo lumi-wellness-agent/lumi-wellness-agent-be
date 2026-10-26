@@ -1,0 +1,49 @@
+{
+  "record_schema_version": "1.0",
+  "protocol_id": "PR-11",
+  "activity_name": "야외 자연 보행",
+  "timer": {
+    "planned_seconds": 3000,
+    "elapsed_seconds": 2232,
+    "paused_seconds": 120,
+    "normal_time_end": false,
+    "early_stopped": true,
+    "target_reached": false,
+    "timer_status": "STOPPED",
+    "test_mode": false,
+    "pause_count": 1
+  },
+  "user_report": {
+    "walked_outdoors": true,
+    "walked_minutes": 34,
+    "completed_activity": false,
+    "discomfort": "없음",
+    "reflection": "공원 길을 천천히 걸었다."
+  },
+  "verification": {
+    "automatic_walking": "not_performed",
+    "gps": "disabled",
+    "self_report_basis": true
+  },
+  "step_tracking": {
+    "status": "not_measured",
+    "estimated_steps": null,
+    "confidence": null,
+    "sensor": null
+  },
+  "storage": {
+    "source": "browser_local_storage",
+    "official_server_record": false
+  },
+  "execution_context": {
+    "mode": "PROTOCOL_ACTIVITY",
+    "test_mode": false,
+    "counts_as_protocol_completion": true
+  },
+  "stop_reason": "USER_CHOICE",
+  "timestamps": {
+    "started_at": "2026-10-26T08:00:00Z",
+    "ended_at": "2026-10-26T08:37:12Z",
+    "clock_source": "wall_clock_ms"
+  }
+}

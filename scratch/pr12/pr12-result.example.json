@@ -1,0 +1,66 @@
+{
+  "record_schema_version": "1.0",
+  "protocol_id": "PR-12",
+  "activity_name": "자연 속 걷기 + 좋은 것 3가지 알아차리기",
+  "timer": {
+    "planned_seconds": 1800,
+    "elapsed_seconds": 1800,
+    "normal_time_end": true,
+    "early_stopped": false,
+    "target_reached": true,
+    "timer_status": "STOPPED",
+    "test_mode": false
+  },
+  "user_report": {
+    "walked_outdoors": true,
+    "walked_minutes": 30,
+    "completed_activity": true,
+    "discomfort": "",
+    "reflection": ""
+  },
+  "noticing": {
+    "target_count": 3,
+    "recorded_count": 3,
+    "items": [
+      {
+        "id": "notice-1",
+        "text": "햇빛이 비친 나뭇잎",
+        "created_at": "2026-10-26T08:10:00Z",
+        "updated_at": "2026-10-26T08:10:00Z"
+      },
+      {
+        "id": "notice-2",
+        "text": "새소리",
+        "created_at": "2026-10-26T08:15:00Z",
+        "updated_at": "2026-10-26T08:15:00Z"
+      },
+      {
+        "id": "notice-3",
+        "text": "상쾌한 공기",
+        "created_at": "2026-10-26T08:20:00Z",
+        "updated_at": "2026-10-26T08:20:00Z"
+      }
+    ],
+    "recording_phase": "AFTER_ACTIVITY",
+    "minimum_count": 1,
+    "maximum_count": 3,
+    "noticing_completed": true
+  },
+  "verification": {
+    "automatic_walking": "not_performed",
+    "gps": "disabled",
+    "self_report_basis": true
+  },
+  "execution_context": {
+    "test_mode": false,
+    "counts_as_protocol_completion": true
+  },
+  "storage": {
+    "source": "browser_local_storage",
+    "official_server_record": false
+  },
+  "completion": {
+    "noticing_completed": true,
+    "activity_completed": true
+  }
+}

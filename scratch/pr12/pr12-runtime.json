@@ -1,0 +1,100 @@
+{
+  "runtime_schema_version": "1.0",
+  "protocol_id": "PR-12",
+  "source_protocol": "data/protocols/PR-12.json",
+  "timer": {
+    "recommended_duration_seconds": 1800,
+    "display_mode": "PROGRESS_ELAPSED",
+    "progress_max_percent": 100,
+    "show_elapsed_time": true,
+    "show_remaining_time": true,
+    "auto_stop_on_target": false,
+    "continue_elapsed_after_target": true,
+    "allow_pause": true,
+    "allow_early_stop": true,
+    "test_presets_seconds": [
+      30,
+      60
+    ]
+  },
+  "safety_check": {
+    "required": true,
+    "items": [
+      "safe_walking_place",
+      "traffic_and_obstacles_checked",
+      "can_adjust_to_condition"
+    ],
+    "request_location_permission": false,
+    "request_sensor_permission": false
+  },
+  "noticing": {
+    "target_count": 3,
+    "allow_during_activity": false,
+    "allow_after_activity": true,
+    "allow_edit": true,
+    "allow_partial_save": true,
+    "prompts": [
+      "자연에서 보거나 발견한 것",
+      "들린 소리",
+      "몸이나 마음으로 느낀 점",
+      "자연환경에서 인상 깊었던 점"
+    ],
+    "recording_phase": "AFTER_ACTIVITY",
+    "minimum_count": 1,
+    "maximum_count": 3
+  },
+  "self_report": {
+    "fields": {
+      "walked_outdoors": {
+        "type": "boolean",
+        "required": true
+      },
+      "walked_minutes": {
+        "type": "integer",
+        "minimum": 0,
+        "required": true
+      },
+      "completed_activity": {
+        "type": "boolean",
+        "required": true
+      },
+      "discomfort": {
+        "type": "string",
+        "required": false
+      },
+      "reflection": {
+        "type": "string",
+        "required": false
+      }
+    }
+  },
+  "verification": {
+    "automatic_walking": "disabled",
+    "gps": "disabled",
+    "sensor_steps": "disabled",
+    "self_report_is_not_objective_verification": true
+  },
+  "storage": {
+    "mode": "browser_local_storage",
+    "key": "lumi.pr12.noticing.v1",
+    "official_server_record": false
+  },
+  "completion_rules": {
+    "walking_ended": "timer_status == STOPPED",
+    "noticing_completed": "recorded_count >= minimum_count",
+    "wellness_completed": "noticing_completed == true and self_report_saved == true"
+  },
+  "state_model": {
+    "walking_states": [
+      "READY",
+      "RUNNING",
+      "PAUSED",
+      "STOPPED_WALKING"
+    ],
+    "wellness_states": [
+      "NOTICING_INPUT",
+      "REPORT",
+      "COMPLETED"
+    ]
+  }
+}
