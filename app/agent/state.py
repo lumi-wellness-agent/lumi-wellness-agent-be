@@ -9,7 +9,7 @@ state에 새 타입을 넣으면 checkpoint.py의 STATE_TYPES에도 등록한다
 
 import operator
 from enum import StrEnum
-from typing import Annotated, NotRequired, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -75,12 +75,29 @@ class ContentStep(BaseModel):
     optional: bool = False
 
 
+class ActivityAsset(BaseModel):
+    """prepare가 공급자별 응답을 정규화한 콘텐츠 자산 하나."""
+
+    slot: str  # VISUAL_STILL · VISUAL_VIDEO · SOUNDSCAPE · MUSIC · GUIDE_AUDIO · ARTWORK
+    url: str
+    provider: str
+    title: str | None = None
+    creator: str | None = None
+    source_url: str | None = None
+    license: str | None = None
+    generated: bool = False
+    verification: str = "VERIFIED"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ActivityContent(BaseModel):
     """② prepare가 준비한 콘텐츠. FE 플레이어가 그대로 쓴다."""
 
     protocol_id: str
     name: str
     steps: list[ContentStep] = []
+    assets: list[ActivityAsset] = []
+    asset_warnings: list[str] = []
     image_urls: list[str] = []
     guide_text: str = ""
     notice_prompt: str | None = None

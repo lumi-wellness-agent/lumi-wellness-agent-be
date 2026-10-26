@@ -4,7 +4,7 @@
   "protocol_id": "PR-04",
   "name": "자연음 듣기(스트레스 후·과제 전후)",
   "name_en": null,
-  "summary": "자연음 듣기. 약 4분. 매체 NATURE_SOUND. 허용 사용자 상태 POST_STRESS.",
+  "summary": "스트레스 이후 새소리·잔잔한 물소리처럼 검수된 자연음을 약 4분간 듣는다. 화면을 사용하기 어려운 상황에서 시각 프로토콜의 대안으로 제공한다.",
   "goal": "S2",
   "secondary_goals": [
     "S3"
@@ -30,10 +30,13 @@
     ],
     "place": "ANY",
     "quiet_required": true,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "이명·청각 과민이 있거나 특정 자연음에 불편 반응이 있는 경우",
+      "안전상 주변 소리를 들어야 하는 이동·운전 상황"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 자연음 듣기를 약 4분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 잔잔한 자연음을 약 4분 동안 듣습니다. 볼륨을 편안한 수준으로 맞추고, 불편하거나 귀가 피로하면 언제든 멈춰 주세요.",
     "intro_text_ref": "guide/pr04_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -42,18 +45,19 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "NONE",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 자연음 재생 중에는 말이나 음악을 섞지 않는다"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "자연음",
+      "label": "검수된 자연음 듣기",
       "minutes": 4.0,
       "slots": [
         "SOUNDSCAPE"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "새소리·잔잔한 물소리 중 선호와 안전 조건을 통과한 음원 하나를 재생한다"
     }
   ],
   "measures": {
@@ -84,10 +88,79 @@
         "evidence_stimulus": "N14-E1: 암산 스트레스 → 소리 조건 회복(라틴 방진 순서); N16-E1: 사운드스케이프 40개×20초; N18-E1: VR TSST → 회복 조건",
         "source_policy": {
           "curated": "ALLOWED",
-          "generated": "ALLOWED_WITH_FLAG",
+          "generated": "FORBIDDEN",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "FREESOUND",
+          "api_version": "v2",
+          "authentication": "TOKEN",
+          "query_tags": [
+            "birds quiet",
+            "gentle stream",
+            "forest ambience",
+            "soft rain nature"
+          ],
+          "license_allowlist": [
+            "CC0",
+            "CC BY"
+          ],
+          "exclude_query_terms": [
+            "footstep",
+            "walking",
+            "voice",
+            "speech",
+            "music",
+            "thunder",
+            "waterfall",
+            "traffic",
+            "car"
+          ],
+          "required_metadata": [
+            "id",
+            "name",
+            "username",
+            "license",
+            "url",
+            "previews",
+            "duration",
+            "tags"
+          ],
+          "exclude_tags": [
+            "급류",
+            "폭포 근접음",
+            "천둥",
+            "경보음",
+            "사람 목소리",
+            "음악"
+          ],
+          "quality_gate": "INS-SOUND·N15 선호 기준과 수동 청취 검수(클리핑·돌발 고음·반복 경계)를 통과한 음원만"
+        },
+        "render": {
+          "duration_seconds": 240,
+          "loop": "4분보다 짧으면 검수된 무봉제 루프만 허용",
+          "fade_in_seconds": 2,
+          "fade_out_seconds": 2,
+          "volume": "사용자 조절, 안전 상한 적용"
+        },
+        "personalization": {
+          "soundscape": "새소리·물소리·숲·비 중 사용자가 선호한 범주",
+          "avoid": "CareRequest.constraints의 기피 소리와 청각 민감 정보",
+          "default": "선호가 없으면 검수 점수가 높은 잔잔한 숲 소리"
+        },
+        "generation": {
+          "enabled": false,
+          "reason": "생성 자연음의 효과 근거가 없어 Freesound 검수 음원만 사용"
+        },
+        "attribution": {
+          "required": true,
+          "fields": [
+            "title",
+            "creator",
+            "source_url",
+            "license"
+          ]
+        }
       }
     ]
   },
@@ -223,9 +296,9 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
       "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
-      "시트 비고: 소리 선별은 INS-SOUND·N15(새소리 선호)"
+      "N14의 회복기 4분 조건과 결과를 원문으로 재확인",
+      "Freesound 실제 후보 음원의 라이선스·반복 가능성·청취 품질 검수 필요"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-04, 근거 arm 4행",
     "reviewed_by": null,

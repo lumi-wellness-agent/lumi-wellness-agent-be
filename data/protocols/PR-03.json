@@ -4,7 +4,7 @@
   "protocol_id": "PR-03",
   "name": "스트레스 전 자연 장면 보기(예방)",
   "name_en": null,
-  "summary": "스트레스 전 자연 장면 보기. 약 10분. 매체 STATIC_IMAGE. 허용 사용자 상태 PRE_STRESS.",
+  "summary": "발표·면접처럼 예정된 스트레스 상황 전에 자연 장면을 바라본다. 스트레스 이후 회복용 PR-01과 구분해 예방 조건에서만 제공한다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -28,10 +28,13 @@
     ],
     "place": "ANY",
     "quiet_required": false,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "이미 스트레스 사건이 끝난 뒤 회복이 필요한 경우 → PR-01 또는 PR-02 선택",
+      "화면을 볼 수 없는 상황이나 눈의 피로가 심한 경우"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 스트레스 전 자연 장면 보기를 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "예정된 긴장 상황에 들어가기 전 자연 장면을 바라봅니다. 화면을 편안한 밝기로 맞추고, 불편하면 언제든 멈춰 주세요.",
     "intro_text_ref": "guide/pr03_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -40,18 +43,19 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "NONE",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 활동 중에는 별도 소리나 안내를 섞지 않는다"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "자연 장면",
+      "label": "예정된 스트레스 전 자연 장면 감상",
       "minutes": 10.0,
       "slots": [
         "VISUAL_STILL"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "스트레스 사건 이전에 자연 이미지 세트를 조용히 감상한다"
     }
   ],
   "measures": {
@@ -84,7 +88,57 @@
           "generated": "ALLOWED_WITH_FLAG",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "PIXABAY",
+          "endpoint": "IMAGE_SEARCH",
+          "pool": "nature_pre_stress",
+          "query_tags": [
+            "calm nature landscape",
+            "green forest water"
+          ],
+          "include_tags": [
+            "식생",
+            "물",
+            "열린 조망",
+            "안정된 수평선"
+          ],
+          "exclude_tags": [
+            "사람",
+            "문자·로고",
+            "위협 장면",
+            "도시 중심",
+            "과포화 색"
+          ],
+          "quality_gate": "출처·라이선스가 확인되고 위협성·밝기 급변 검수를 통과한 이미지만"
+        },
+        "render": {
+          "duration_minutes": 10,
+          "transition": "FADE",
+          "transition_ms": 1000,
+          "pan_zoom": false,
+          "note": "구체적인 장면 수와 장면별 노출 시간은 원문 확인 전 고정하지 않음"
+        },
+        "personalization": {
+          "scenery": "CareRequest.preferred_scenery",
+          "palette": "CareRequest.preferred_colors − avoided_colors",
+          "accessibility": "reduce_motion이면 전환 수와 밝기 변화를 줄임"
+        },
+        "generation": {
+          "provider": "AI_HORDE",
+          "when": "큐레이션 풀에 선호·제약 조건을 충족하는 장면이 부족할 때만",
+          "prompt_template_ref": "prompts/nature_pre_stress_v1",
+          "style": "사실적 자연 사진",
+          "negative": [
+            "사람",
+            "문자",
+            "도시 중심",
+            "위협 동물",
+            "초현실 색"
+          ],
+          "timing": "세션 시작 전 비동기 생성·검수 완료. 세션 중 생성 금지",
+          "fallback": "생성 실패·대기 초과·검수 실패 시 검수된 큐레이션 이미지 사용",
+          "verification": "UNVERIFIED"
+        }
       }
     ]
   },
@@ -167,9 +221,9 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
       "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)",
-      "시트 비고: 발표·면접 직전처럼 스트레스가 예정된 경우에만 추천"
+      "P28-E1의 장면 수·제시 시간과 자연 장면 구성 원문 확인",
+      "AI 생성 이미지는 연구 자극과 동등하지 않으므로 실제 자산 검수 필요"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-03, 근거 arm 1행",
     "reviewed_by": null,

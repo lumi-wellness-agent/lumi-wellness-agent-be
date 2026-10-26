@@ -139,7 +139,7 @@ Python 3.12 이상이 필요합니다.
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
-cp .env.example .env    # DATABASE_URL · OPENAI_API_KEY(· 폴백 ANTHROPIC_API_KEY) 채우기 (비워 두면 DB·LLM 없이 뜬다)
+cp .env.example .env    # DB·LLM 키와 필요한 콘텐츠 공급자 키를 채운다(비운 공급자는 비활성화)
 make run                # http://127.0.0.1:8000/health
 ```
 
@@ -234,6 +234,7 @@ FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나�
 | Python | 3.12 · `.python-version` | CI와 같은 버전 |
 | `DATABASE_URL` | Transaction pooler(포트 6543) | 서버리스 함수라서(위 연결 방식 표). 로컬 `.env`의 Session pooler 주소와 포트만 다르다 |
 | `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | `.env`와 같은 값 | 폴백 키는 비워 둬도 된다 |
+| `PIXABAY_API_KEY` · `FREESOUND_API_KEY` · `AI_HORDE_API_KEY` | `.env`와 같은 값 | A 콘텐츠 공급자. 비운 공급자는 호출하지 않는다 |
 
 환경 변수는 Vercel 프로젝트의 Settings → Environment Variables에 넣고, 바꾼 뒤에는 다시 배포해야 반영됩니다.
 배포한 뒤 `https://<배포 주소>/health/db`가 200이면 DB 연결·확장·체크포인트 테이블이 준비된 것입니다.
@@ -281,7 +282,7 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 ```text
 app/
 ├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다)
-├─ config.py            .env 설정 (DATABASE_URL · OPENAI_API_KEY · LLM_MODEL · EMBEDDING_MODEL · 폴백 ANTHROPIC_API_KEY)
+├─ config.py            .env 설정 (DB · LLM/임베딩 · A 콘텐츠 공급자 키와 제한 시간)
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ schemas/             care(요청·프로필) · measure(측정) · evidence · protocol(활동 노드) · retrieval(도구 출력)

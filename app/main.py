@@ -7,8 +7,10 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.agent.checkpoint import (
     create_checkpoint_pool,
@@ -47,3 +49,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="lumi-wellness-agent-be", lifespan=lifespan)
 app.include_router(router)
+app.mount(
+    "/assets",
+    StaticFiles(directory=Path(__file__).resolve().parent / "static"),
+    name="assets",
+)

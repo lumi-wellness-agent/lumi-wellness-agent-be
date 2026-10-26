@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     fallback_model: str = "claude-haiku-5-5"
 
+    # A 담당 콘텐츠 공급자. 키가 비어 있으면 해당 공급자를 호출하지 않는다.
+    pixabay_api_key: str = ""
+    freesound_api_key: str = ""
+    ai_horde_api_key: str = ""
+    # 콘텐츠 검색은 짧게 실패시키고, AI Horde 생성 폴링만 별도 상한을 둔다.
+    content_request_timeout_seconds: float = 10.0
+    ai_horde_poll_timeout_seconds: float = 60.0
+
 
 @lru_cache
 def get_settings() -> Settings:
