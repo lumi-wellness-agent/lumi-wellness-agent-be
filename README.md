@@ -263,7 +263,7 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 ```text
 app/
 ├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다)
-├─ config.py            .env 설정 (DATABASE_URL · OPENAI_API_KEY · LLM_MODEL · 폴백 ANTHROPIC_API_KEY)
+├─ config.py            .env 설정 (DATABASE_URL · OPENAI_API_KEY · LLM_MODEL · EMBEDDING_MODEL · 폴백 ANTHROPIC_API_KEY)
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ schemas/             care(요청·프로필) · measure(측정) · evidence · protocol(활동 노드) · retrieval(도구 출력)

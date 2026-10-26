@@ -23,3 +23,6 @@ dist/
 .agents/skills/source-command-*/
 # 로컬 IDE MCP 연결 (개인 환경 전용)
 .mcp.json
+
+# 근거 적재 검토 목록 — scripts/seed_evidence.py가 만든다
+evidence_review.csv

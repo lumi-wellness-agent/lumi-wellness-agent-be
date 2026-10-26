@@ -1,0 +1,225 @@
+{
+  "P24-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "PA",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.010"
+      },
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "NA",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.003"
+      },
+      {
+        "outcome": "RUMINATION",
+        "effect": "POSITIVE",
+        "measure": "state rumination",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.037"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "salivary cortisol",
+        "comparison": "자연 vs 도시 집단 차이"
+      }
+    ]
+  },
+  "P33-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "RUMINATION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "state rumination",
+        "comparison": "자연 vs 도시 vs 대기"
+      },
+      {
+        "outcome": "AFFECT",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "negative mood",
+        "comparison": "자연 vs 도시 vs 대기"
+      },
+      {
+        "outcome": "OTHER",
+        "effect": "POSITIVE",
+        "measure": "perceived restorativeness (being away, fascination)",
+        "comparison": "자연 vs 도시"
+      }
+    ]
+  },
+  "P03-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "SART",
+        "comparison": "회복적 vs 비회복적·기하 사진",
+        "timepoint": "직후"
+      }
+    ],
+    "exposure_minutes": 6.25
+  },
+  "P05-E2": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 vs 도시 사진",
+        "timepoint": "직후"
+      }
+    ]
+  },
+  "N19-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SART",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "note": "재현 실패(회복 효과 불안정)"
+      }
+    ]
+  },
+  "N24": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "POSITIVE",
+        "comparison": "디지털 자연 노출(통합)",
+        "stat": "디지털 = 실제 자연, SMD −0.01"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "UNCLEAR",
+        "comparison": "디지털 자연 노출(통합)",
+        "note": "[fixture] 통합 효과 방향은 원문 확인 전"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "VR"
+    ]
+  },
+  "P01": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "comparison": "자연 vs 비자연 환경(통합)"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "OUTDOOR_WALK"
+    ]
+  },
+  "P04": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "comparison": "자연 vs 비자연 노출(통합)",
+        "note": "노출 시간이 효과를 비선형으로 조절"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "OUTDOOR_WALK"
+    ]
+  },
+  "P25-E1": {
+    "_why": "시트 결과 '공포 회복·여러 지표에서 6개 환경 간 비유의'와 비고 'PR-02 생리 상충'",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "ZIPERS",
+        "comparison": "6개 환경 간",
+        "note": "공포 회복·여러 지표에서 6개 환경 간 비유의"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SCR·PEP·RMSSD·RSA",
+        "comparison": "6개 환경 간",
+        "note": "공포 회복·여러 지표에서 6개 환경 간 비유의"
+      }
+    ]
+  },
+  "N18-E1": {
+    "_why": "arm 표기 '숲 VR+소리' — 연구 자극은 VR과 자연음이다(evidence.py Medium 설명의 예). 프로토콜에서 가져오면 PR-02의 VIDEO가 된다",
+    "media": [
+      "VR",
+      "NATURE_SOUND"
+    ]
+  },
+  "E09-E1": {
+    "_why": "시트 결과 '코르티솔 음악 조건이 가장 높음'은 가설과 반대 방향이다(evidence.py Effect.NEGATIVE의 예)",
+    "results": [
+      {
+        "outcome": "PHYSIO",
+        "effect": "NEGATIVE",
+        "measure": "코르티솔",
+        "comparison": "음악 vs 물소리·휴식",
+        "note": "코르티솔 음악 조건이 가장 높음"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "POSITIVE",
+        "measure": "sAA",
+        "note": "sAA 기저 회복은 빠름"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "HR",
+        "note": "HR·주관 지표 차이 없음"
+      },
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "주관 스트레스·불안",
+        "note": "HR·주관 지표 차이 없음"
+      }
+    ]
+  },
+  "E10-E1": {
+    "_why": "정서 명명 과제. PR-16(단계 모듈)은 매체가 없어 프로토콜에서 못 가져온다 — Medium.NOTICING의 예(E10)",
+    "media": [
+      "NOTICING"
+    ]
+  },
+  "E12-E1": {
+    "_why": "PR-19가 인용하는 조건(세 가지 좋은 일)은 효과 없음 — 시트 결과와 비고 'PR-19 상충'",
+    "results": [
+      {
+        "outcome": "OTHER",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "행복·우울",
+        "comparison": "세 가지 좋은 일 vs 위약",
+        "note": "세 가지 좋은 일·웃긴 일 효과 없음; 코핑 유머만 유의"
+      }
+    ]
+  }
+}
