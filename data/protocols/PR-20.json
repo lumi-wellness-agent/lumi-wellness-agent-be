@@ -4,7 +4,7 @@
   "protocol_id": "PR-20",
   "name": "온라인 예술 감상 1–2분",
   "name_en": null,
-  "summary": "온라인 예술 감상 1–2분. 약 1분. 매체 ART_VIEWING. 허용 사용자 상태 NO_INDUCTION.",
+  "summary": "온라인 미술 작품 한 점을 1–2분간 자유롭게 감상한다. 일반적인 짧은 멈춤 효과로만 설명하며 예술 고유의 치료 효과를 주장하지 않는다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -28,10 +28,13 @@
     ],
     "place": "ANY",
     "quiet_required": false,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "화면을 보기 어렵거나 시각적 자극이 부담스러운 경우",
+      "작품의 주제나 표현이 불편하다고 느껴지는 경우"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 온라인 예술 감상 1–2분을 약 1분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 미술 작품 한 점을 1–2분 동안 천천히 바라봅니다. 정답을 찾거나 해석할 필요는 없으며, 불편하면 언제든 다른 작품으로 바꾸거나 멈춰 주세요.",
     "intro_text_ref": "guide/pr20_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -40,18 +43,19 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "NONE",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 예술 특이적 치료 효과를 암시하지 않는다"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "작품 감상 1–2분",
+      "label": "미술 작품 한 점 감상",
       "minutes": 1.0,
       "slots": [
         "ARTWORK"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "공개 도메인으로 확인된 작품 한 점과 최소 메타데이터를 함께 제공한다"
     }
   ],
   "measures": {
@@ -81,10 +85,75 @@
         "evidence_stimulus": "E06-E1: 온라인 전시 1–2분; E07-E1: 모네 작품 감상",
         "source_policy": {
           "curated": "ALLOWED",
-          "generated": "ALLOWED_WITH_FLAG",
+          "generated": "FORBIDDEN",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "ART_INSTITUTE_OF_CHICAGO",
+          "endpoint": "ARTWORK_SEARCH",
+          "image_delivery": "IIIF_IMAGE_API_V2",
+          "filters": {
+            "is_public_domain": true,
+            "has_image_id": true
+          },
+          "required_metadata": [
+            "id",
+            "title",
+            "artist_display",
+            "date_display",
+            "image_id",
+            "is_public_domain",
+            "copyright_notice"
+          ],
+          "include_tags": [
+            "nature",
+            "landscape",
+            "garden",
+            "water",
+            "calm"
+          ],
+          "exclude_tags": [
+            "폭력",
+            "죽음",
+            "위협",
+            "선정적 표현",
+            "강한 섬광 효과"
+          ],
+          "quality_gate": "is_public_domain=true이고 image_id가 있으며 작품 주제와 메타데이터를 사람이 검수한 항목만"
+        },
+        "render": {
+          "duration_seconds": {
+            "default": 60,
+            "min": 60,
+            "max": 120
+          },
+          "iiif_size": "843,",
+          "zoom": false,
+          "show_metadata": [
+            "title",
+            "artist_display",
+            "date_display",
+            "source"
+          ]
+        },
+        "personalization": {
+          "subject": "사용자가 선택한 자연·풍경·정원·물 테마",
+          "avoid": "CareRequest.constraints의 불편 주제",
+          "fallback": "선호가 없으면 검수된 중립적 풍경 작품"
+        },
+        "generation": {
+          "enabled": false,
+          "reason": "PR-20은 미술관의 공개 도메인 작품 감상으로 한정"
+        },
+        "attribution": {
+          "required": true,
+          "fields": [
+            "title",
+            "artist_display",
+            "source_url",
+            "copyright_notice"
+          ]
+        }
       }
     ]
   },
@@ -184,8 +253,8 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: '잠깐 멈춤' 효과로만 설명"
+      "Art Institute of Chicago API의 실제 작품 후보를 공개 도메인·주제 기준으로 검수 필요",
+      "Reference 카드에 예술 특이 효과가 아니라 '잠깐 멈춤' 효과로 표시되는지 통합 검수 필요"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-20, 근거 arm 2행",
     "reviewed_by": null,

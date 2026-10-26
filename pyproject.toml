@@ -21,12 +21,12 @@ dependencies = [
     # 폴백 Anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5). 재시도·폴백 규칙은 app/agent/llm.py
     "langchain-openai>=1.7",
     "langchain-anthropic>=1.7",
+    # A 콘텐츠 공급자(Pixabay · Freesound · AI Horde · Art Institute) HTTP 호출
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
-    # FastAPI TestClient가 쓴다
-    "httpx>=0.27",
     "pytest>=8",
     "ruff>=0.6",
 ]

@@ -111,7 +111,13 @@
           "user_upload": "FORBIDDEN"
         },
         "selection": {
+          "provider": "PIXABAY",
+          "endpoint": "IMAGE_SEARCH",
           "pool": "nature_restorative",
+          "query_tags": [
+            "calm forest water",
+            "green nature landscape"
+          ],
           "include_tags": [
             "물",
             "식생",
@@ -143,6 +149,7 @@
           }
         },
         "generation": {
+          "provider": "AI_HORDE",
           "when": "CareRequest.content_type == AI_IMAGE 또는 큐레이션 풀에 조건 일치 이미지가 부족할 때",
           "prompt_template_ref": "prompts/nature_still_v1",
           "style": "사실적 사진",
@@ -154,6 +161,14 @@
             "초현실 색"
           ],
           "timing": "세션 시작 전 prepare에서 일괄 생성·검수. 세션 중 생성 금지",
+          "delivery": "비동기 생성 완료 후 서버 저장소에 보관한 URL만 사용",
+          "provenance": [
+            "provider",
+            "model",
+            "prompt_template_ref",
+            "generated_at"
+          ],
+          "fallback": "생성 실패·대기 초과·검수 실패 시 nature_restorative 큐레이션 풀 사용",
           "verification": "UNVERIFIED",
           "reference_card_note": "AI 생성 이미지와 연구 사진 자극의 효과 동등성은 미검증(N24는 사진·영상·360° 등 실제 디지털 자연만 포함)"
         }
@@ -161,6 +176,7 @@
       {
         "slot": "NOTICE_PROMPT",
         "required": false,
+        "evidence_stimulus": "E10의 정서 명명 원리를 참고한 선택 단계이며 자연 사진 중재 효과 근거로 사용하지 않음",
         "text_ref": "notice/one_word_feeling_ko",
         "source_policy": {
           "fixed_text": "ALLOWED",

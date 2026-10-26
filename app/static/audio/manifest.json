@@ -1,0 +1,91 @@
+{
+  "audio/pr05_miserere_cc_by_sa_v1": {
+    "url": "/assets/audio/pr05/allegri-miserere-cantores-carmeli-linz-2006.mp3",
+    "title": "Miserere mei, Deus",
+    "creator": "Cantores Carmeli Linz; Michael Stenov (director)",
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": "https://imslp.org/wiki/Miserere_(Allegri,_Gregorio)#Recordings",
+    "license": "CC BY-SA 4.0",
+    "verification": "VERIFIED",
+    "metadata": {
+      "composer": "Gregorio Allegri",
+      "recording_year": 2006,
+      "venue": "Karmelitenkirche Linz",
+      "imslp_index": 577802,
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "original_duration_seconds": 644,
+      "playback_start_seconds": 0,
+      "playback_duration_seconds": 600,
+      "file_bytes": 10303657,
+      "sha256": "A9733325D72DD56E07707100960BCBD9A83442ED0B94D3A7CDFA938400AF3757",
+      "evidence_relation": "ADAPTED_STIMULUS",
+      "technical_review": "DECODE_OK",
+      "listening_review": "PENDING_TEAM_REVIEW",
+      "adaptation_note": "E09에서 사용한 Tallis Scholars 녹음 대신 재배포 가능한 대체 연주를 사용하며 앱은 처음 600초에서 재생을 종료한다."
+    }
+  },
+  "audio/pr05_mozart_k448_cc_by_sa_v1": {
+    "url": "/assets/audio/pr05/mozart-k448-first-10min.mp3",
+    "title": "Sonata for Two Pianos in D major, K.448 (first 10 minutes)",
+    "creator": "NoNameTheAnt (synthesized piano performance)",
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": "https://imslp.org/wiki/Sonata_for_2_Pianos%2C_K.448_%28Mozart%2C_Wolfgang_Amadeus%29#Synthesized/MIDI",
+    "license": "CC BY-SA 4.0",
+    "verification": "VERIFIED",
+    "metadata": {
+      "composer": "Wolfgang Amadeus Mozart",
+      "recording_year": 2023,
+      "imslp_index": 885399,
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "original_duration_seconds": 1540,
+      "playback_start_seconds": 0,
+      "playback_duration_seconds": 600,
+      "file_bytes": 9600812,
+      "sha256": "A394717A7D5A396207E113AEF9BE0AAAFC97ADE141ADC84D5A2968F233DFF0D2",
+      "evidence_relation": "ADAPTED_STIMULUS",
+      "technical_review": "DECODE_OK",
+      "listening_review": "PENDING_TEAM_REVIEW",
+      "adaptation_note": "E08에 포함된 Mozart K.448 자극과 같은 작품이지만 해당 연구의 연주본이 아닌 재배포 가능한 합성 연주이며, 처음 600초를 128 kbps MP3로 다시 인코딩했다."
+    }
+  },
+  "audio/pr05_vivaldi_spring_cc_by_sa_v1": {
+    "url": "/assets/audio/pr05/vivaldi-spring-first-10min.mp3",
+    "title": "The Four Seasons: Spring (first 10 minutes)",
+    "creator": "John Harrison; Wichita State University Chamber Players; Robert Turizziani (conductor)",
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": "https://imslp.org/wiki/Violin_Concerto_in_E_major%2C_RV_269_%28Vivaldi%2C_Antonio%29#Recordings",
+    "license": "CC BY-SA 4.0",
+    "verification": "VERIFIED",
+    "metadata": {
+      "composer": "Antonio Vivaldi",
+      "recording_year": 2000,
+      "imslp_indexes": [
+        520727,
+        520736,
+        520729
+      ],
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "original_duration_seconds": 641,
+      "playback_start_seconds": 0,
+      "playback_duration_seconds": 600,
+      "file_bytes": 9600812,
+      "sha256": "993BE445CB24A1B029DC84BF972291C4CD93FE1BEBE315F6973B3CF8FBD37736",
+      "evidence_relation": "ADAPTED_STIMULUS",
+      "technical_review": "DECODE_OK",
+      "listening_review": "PENDING_TEAM_REVIEW",
+      "adaptation_note": "E08의 Pachelbel/Vivaldi 연구 자극과 관련된 작품이다. 세 악장을 순서대로 연결하고 처음 600초를 128 kbps MP3로 다시 인코딩했으며 원 연구의 녹음본과는 다르다."
+    }
+  },
+  "audio/pr21_meditation_ko_v1": {
+    "url": "/assets/audio/pr21/korean-complete.mp3",
+    "title": "PR-21 한국어 고정 안내 명상",
+    "provider": "CURATED_ASSET_LIBRARY",
+    "license": "USER_PROVIDED_NONCOMMERCIAL",
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "duration_seconds": 952,
+      "bitrate_kbps": 192,
+      "sha256": "A80143695BD4D849152E3B51D2D8A3210152EC2A419772B7EC6549585169DBD2"
+    }
+  }
+}

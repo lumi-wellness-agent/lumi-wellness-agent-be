@@ -1,9 +1,7 @@
 """② Care Session Executor — 계획한 활동의 콘텐츠를 준비하고, 사용자가 실행을 마칠 때까지 기다린다.
 
-- prepare_session: 프로토콜(data/protocols)의 steps · guide로 ActivityContent를 만든다. 이미지 ·
-  안내 음성 · Reference 카드(app/content, app/agent/reference_card.py)는 아직 붙이지 않았다 —
-  통합 담당이 plan과 함께 붙인다. 생성 콘텐츠는 UNVERIFIED로 표시한다
-  (content_spec.slots[].generation).
+- prepare_session: 프로토콜(data/protocols)의 steps · guide와 app/content가 준비한 자산으로
+  ActivityContent를 만든다. 생성 콘텐츠는 UNVERIFIED로 표시한다.
 - run_session: interrupt로 멈춘다. FE 플레이어가 프로토콜 1개를 실행하고(선택 NOTICE 단계 포함),
   끝나면 SessionReport로 재개한다. 점수는 여기서 받지 않는다 — measure_post가 잰다.
 
@@ -14,6 +12,7 @@ interrupt가 있는 노드는 재개될 때 처음부터 다시 실행된다. �
 from langgraph.types import interrupt
 
 from app.agent.state import ActivityContent, CareState, ContentStep, SessionReport
+from app.content import resolve_activity_assets
 from app.protocols import get_protocol
 from app.schemas.protocol import StepType
 
@@ -33,11 +32,14 @@ def prepare_session(state: CareState) -> dict:
     if len(activity_steps) == 1:  # ACTIVITY 하나면 계획한 시간으로 맞춘다
         activity_steps[0].minutes = activity.minutes
     notice = next((s.label for s in protocol.steps if s.type is StepType.NOTICE), None)
-    # TODO(통합): app/content로 이미지·안내 음성을 만들고 Reference 카드를 붙인다
+    resolution = resolve_activity_assets(protocol, state["request"])
     content = ActivityContent(
         protocol_id=protocol.protocol_id,
         name=protocol.name,
         steps=steps,
+        assets=resolution.assets,
+        asset_warnings=resolution.warnings,
+        image_urls=[a.url for a in resolution.assets if a.slot in {"VISUAL_STILL", "ARTWORK"}],
         guide_text=protocol.guide.intro_text or "",
         notice_prompt=notice,
     )
