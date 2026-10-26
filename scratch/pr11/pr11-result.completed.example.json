@@ -1,0 +1,17 @@
+{
+  "record_schema_version": "1.0",
+  "protocol_id": "PR-11",
+  "activity_name": "야외 자연 보행",
+  "selected_duration_option": "PR11-50",
+  "phase_history": [{"event": "PRE_ACTIVITY_CHECK_CONFIRMED", "at": "2026-10-26T08:00:00Z"}, {"event": "ACTIVITY_STARTED", "at": "2026-10-26T08:00:01Z"}, {"event": "TARGET_REACHED", "at": "2026-10-26T08:50:00Z"}, {"event": "COMPLETED", "at": "2026-10-26T08:50:03Z"}],
+  "terminal_phase": "COMPLETED",
+  "pre_activity_check": {"walking_environment": true, "body_condition": true},
+  "timer": {"planned_seconds": 3000, "elapsed_seconds": 3000, "paused_seconds": 0, "normal_time_end": true, "early_stopped": false, "target_reached": true, "timer_status": "STOPPED", "test_mode": false, "pause_count": 1},
+  "completion": {"status": "COMPLETED", "user_action": "DONE_BUTTON", "confirmed": true},
+  "verification": {"automatic_walking": "not_performed", "gps": "disabled", "self_report_basis": false},
+  "step_tracking": {"status": "not_measured", "estimated_steps": null, "confidence": null, "sensor": null},
+  "execution_context": {"mode": "PROTOCOL_ACTIVITY", "test_mode": false, "counts_as_protocol_completion": true},
+  "stop_reason": null,
+  "timestamps": {"started_at": "2026-10-26T08:00:00Z", "ended_at": "2026-10-26T08:50:00Z", "clock_source": "wall_clock_ms"},
+  "storage": {"source": "browser_local_storage", "official_server_record": false}
+}

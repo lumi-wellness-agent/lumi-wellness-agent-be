@@ -5,7 +5,7 @@
   "ui": {
     "title": "야외 자연 보행",
     "show_safety_check": true,
-    "show_self_report": true
+    "show_self_report": false
   },
   "timer": {
     "recommended_duration_seconds": 3000,
@@ -32,17 +32,38 @@
     "selection_mode": "FIXED_RECOMMENDED_PENDING_INTAKE",
     "user_duration_selection_enabled": false
   },
+  "duration_options": {
+    "PR11-20": {"minutes": 20, "planned_seconds": 1200},
+    "PR11-50": {"minutes": 50, "planned_seconds": 3000},
+    "PR11-90": {"minutes": 90, "planned_seconds": 5400}
+  },
+  "duration_input": {
+    "field": "selected_duration_option",
+    "allowed_values": ["PR11-20", "PR11-50", "PR11-90"],
+    "default": "PR11-50",
+    "user_override": false
+  },
   "safety_check": {
     "required": true,
+    "mode": "USER_SELF_CONFIRMATION",
+    "all_required": true,
     "items": [
-      "safe_walking_place",
-      "traffic_and_obstacles_checked",
-      "can_adjust_to_condition"
+      "walking_environment",
+      "body_condition"
     ],
+    "labels": {
+      "walking_environment": "현재 보행할 장소와 경로가 충분히 안전합니다.",
+      "body_condition": "현재 몸 상태로 이 활동을 진행할 수 있습니다."
+    },
+    "initial_value": false,
+    "start_enabled_when": "all_items_true",
+    "does_not_certify_safety": true,
     "request_location_permission": false,
     "request_sensor_permission": false
   },
   "self_report": {
+    "enabled": false,
+    "deferred_to_team_review": true,
     "fields": {
       "walked_outdoors": {
         "type": "boolean",
@@ -111,19 +132,22 @@
     "default_minutes": 50,
     "options": [
       {
-        "minutes": 20,
+      "minutes": 20,
         "when": "limited_time_or_lower_capacity",
-        "evidence_level": "within_protocol_range_not_direct_PR11_duration"
+        "evidence_level": "within_protocol_range_not_direct_PR11_duration",
+        "exposed_in_ui": false
       },
       {
         "minutes": 50,
         "when": "default",
-        "evidence_level": "direct_PR11_evidence"
+        "evidence_level": "direct_PR11_evidence",
+        "exposed_in_ui": true
       },
       {
         "minutes": 90,
         "when": "sufficient_time_and_condition",
-        "evidence_level": "direct_evidence_in_N20"
+        "evidence_level": "direct_evidence_in_N20",
+        "exposed_in_ui": false
       }
     ]
   },
@@ -154,10 +178,30 @@
     ],
     "development_counts_as_protocol_completion": false
   },
+  "content_validation": {
+    "required_slots": ["INTRO_GUIDE", "TARGET_REACHED_GUIDE", "STOP_CONFIRMATION", "LIMITATION_NOTICE"],
+    "missing_required_slot": "SHOW_ERROR_AND_BLOCK_START",
+    "missing_text_with_fallback": "USE_FALLBACK_TEXT",
+    "missing_optional_slot": "HIDE_AND_LOG_SLOT",
+    "error_text": "안내 문구를 불러오지 못했습니다. 활동을 시작하지 말고 잠시 후 다시 시도해 주세요."
+  },
+  "phase_history_policy": {
+    "record_events": ["PRE_ACTIVITY_CHECK_CONFIRMED", "ACTIVITY_STARTED", "PAUSED", "RESUMED", "TARGET_REACHED", "COMPLETED", "STOPPED"],
+    "pause_recording": "FIRST_PAUSE_ONLY_UNTIL_RESUME",
+    "refresh_pause_same_as_manual_pause": true,
+    "cancelled_popup_recorded": false,
+    "paused_seconds": "NOT_IMPLEMENTED"
+  },
+  "post_activity_report": {
+    "enabled": false,
+    "planned_when": "NORMAL_COMPLETION_ONLY"
+  },
   "stop_policy": {
     "general_early_stop_ui": false,
     "safety_stop_always_allowed": true,
     "safety_stop_reason": "SAFETY_OR_DISCOMFORT",
-    "record_for_follow_up": true
+    "record_for_follow_up": true,
+    "allowed_stop_reasons": ["SAFETY", "DISCOMFORT"],
+    "user_choice_before_target": "FORBIDDEN"
   }
 }

@@ -9,7 +9,7 @@
     "show_elapsed_time": true,
     "show_remaining_time": true,
     "auto_stop_on_target": false,
-    "continue_elapsed_after_target": true,
+    "continue_elapsed_after_target": false,
     "allow_pause": true,
     "allow_early_stop": true,
     "test_presets_seconds": [
@@ -19,13 +19,53 @@
   },
   "safety_check": {
     "required": true,
+    "mode": "USER_SELF_CONFIRMATION",
     "items": [
-      "safe_walking_place",
-      "traffic_and_obstacles_checked",
-      "can_adjust_to_condition"
+      "walking_environment",
+      "body_condition"
     ],
+    "labels": {
+      "walking_environment": "현재 보행할 장소와 경로가 충분히 안전합니다.",
+      "body_condition": "현재 몸 상태로 이 활동을 진행할 수 있습니다."
+    },
+    "initial_value": false,
+    "start_enabled_when": "all_items_true",
+    "does_not_certify_safety": true,
     "request_location_permission": false,
     "request_sensor_permission": false
+  },
+  "content_validation": {
+    "required_slots": ["INTRO_GUIDE", "TARGET_REACHED_GUIDE", "STOP_CONFIRMATION", "LIMITATION_NOTICE"],
+    "missing_required_slot": "SHOW_ERROR_AND_BLOCK_START",
+    "missing_optional_slot": "HIDE_AND_LOG_SLOT",
+    "error_text": "안내 문구를 불러오지 못했습니다. 활동을 시작하지 말고 잠시 후 다시 시도해 주세요."
+  },
+  "duration_input": {
+    "field": "selected_duration_option",
+    "allowed_values": ["PR12-30"],
+    "default": "PR12-30",
+    "options": {"PR12-30": {"minutes": 30, "planned_seconds": 1800}},
+    "user_override": false
+  },
+  "tts_policy": {
+    "play_once_at": ["PROGRESS_0", "PROGRESS_25", "PROGRESS_50", "PROGRESS_75", "PROGRESS_100"],
+    "on_failure": "CONSOLE_WARN_ONLY",
+    "user_error_message": false
+  },
+  "voice_guide": {
+    "milestones": {
+      "0": "자연 속을 편안하게 걸으며 주변을 살펴보세요.",
+      "25": "주변에서 눈에 띄는 좋은 것을 하나 찾아보세요.",
+      "50": "걸음을 이어가며 지금 느껴지는 좋은 점을 알아차려 보세요.",
+      "75": "조금 더 걸은 뒤 기억에 남는 좋은 것을 기록해 보세요.",
+      "100": "보행 시간이 끝났습니다. 다음 단계에서 알아차린 내용을 기록해 주세요."
+    },
+    "source_policy": {"fixed_text": "ALLOWED", "llm_rewrite": "FORBIDDEN"}
+  },
+  "phase_history_policy": {
+    "record_events": ["PRE_ACTIVITY_CHECK_CONFIRMED", "ACTIVITY_STARTED", "PAUSED", "RESUMED", "TARGET_REACHED", "NOTICING_INPUT", "REPORT_STARTED", "COMPLETED", "STOPPED"],
+    "cancelled_popup_recorded": false,
+    "paused_seconds": "NOT_IMPLEMENTED"
   },
   "noticing": {
     "target_count": 3,
@@ -80,9 +120,10 @@
     "official_server_record": false
   },
   "completion_rules": {
-    "walking_ended": "timer_status == STOPPED",
+    "walking_ended": "target_reached == true and timer_status == STOPPED",
     "noticing_completed": "recorded_count >= minimum_count",
-    "wellness_completed": "noticing_completed == true and self_report_saved == true"
+    "self_report_saved": "noticing_report_saved == true",
+    "wellness_completed": "walking_ended == true and noticing_completed == true and noticing_report_saved == true"
   },
   "state_model": {
     "walking_states": [

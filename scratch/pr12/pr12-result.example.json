@@ -1,6 +1,7 @@
 {
   "record_schema_version": "1.0",
   "protocol_id": "PR-12",
+  "selected_duration_option": "PR12-30",
   "activity_name": "자연 속 걷기 + 좋은 것 3가지 알아차리기",
   "timer": {
     "planned_seconds": 1800,
@@ -46,6 +47,18 @@
     "maximum_count": 3,
     "noticing_completed": true
   },
+  "pre_activity_check": {
+    "walking_environment": true,
+    "body_condition": true
+  },
+  "phase_history": [
+    {"event": "PRE_ACTIVITY_CHECK_CONFIRMED", "at": "2026-10-26T08:00:00Z"},
+    {"event": "ACTIVITY_STARTED", "at": "2026-10-26T08:00:05Z"},
+    {"event": "TARGET_REACHED", "at": "2026-10-26T08:30:05Z"},
+    {"event": "NOTICING_INPUT", "at": "2026-10-26T08:30:10Z"},
+    {"event": "REPORT_STARTED", "at": "2026-10-26T08:31:00Z"},
+    {"event": "COMPLETED", "at": "2026-10-26T08:31:00Z"}
+  ],
   "verification": {
     "automatic_walking": "not_performed",
     "gps": "disabled",
