@@ -135,8 +135,11 @@ def rrf_score(*ranks: int | None) -> float:
     return sum(1 / (RRF_K + rank) for rank in ranks if rank is not None)
 
 
-def to_hit(row: dict[str, Any], score: float) -> EvidenceHit:
-    """SEARCH_SQL 한 행 → EvidenceHit. metadata(jsonb)는 EvidenceMetadata로 다시 검증된다."""
+def to_hit(row: dict[str, Any], score: float = 0.0) -> EvidenceHit:
+    """레코드 + 논문 한 행 → EvidenceHit. metadata(jsonb)는 EvidenceMetadata로 다시 검증된다.
+
+    검색 밖에서 읽은 행(validation.validate)은 순위 열이 없고 score는 0이다.
+    """
     return EvidenceHit(
         evidence_record_id=row["id"],
         paper=PaperRef(
@@ -154,8 +157,8 @@ def to_hit(row: dict[str, Any], score: float) -> EvidenceHit:
         excerpt=row["content"],
         metadata=row["metadata"],
         score=score,
-        dense_rank=row["dense_rank"],
-        keyword_rank=row["keyword_rank"],
+        dense_rank=row.get("dense_rank"),
+        keyword_rank=row.get("keyword_rank"),
     )
 
 
