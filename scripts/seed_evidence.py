@@ -15,8 +15,9 @@
 - data/evidence_overrides.json이 시트에서 정한 값을 필드 단위로 덮어쓴다(사람이 원문으로 확정한 값).
   키는 experiment_id, arm이 없는 레코드(메타·관찰)는 paper_id. `_why`에 근거를 적는다.
 - 사람이 확인할 항목은 --review CSV에 남긴다. dry-run은 DB·임베딩 없이 건수와 이 파일만 만든다.
-- 임베딩은 설정의 embedding_model(OpenAI)로 만든다. 입력은 논문 제목 + 메타데이터의 영어 라벨
-  한 줄 + content다. content가 한국어 요약이라 영어 질의와 멀어서 붙인다(저장하는 content는 그대로).
+- 임베딩은 검색과 같은 클라이언트(app/retrieval/embedding.py)가 설정의 embedding_model(OpenAI)로
+  만든다. 입력은 논문 제목 + 메타데이터의 영어 라벨 한 줄 + content다. content가 한국어 요약이라
+  영어 질의와 멀어서 붙인다(저장하는 content는 그대로).
 - 다시 돌려도 된다. (paper_id, experiment_id, section, chunk_idx)가 같으면 갱신해 id가 유지된다 —
   활동 노드 JSON의 evidence_record_ids가 이 id를 가리킨다.
 """
@@ -37,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.config import get_settings  # noqa: E402
 from app.protocols import load_protocols  # noqa: E402
+from app.retrieval.embedding import EMBEDDING_DIMS, embeddings  # noqa: E402
 from app.schemas.evidence import (  # noqa: E402
     DESIGN_LABELS,
     VERIFICATION_LABELS,
@@ -67,7 +69,6 @@ from scripts.scaffold_protocols import (  # noqa: E402
 
 MANIFEST = ROOT / "data" / "manifest.csv"
 OVERRIDES = ROOT / "data" / "evidence_overrides.json"
-EMBEDDING_DIMS = 1536  # 마이그레이션의 vector(1536)
 
 RECORD_TYPE_FOR: dict[StudyDesign, RecordType] = {
     StudyDesign.RANDOMIZED_EXPERIMENT: RecordType.ARM,
@@ -468,17 +469,10 @@ returning (xmax = 0) as inserted
 
 
 def embed(texts: list[str]) -> tuple[list[list[float]], str]:
-    from langchain_openai import OpenAIEmbeddings
-
     settings = get_settings()
     if not settings.openai_api_key:
         raise SystemExit("OPENAI_API_KEY가 없어 임베딩할 수 없다(.env)")
-    client = OpenAIEmbeddings(
-        model=settings.embedding_model,
-        api_key=settings.openai_api_key,
-        check_embedding_ctx_length=False,  # chunk가 짧아 tiktoken으로 자르지 않는다
-    )
-    vectors = client.embed_documents(texts)
+    vectors = embeddings(settings).embed_documents(texts)
     wrong = {len(v) for v in vectors} - {EMBEDDING_DIMS}
     if wrong:
         raise SystemExit(
