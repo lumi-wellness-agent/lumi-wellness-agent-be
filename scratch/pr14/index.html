@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PR-14 Mandara 3 로컬 색칠 테스트</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#243238;background:#f5f4f0}*{box-sizing:border-box}body{margin:0}main{max-width:960px;margin:auto;padding:20px}.toolbar{position:sticky;top:0;z-index:2;background:#f5f4f0ee;padding:12px 0;border-bottom:1px solid #d9d7d0}.palette{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.swatch{width:42px;height:42px;border:3px solid transparent;border-radius:50%;cursor:pointer;box-shadow:0 1px 3px #0005}.swatch[aria-pressed=true]{outline:3px solid #222;outline-offset:2px}.swatch span{position:absolute;clip:rect(0 0 0 0)}button.action{padding:9px 13px;border:1px solid #777;border-radius:7px;background:white;cursor:pointer}.stage{margin:18px auto;background:white;border:1px solid #ccc;border-radius:12px;overflow:auto;max-height:72vh;touch-action:none}.canvas{min-width:280px;width:min(92vw,680px);margin:auto;padding:20px}.canvas svg{display:block;width:100%;height:auto;max-height:65vh}.region{cursor:pointer;stroke:transparent;stroke-width:1}.region:focus{outline:none;stroke:#222;stroke-width:1.5}.help{font-size:.9rem;color:#536064}.status{min-height:1.4em}
+  </style>
+</head>
+<body><main>
+  <section class="toolbar"><strong>PR-14 만다라 컬러링</strong><div class="status" id="status">색상을 선택하세요.</div><div class="palette" id="palette"></div><button class="action" id="undo">실행 취소</button> <button class="action" id="reset">전체 초기화</button></section>
+  <p class="help">영역을 클릭하거나 탭하면 선택한 색으로 채워집니다. 확대하려면 브라우저 확대 또는 트랙패드/모바일 핀치를 사용하세요.</p>
+  <div class="stage"><div class="canvas" id="canvas"></div></div>
+  <script>
+  const colors=[['Deep Teal','#397D78'],['Soft Blue','#759BC3'],['Muted Purple','#8873A6'],['Dusty Rose','#B86F87'],['Terracotta','#C48760'],['Soft Gold','#D4B85F'],['Olive Green','#89964E'],['Light Sand','#DFD1B5']];let selected=colors[0][1],undoStack=[];
+  const palette=document.querySelector('#palette'),status=document.querySelector('#status');colors.forEach(([name,color],i)=>{const b=document.createElement('button');b.className='swatch';b.style.background=color;b.title=name;b.setAttribute('aria-label',name);b.setAttribute('aria-pressed',i===0);b.onclick=()=>{selected=color;[...palette.children].forEach(x=>x.setAttribute('aria-pressed',x===b));status.textContent=`선택 색상: ${name} (${color})`};palette.append(b)});
+  // downloaded source SVG: one compound path -> individual subpaths for local testing
+  fetch('assets/white-space-regions.svg').then(r=>{if(!r.ok)throw Error(`SVG HTTP ${r.status}`);return r.text()}).then(t=>{document.querySelector('#canvas').innerHTML=t;const outline=document.querySelector('#outline');if(outline)outline.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation()});document.querySelectorAll('[data-region-id]').forEach(el=>{el.classList.add('region');el.style.pointerEvents='visiblePainted';el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const target=e.currentTarget;undoStack.push({el:target,color:target.getAttribute('fill')||getComputedStyle(target).fill});target.setAttribute('fill',selected)})});status.textContent=`독립 영역 ${document.querySelectorAll('[data-region-id]').length}개를 불러왔습니다.`}).catch(e=>status.textContent=`분할 SVG를 읽지 못했습니다: ${e.message}`);
+  document.querySelector('#undo').onclick=()=>{const x=undoStack.pop();if(x)x.el.setAttribute('fill',x.color)};document.querySelector('#reset').onclick=()=>{document.querySelectorAll('[data-region-id]').forEach(x=>x.setAttribute('fill','#fff'));undoStack=[]};
+  </script>
+</main></body></html>

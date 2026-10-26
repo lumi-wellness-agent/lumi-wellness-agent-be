@@ -1,0 +1,13 @@
+{
+  "schema_version":"1.0",
+  "record_type":"care_protocol",
+  "protocol_id":"PR-12",
+  "name":"자연 속 걷기 + 좋은 것 3가지 알아차리기",
+  "summary":"자연 속에서 걷고 좋은 것 3가지를 알아차려 기록하는 활동입니다.",
+  "duration_minutes":{"default":30,"min":30,"max":30,"source_protocol":"data/protocols/PR-12.json"},
+  "channel":"OUTDOOR",
+  "media":["OUTDOOR_WALK","NOTICING"],
+  "steps":[{"order":1,"type":"ACTIVITY","label":"자연 속 걷기와 알아차림","minutes":30,"slots":["OUTDOOR_TASK","NOTICING"],"user_can_stop":true}],
+  "guide":{"intro_text":"자연 속을 편안하게 걸으며 좋은 것 3가지를 알아차려 기록합니다.","during_activity":"NONE"},
+  "source_reference":{"original_protocol":"data/protocols/PR-12.json","research_fields_preserved":true}
+}
