@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-05",
+  "name": "이완 음악 듣기",
+  "name_en": null,
+  "summary": "이완 음악 듣기. 약 10분. 매체 MUSIC. 허용 사용자 상태 PRE_STRESS, POST_STRESS.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "MUSIC"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "PRE_STRESS",
+    "POST_STRESS"
+  ],
+  "duration_minutes": {
+    "default": 10.0,
+    "min": null,
+    "max": null,
+    "evidence": "원문 확인"
+  },
+  "eligibility": {
+    "min_minutes_available": 10.0,
+    "needs": [
+      "AUDIO"
+    ],
+    "place": "ANY",
+    "quiet_required": true,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 이완 음악 듣기를 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr05_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "음악",
+      "minutes": 10.0,
+      "slots": [
+        "MUSIC"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "MUSIC",
+        "required": true,
+        "evidence_stimulus": "E09-E1: 스트레스 전 음악",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "E08"
+      ],
+      "note": "E08: g=0.15 비유의"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "E09-E1"
+      ],
+      "note": "E09: 주관 지표 집단 차이 없음"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "D",
+      "support": [],
+      "conflicts": [
+        "E09-E1"
+      ],
+      "note": "E09: 코르티솔 음악 조건이 가장 높음; sAA 회복만 빠름"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E08",
+      "experiment_id": null,
+      "role": "CONFLICT",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "k=14(원문 확인)",
+      "order": "—",
+      "population": "건강 성인",
+      "stimulus": null,
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "AFFECT"
+      ],
+      "result": "누적 효과 g=0.15 비유의",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E09",
+      "experiment_id": "E09-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 60,
+      "order": "PRE_STRESS",
+      "population": "건강 여성(스위스)",
+      "stimulus": "스트레스 전 음악",
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "PHYSIO"
+      ],
+      "result": "코르티솔 음악 조건이 가장 높음; sAA 기저 회복은 빠름; HR·주관 지표 차이 없음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "E08 건강 성인 메타 비유의",
+    "E09 생리 혼재"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "스트레스 완화 효과 전반"
+  ],
+  "population_validated": [
+    "건강 성인",
+    "여성"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": "LIMITED_EVIDENCE",
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)",
+      "grades.AFFECT: 등급 셀이 E08를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "시트 비고: 제공 비권장. 넣더라도 '근거 불충분' 표시"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-05, 근거 arm 2행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

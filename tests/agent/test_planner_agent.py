@@ -6,18 +6,13 @@ from langchain_core.messages import AIMessage
 
 from app.agent.context import AgentContext
 from app.agent.nodes.planner import make_agent_planner
+from app.agent.state import IntakeResult
 from app.schemas.care import CareGoal, CareRequest
 from tests.agent.fakes import ScriptedChatModel
 
 
 def test_agent_planner_returns_submitted_plan():
-    submitted = {
-        "mode": "SINGLE",
-        "activities": [
-            {"protocol_id": "s1-mindfulness", "goal": "S1", "medium": "MINDFULNESS", "minutes": 3}
-        ],
-        "rationale": "-",
-    }
+    submitted = {"activity": {"protocol_id": "PR-09", "minutes": 3}, "rationale": "-"}
     model = ScriptedChatModel(
         messages=iter(
             [AIMessage(content="", tool_calls=[{"name": "CarePlan", "args": submitted, "id": "1"}])]
@@ -25,11 +20,14 @@ def test_agent_planner_returns_submitted_plan():
     )
     planner = make_agent_planner(model)
 
-    state = {"request": CareRequest(stress_level=7, goal=CareGoal.S1)}
+    state = {
+        "request": CareRequest(text="생각이 멈추지 않아요"),
+        "intake": IntakeResult(goal=CareGoal.S1, minutes=10),
+    }
     plan = asyncio.run(planner(state, AgentContext(), []))
 
-    assert [a.protocol_id for a in plan.activities] == ["s1-mindfulness"]
-    assert plan.activities[0].evidence_record_ids == []
+    assert plan.activity.protocol_id == "PR-09"
+    assert plan.activity.evidence_record_ids == []
     assert model.offered[0] == [
         "search_evidence",
         "validate_evidence",

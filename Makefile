@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test graph checkpoint-setup
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -13,6 +13,24 @@ lint:
 
 test:
 	$(PY) -m pytest $(ARGS)
+
+# 역할별 테스트 (TEAM.md). 자기 디렉터리만 고치고 이 명령으로 확인한다
+test-intake:
+	$(PY) -m pytest tests/intake $(ARGS)
+
+test-measure:
+	$(PY) -m pytest tests/measure $(ARGS)
+
+test-planner:
+	$(PY) -m pytest tests/agent $(ARGS)
+
+test-protocols:
+	$(PY) -m pytest tests/protocols tests/schemas $(ARGS)
+
+# 워크북(프로토콜·근거 arm 시트)에서 활동 노드 JSON 초안을 만든다. 있는 파일은 건너뛴다(--force로 덮어씀)
+# 예: make protocols-scaffold XLSX=../Research_paper/LUMI_R_C_Research_2026-10-22/LUMI_측정도구_프로토콜_2026-10-23.xlsx
+protocols-scaffold:
+	$(PY) scripts/scaffold_protocols.py "$(XLSX)" $(ARGS)
 
 # 세션 그래프(app/agent/graph.py)를 Mermaid로 출력한다. README·발표용
 graph:

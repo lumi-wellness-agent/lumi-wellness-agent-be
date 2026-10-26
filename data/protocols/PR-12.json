@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-12",
+  "name": "자연 속 걷기 + 좋은 것 3가지 알아차리기",
+  "name_en": null,
+  "summary": "자연 속 걷기 + 좋은 것 3가지 알아차리기. 약 30분. 매체 OUTDOOR_WALK, NOTICING. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "OUTDOOR_WALK",
+    "NOTICING"
+  ],
+  "composition": "VALIDATED_MULTIMODAL",
+  "channel": "OUTDOOR_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 30.0,
+    "min": null,
+    "max": null,
+    "evidence": "30분 × 5일(E18) / 매일 기록 5일(E17)"
+  },
+  "eligibility": {
+    "min_minutes_available": 30.0,
+    "needs": [
+      "OUTDOORS"
+    ],
+    "place": "OUTDOOR",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 자연 속 걷기 + 좋은 것 3가지 알아차리기를 약 30분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr12_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "30분 보행, 좋은 것 3가지 기록",
+      "minutes": 30.0,
+      "slots": [
+        "OUTDOOR_TASK",
+        "WRITING_PROMPT"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-STAI6. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "OUTDOOR_TASK",
+        "required": true,
+        "evidence_stimulus": "E17-E1: 매일 기록 × 5일; E18-E1: 30분 보행 × 5일",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "WRITING_PROMPT",
+        "required": true,
+        "evidence_stimulus": "E17-E1: 매일 기록 × 5일; E18-E1: 30분 보행 × 5일",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "E18-E1"
+      ],
+      "conflicts": [],
+      "note": "E18 PA ηp²=.42; 임상 표본"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E17",
+      "experiment_id": "E17-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": "50 / 42",
+      "order": "무관",
+      "population": "성인(영국)",
+      "stimulus": "매일 기록 × 5일",
+      "outcomes": [
+        "OTHER"
+      ],
+      "result": "자연 연결감 지속 증가(2개월); 심리 건강 개선과 연관",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E18",
+      "experiment_id": "E18-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 50,
+      "order": "무관",
+      "population": "우울·불안 진단자(영국)",
+      "stimulus": "30분 보행 × 5일",
+      "outcomes": [
+        "AFFECT",
+        "OTHER"
+      ],
+      "result": "시간×조건 효과 모두 유의(자연 연결감 ηp²=.34, PA .42 등)",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "E18은 우울·불안 진단자 → 일반 사용자와 대상 불일치",
+    "단회 효과 미측정(5일 반복)"
+  ],
+  "safety": [
+    "임상 집단 결과를 일반화하지 않음"
+  ],
+  "unverified_claims": [
+    "단회 즉시 효과"
+  ],
+  "population_validated": [
+    "우울",
+    "불안 진단자(E18)",
+    "일반 성인(E17)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: 자연 연결감은 2개월 유지(E17)"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-12, 근거 arm 2행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

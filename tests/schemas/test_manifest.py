@@ -56,8 +56,8 @@ def test_legacy_crosswalk():
     assert legacy["P08"] == "P36"  # R/C P08(이승훈·현명호 2004)은 옛 P36 — 같은 번호가 다른 논문
 
 
-def test_protocol_fixture_papers_exist():
-    for path in (FIXTURES / "protocols").glob("PR-*.json"):
+def test_protocol_papers_exist():
+    for path in (ROOT / "data" / "protocols").glob("PR-*.json"):
         doc = json.loads(path.read_text(encoding="utf-8"))
         missing = {e["paper_id"] for e in doc["evidence"]} - IDS
         assert not missing, f"{path.name}: {missing}"

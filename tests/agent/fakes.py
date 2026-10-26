@@ -21,6 +21,7 @@ from app.schemas.protocol import ProtocolEvidenceSection
 from app.schemas.retrieval import EvidenceHit, EvidenceVerdict
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
+PROTOCOLS = FIXTURES.parent.parent / "data" / "protocols"
 
 
 class ScriptedChatModel(GenericFakeChatModel):
@@ -43,8 +44,8 @@ def load_hits() -> tuple[EvidenceHit, ...]:
 
 
 def protocol_orders(protocol_id: str) -> list[InterventionOrder]:
-    """fixture 프로토콜의 허용 시점. 운영에서는 Protocol DB가 준다."""
-    path = FIXTURES / "protocols" / f"{protocol_id}.json"
+    """data/protocols의 허용 시점."""
+    path = PROTOCOLS / f"{protocol_id}.json"
     if not path.exists():
         return []
     section = ProtocolEvidenceSection.model_validate_json(path.read_text(encoding="utf-8"))

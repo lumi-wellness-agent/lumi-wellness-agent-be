@@ -30,17 +30,20 @@ from psycopg_pool import AsyncConnectionPool
 from app.agent.state import (
     ActivityContent,
     CarePlan,
+    ContentStep,
+    IntakeResult,
     NextStep,
     OutcomeEvaluation,
-    PlanMode,
     PlannedActivity,
     ReplanProposal,
     Round,
+    SessionEnd,
     SessionReport,
 )
 from app.config import get_settings
-from app.schemas.care import CareGoal, CareRequest, ContentType
-from app.schemas.evidence import Medium
+from app.schemas.care import CareGoal, CareRequest, ContentType, Place, UserProfile
+from app.schemas.evidence import InterventionOrder
+from app.schemas.measure import InstrumentId, Measurement, Timepoint
 
 SCHEMA = "langgraph"
 # 라이브러리 마이그레이션의 마지막 버전. 테이블이 이보다 낮으면 make checkpoint-setup을 다시 돌린다
@@ -48,13 +51,20 @@ LATEST_MIGRATION = len(AsyncPostgresSaver.MIGRATIONS) - 1
 
 STATE_TYPES = (
     CareRequest,
+    UserProfile,
     CareGoal,
     ContentType,
+    Place,
+    IntakeResult,
+    InterventionOrder,
+    SessionEnd,
+    Measurement,
+    InstrumentId,
+    Timepoint,
     CarePlan,
-    PlanMode,
     PlannedActivity,
-    Medium,
     ActivityContent,
+    ContentStep,
     SessionReport,
     OutcomeEvaluation,
     NextStep,

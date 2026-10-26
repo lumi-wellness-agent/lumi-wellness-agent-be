@@ -1,0 +1,23 @@
+{
+  "instrument_id": "INS-BSRI",
+  "name": "Brief State Rumination Inventory (BSRI)",
+  "paper_id": "N25",
+  "concept": "상태 반추",
+  "timeframe": "지금",
+  "instruction": null,
+  "items": [
+    {"id": "item1", "text": null},
+    {"id": "item2", "text": null},
+    {"id": "item3", "text": null},
+    {"id": "item4", "text": null},
+    {"id": "item5", "text": null},
+    {"id": "item6", "text": null},
+    {"id": "item7", "text": null},
+    {"id": "item8", "text": null}
+  ],
+  "scale": {"min": 0, "max": 100, "step": 1, "kind": "SLIDER"},
+  "scoring": {"kind": "MEAN", "key": "mean", "range": [0, 100]},
+  "license_note": "논문 게재, 무료(확인). 한국어판 미확인 → 번역·타당화 필요. LLM 번역 금지",
+  "status": "TODO",
+  "note": "measure 담당: Marchetti et al. 2014의 8문항을 원문(N25)에서 옮기고 한국어판 출처를 확인한 뒤 status를 READY로. 온라인 슬라이더 형식의 측정 불변성이 확인돼 앱 적용에 유리(Chiorri et al. 2026)"
+}

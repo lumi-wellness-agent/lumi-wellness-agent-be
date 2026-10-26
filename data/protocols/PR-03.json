@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-03",
+  "name": "스트레스 전 자연 장면 보기(예방)",
+  "name_en": null,
+  "summary": "스트레스 전 자연 장면 보기. 약 10분. 매체 STATIC_IMAGE. 허용 사용자 상태 PRE_STRESS.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "STATIC_IMAGE"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "PRE_STRESS"
+  ],
+  "duration_minutes": {
+    "default": 10.0,
+    "min": null,
+    "max": null,
+    "evidence": "장면 제시 시간 원문 확인"
+  },
+  "eligibility": {
+    "min_minutes_available": 10.0,
+    "needs": [
+      "SCREEN"
+    ],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 스트레스 전 자연 장면 보기를 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr03_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "자연 장면",
+      "minutes": 10.0,
+      "slots": [
+        "VISUAL_STILL"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "VISUAL_STILL",
+        "required": true,
+        "evidence_stimulus": "P28-E1: 장면 제시 → 정신 스트레스 과제 → 회복",
+        "source_policy": {
+          "curated": "ALLOWED",
+          "generated": "ALLOWED_WITH_FLAG",
+          "user_upload": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "P28-E1"
+      ],
+      "conflicts": [],
+      "note": "P28: 회복기 RMSSD↑"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "P28",
+      "experiment_id": "P28-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "PRE_STRESS",
+      "population": "성인(영국)",
+      "stimulus": "장면 제시 → 정신 스트레스 과제 → 회복",
+      "outcomes": [
+        "PHYSIO"
+      ],
+      "result": "자연 조건 회복기 부교감 활성(RMSSD)↑; 스트레스 중 지표는 차이 없음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "순서가 다른 PR-01과 혼용 금지"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "정서·주관 지표 효과"
+  ],
+  "population_validated": [
+    "성인(영국)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [
+    {
+      "protocol_id": "PR-01",
+      "reason": "순서가 다른 PR-01과 혼용 금지"
+    }
+  ],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": "AI_IMAGE_UNVERIFIED"
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)",
+      "시트 비고: 발표·면접 직전처럼 스트레스가 예정된 경우에만 추천"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-03, 근거 arm 1행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

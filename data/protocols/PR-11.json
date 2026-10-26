@@ -1,0 +1,283 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-11",
+  "name": "야외 자연 보행",
+  "name_en": null,
+  "summary": "야외 자연 보행. 약 50분. 매체 OUTDOOR_WALK. 허용 사용자 상태 POST_FATIGUE, NO_INDUCTION.",
+  "goal": "S3",
+  "secondary_goals": [
+    "S2"
+  ],
+  "media": [
+    "OUTDOOR_WALK"
+  ],
+  "composition": "SINGLE",
+  "channel": "OUTDOOR",
+  "intervention_order": [
+    "POST_FATIGUE",
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 50.0,
+    "min": 20.0,
+    "max": 90.0,
+    "evidence": "약 50분(P07·P05-E1) / 90분(N20) / 20분(E19)"
+  },
+  "eligibility": {
+    "min_minutes_available": 20.0,
+    "needs": [
+      "OUTDOORS"
+    ],
+    "place": "OUTDOOR",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 야외 자연 보행을 약 50분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr11_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "자연 보행",
+      "minutes": 50.0,
+      "slots": [
+        "OUTDOOR_TASK"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S3": null,
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-GAP-S3. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "OUTDOOR_TASK",
+        "required": true,
+        "evidence_stimulus": "P07-E1: 절반은 주의 과제로 피로 유도 → 나무 조망 착석 → 약 50분 보행; P05-E1: 약 50분 보행; N20-E1: 90분 보행; E19-E1: 20분 야외; 마음챙김/지시/마음 방황/비안내",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "P07-E1"
+      ],
+      "conflicts": [],
+      "note": "P07 PA↑·분노↓"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "B",
+      "support": [
+        "N20-E1"
+      ],
+      "conflicts": [],
+      "note": "N20 RRQ↓, 90분"
+    },
+    "ATTENTION": {
+      "grade": "A",
+      "support": [
+        "P05-E1",
+        "P07-E1",
+        "P01",
+        "P04"
+      ],
+      "conflicts": [],
+      "note": "P05-E1 BDS↑, P07 Necker↑ + P01·P04"
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "P07-E1"
+      ],
+      "conflicts": [],
+      "note": "P07 혈압↓"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "P01",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "31편",
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [
+        "ATTENTION"
+      ],
+      "result": "DSF·DSB·TMT-B만 유의, 나머지 10개 메타 비유의",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P04",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "273 결과",
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [
+        "ATTENTION"
+      ],
+      "result": "작업기억·주의 통제만 신뢰; 노출 시간이 비선형 조절",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P07",
+      "experiment_id": "P07-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 112,
+      "order": "POST_FATIGUE / 무관",
+      "population": "젊은 성인(미국)",
+      "stimulus": "절반은 주의 과제로 피로 유도 → 나무 조망 착석 → 약 50분 보행",
+      "outcomes": [
+        "AFFECT",
+        "ATTENTION",
+        "PHYSIO"
+      ],
+      "result": "자연 보행 초기 혈압↓; 주의 수행 자연↑ 도시↓(격차 지속); PA↑ 분노↓",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P05",
+      "experiment_id": "P05-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "POST_FATIGUE",
+      "population": "대학생(미국)",
+      "stimulus": "약 50분 보행",
+      "outcomes": [
+        "ATTENTION"
+      ],
+      "result": "자연 보행 후 BDS 향상",
+      "verification": "2차",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "N20",
+      "experiment_id": "N20-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "무관",
+      "population": "건강 성인(미국)",
+      "stimulus": "90분 보행",
+      "outcomes": [
+        "RUMINATION",
+        "PHYSIO"
+      ],
+      "result": "자연 보행 후 반추↓·sgPFC 활성↓",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E19",
+      "experiment_id": "E19-E1",
+      "role": "CONFLICT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 215,
+      "order": "무관",
+      "population": "성인(호주)",
+      "stimulus": "20분 야외; 마음챙김/지시/마음 방황/비안내",
+      "outcomes": [
+        "AFFECT",
+        "ATTENTION",
+        "OTHER"
+      ],
+      "result": "자연 연결감·PA 집단 차이 없음; 마음 방황 < 지시 참여 NA; 비안내 집단 SART 최고",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "P04: 노출 시간이 비선형 조절(짧은 노출 근거 약함)",
+    "E19: 안내형 참여가 추가 이점 없음"
+  ],
+  "safety": [
+    "안전한 경로·날씨",
+    "신체 상태"
+  ],
+  "unverified_claims": [
+    "20분 미만 보행",
+    "앱 안내 병행"
+  ],
+  "population_validated": [
+    "대학생",
+    "젊은 성인"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [
+    {
+      "protocol_id": "PR-12",
+      "composition": null,
+      "basis": "좋은 것 알아차리기(PR-12)"
+    }
+  ],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
+      "시트 비고: 앱 밖 활동이라 FE는 타이머·사전사후만"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-11, 근거 arm 6행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

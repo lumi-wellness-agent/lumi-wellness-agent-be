@@ -37,6 +37,7 @@
     ]
   },
   "guide": {
+    "intro_text": "지금부터 자연 사진을 약 6분 동안 조용히 바라봅니다. 소리나 호흡 안내는 없습니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
     "intro_text_ref": "guide/pr01_intro_ko",
     "max_seconds": 15,
     "source_policy": {

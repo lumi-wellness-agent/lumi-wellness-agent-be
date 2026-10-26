@@ -1,0 +1,200 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-19",
+  "name": "세 가지 좋은 일 기록(일간 1주)",
+  "name_en": null,
+  "summary": "세 가지 좋은 일 기록. 약 5분. 매체 WRITING. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "WRITING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 5.0,
+    "min": 5.0,
+    "max": 10.0,
+    "evidence": "일간 1주(E11) / 2주(E12)"
+  },
+  "eligibility": {
+    "min_minutes_available": 5.0,
+    "needs": [],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 세 가지 좋은 일 기록을 약 5분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr19_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "기록 5–10분",
+      "minutes": 5.0,
+      "slots": [
+        "WRITING_PROMPT"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": null,
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {},
+    "note": "시트: INS-PANAS(주 1회). 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "WRITING_PROMPT",
+        "required": true,
+        "evidence_stimulus": "E11-E1: 1주 과제, 6개월 추적; E12-E1: 온라인 일기(기간 원문 확인)",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "B",
+      "support": [
+        "E11-E1",
+        "E21"
+      ],
+      "conflicts": [
+        "E12-E1"
+      ],
+      "note": "상충 E12: 효과 없음; E11 6개월 지속, E21 g=0.51"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E11",
+      "experiment_id": "E11-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "무관",
+      "population": "온라인 성인",
+      "stimulus": "1주 과제, 6개월 추적",
+      "outcomes": [
+        "OTHER",
+        "AFFECT"
+      ],
+      "result": "세 가지 좋은 일 포함 3개 개입이 행복↑·우울↓ 지속",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E12",
+      "experiment_id": "E12-E1",
+      "role": "CONFLICT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "무관",
+      "population": "학생(오스트리아)",
+      "stimulus": "온라인 일기(기간 원문 확인)",
+      "outcomes": [
+        "OTHER",
+        "AFFECT"
+      ],
+      "result": "세 가지 좋은 일·웃긴 일 효과 없음; 코핑 유머만 유의",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "E21",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "k=20",
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [
+        "AFFECT"
+      ],
+      "result": "전체 g=0.51; 긍정 심리 상태 g=0.50",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "E12 온라인 일기에서 세 가지 좋은 일 효과 없음(코핑 유머만 유의)"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "단회 즉시 효과(미측정)"
+  ],
+  "population_validated": [
+    "일반 성인(온라인)",
+    "학생"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "grades.AFFECT: 등급 셀이 E12-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "grades.AFFECT: 등급 셀이 E11-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "시트의 측정 도구 ['INS-PANAS']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
+      "시트 비고: 세션 내 프로토콜이 아니라 일간 과제"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-19, 근거 arm 3행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

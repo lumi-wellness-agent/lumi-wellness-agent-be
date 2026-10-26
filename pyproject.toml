@@ -15,8 +15,12 @@ dependencies = [
     "langgraph>=1.2",
     # 세션 상태를 Supabase Postgres에 저장하는 체크포인터(app/agent/checkpoint.py)
     "langgraph-checkpoint-postgres>=3.2",
-    # Planner 에이전트(create_agent·Tool·구조화 출력). 모델 공급자 패키지는 정하면 추가한다
+    # Planner 에이전트(create_agent·Tool·구조화 출력)
     "langchain>=1.4",
+    # intake·plan의 모델 공급자(app/agent/assembly.py). 1순위 OpenAI(LLM_MODEL, 기본 gpt-4o-mini),
+    # 폴백 Anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5). 재시도·폴백 규칙은 app/agent/llm.py
+    "langchain-openai>=1.7",
+    "langchain-anthropic>=1.7",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +29,13 @@ dev = [
     "httpx>=0.27",
     "pytest>=8",
     "ruff>=0.6",
+]
+# Offline 근거 구축(app/ingestion). 서버 패키지에는 넣지 않는다 — 적재는 로컬에서 돌린다
+ingestion = [
+    "docling>=2.0",
+    # 근거 추출(LLM)·임베딩(text-embedding-3-small) 모두 OpenAI 키 하나로
+    "openai>=1.0",
+    "openpyxl>=3.1",
 ]
 
 [build-system]

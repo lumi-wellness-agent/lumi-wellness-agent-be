@@ -1,0 +1,250 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-06",
+  "name": "5분 구조화 호흡(주기적 한숨·느린 호흡)",
+  "name_en": null,
+  "summary": "5분 구조화 호흡. 약 5분. 매체 BREATHING. 허용 사용자 상태 NO_INDUCTION.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "BREATHING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [
+    "NO_INDUCTION"
+  ],
+  "duration_minutes": {
+    "default": 5.0,
+    "min": 5.0,
+    "max": 20.0,
+    "evidence": "5분(P16, 매일 × 1개월) / 단회 20분(P18)"
+  },
+  "eligibility": {
+    "min_minutes_available": 5.0,
+    "needs": [
+      "AUDIO"
+    ],
+    "place": "ANY",
+    "quiet_required": true,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 5분 구조화 호흡을 약 5분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr06_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "GUIDE_AUDIO",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "안내 호흡 5분",
+      "minutes": 5.0,
+      "slots": [
+        "GUIDE_AUDIO",
+        "PACER"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-STAI6. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "GUIDE_AUDIO",
+        "required": true,
+        "evidence_stimulus": "P16-E1: 매일 5분 × 1개월(원격); P18-E2: 녹음 안내 20분 단회",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      },
+      {
+        "slot": "PACER",
+        "required": true,
+        "evidence_stimulus": "P16-E1: 매일 5분 × 1개월(원격); P18-E2: 녹음 안내 20분 단회",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "A",
+      "support": [
+        "P16-E1",
+        "P17"
+      ],
+      "conflicts": [],
+      "note": "P16 PA↑ + P17"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "A",
+      "support": [
+        "P16-E1",
+        "P18-E2",
+        "P17"
+      ],
+      "conflicts": [],
+      "note": "P16 상태 불안↓, P18 이완↑ + P17 g=−0.35"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "P16-E1"
+      ],
+      "conflicts": [],
+      "note": "P16 호흡수↓"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "P16",
+      "experiment_id": "P16-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 114,
+      "order": "무관",
+      "population": "일반 성인(미국)",
+      "stimulus": "매일 5분 × 1개월(원격)",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS",
+        "PHYSIO"
+      ],
+      "result": "모든 조건 불안↓; 호흡법이 명상보다 PA↑·호흡수↓, 주기적 한숨 최대",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P18",
+      "experiment_id": "P18-E2",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 60,
+      "order": "무관",
+      "population": "대학생(미국)",
+      "stimulus": "녹음 안내 20분 단회",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS",
+        "PHYSIO"
+      ],
+      "result": "대조 대비 이완↑(유의); 세 기법 간 차이 없음",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P17",
+      "experiment_id": null,
+      "role": "META",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": "k=12, 785명",
+      "order": "—",
+      "population": "성인",
+      "stimulus": null,
+      "outcomes": [
+        "SUBJECTIVE_STRESS",
+        "OTHER",
+        "AFFECT"
+      ],
+      "result": "g=−0.35 / −0.32 / −0.40; 편향 위험 중간",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P15",
+      "experiment_id": null,
+      "role": "CONTEXT",
+      "design": "SYSTEMATIC_REVIEW_META",
+      "n": null,
+      "order": "—",
+      "population": null,
+      "stimulus": null,
+      "outcomes": [],
+      "result": "빠른 호흡 단독·5분 미만 회기는 비효과; 사람 안내·다회기·장기 실천이 효과적",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "P16은 일간 반복 설계라 단회 5분의 즉시 효과는 P18(20분)로만 지지",
+    "P15: 5분 미만·빠른 호흡 단독은 효과 없음"
+  ],
+  "safety": [
+    "숨 참기·과호흡 강요 금지(P16 cyclic hyperventilation arm 제외)",
+    "어지럽거나 불편하면 중단",
+    "느린 속도 유지"
+  ],
+  "unverified_claims": [
+    "자연 이미지 병행(→ PR-22)"
+  ],
+  "population_validated": [
+    "일반 성인(원격, 미국)",
+    "대학생"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "grades.AFFECT: 등급 셀이 P17를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "시트 비고: S2 1순위. 안내는 사람 음성형이 효과적(P15)"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-06, 근거 arm 4행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

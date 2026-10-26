@@ -1,0 +1,171 @@
+{
+  "schema_version": "1.0",
+  "record_type": "care_protocol",
+  "protocol_id": "PR-17",
+  "name": "오감 그라운딩(5-4-3-2-1)",
+  "name_en": null,
+  "summary": "오감 그라운딩. 약 10분. 매체 GROUNDING. 허용 사용자 상태 제한 없음.",
+  "goal": "S2",
+  "secondary_goals": [],
+  "media": [
+    "GROUNDING"
+  ],
+  "composition": "SINGLE",
+  "channel": "IN_APP",
+  "intervention_order": [],
+  "duration_minutes": {
+    "default": 10.0,
+    "min": null,
+    "max": null,
+    "evidence": "원문 확인"
+  },
+  "eligibility": {
+    "min_minutes_available": 10.0,
+    "needs": [
+      "AUDIO"
+    ],
+    "place": "ANY",
+    "quiet_required": true,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 오감 그라운딩을 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr17_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "GUIDE_AUDIO",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "ACTIVITY",
+      "label": "오감 순서로 알아차리기",
+      "minutes": 10.0,
+      "slots": [
+        "GUIDE_AUDIO"
+      ],
+      "user_can_stop": true
+    }
+  ],
+  "measures": {
+    "anchor": "INS-SAM",
+    "goal_scale_by_goal": {
+      "S2": "INS-STAI6"
+    },
+    "schedule": {
+      "pre": [
+        "anchor",
+        "goal_scale"
+      ],
+      "post_round": [
+        "anchor"
+      ],
+      "session_end": [
+        "goal_scale"
+      ]
+    },
+    "note": "시트: INS-SAM(앵커) + INS-STAI6. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "GUIDE_AUDIO",
+        "required": true,
+        "evidence_stimulus": "E20-E1: 오감 그라운딩 교육·실습",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "C",
+      "support": [
+        "E20-E1"
+      ],
+      "conflicts": [],
+      "note": "E20: 단일군, TAQ −4.7"
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E20",
+      "experiment_id": "E20-E1",
+      "role": "PRIMARY",
+      "design": "QUASI_EXPERIMENT",
+      "n": 94,
+      "order": "—",
+      "population": "간호대생(미국)",
+      "stimulus": "오감 그라운딩 교육·실습",
+      "outcomes": [
+        "SUBJECTIVE_STRESS"
+      ],
+      "result": "TAQ −4.7(p<.001); 고불안 23%→4%",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "단일군 사전사후",
+    "간호대생 시험 불안"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "일반 성인·세션 내 즉시 효과"
+  ],
+  "population_validated": [
+    "간호대생(미국)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": "LIMITED_EVIDENCE",
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-17, 근거 arm 1행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.0",
+  "record_type": "stage_module",
+  "protocol_id": "PR-16",
+  "name": "감정에 이름 붙이기(NOTICE 모듈)",
+  "name_en": null,
+  "summary": "감정에 이름 붙이기. 약 1분. 매체 없음(단계 모듈). 허용 사용자 상태 제한 없음.",
+  "goal": "S1",
+  "secondary_goals": [],
+  "media": [],
+  "composition": "STAGE_MODULE",
+  "channel": "IN_APP",
+  "intervention_order": [],
+  "duration_minutes": {
+    "default": 1.0,
+    "min": null,
+    "max": null,
+    "evidence": "30초–1분"
+  },
+  "eligibility": {
+    "min_minutes_available": 1.0,
+    "needs": [],
+    "place": "ANY",
+    "quiet_required": false,
+    "not_recommended_if": []
+  },
+  "guide": {
+    "intro_text": "지금부터 감정에 이름 붙이기를 약 1분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text_ref": "guide/pr16_intro_ko",
+    "max_seconds": 15,
+    "source_policy": {
+      "fixed_text": "ALLOWED",
+      "tts": "ALLOWED",
+      "llm_rewrite": "FORBIDDEN"
+    },
+    "during_activity": "NONE",
+    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+  },
+  "steps": [
+    {
+      "order": 1,
+      "type": "NOTICE",
+      "label": "지금 감정을 한 단어로 명명",
+      "minutes": 1.0,
+      "slots": [
+        "NOTICE_PROMPT"
+      ],
+      "optional": false,
+      "note": "다른 프로토콜의 NOTICE 단계로 끼워 쓴다. 한 단어 응답, 점수화하지 않음"
+    }
+  ],
+  "measures": {
+    "anchor": null,
+    "goal_scale_by_goal": {
+      "S1": "INS-BSRI"
+    },
+    "schedule": {},
+    "note": "시트: —. 측정은 노드 바깥(measure_pre / measure_post 코드 노드)에서 실행한다. 프로토콜은 어떤 도구를 쓰는지만 가리킨다"
+  },
+  "content_spec": {
+    "slots": [
+      {
+        "slot": "NOTICE_PROMPT",
+        "required": true,
+        "evidence_stimulus": "E10-E1: 정서 얼굴에 정서 단어 명명 vs 다른 과제(블록 순서 counterbalance)",
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "tts": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        },
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+      }
+    ]
+  },
+  "grades": {
+    "AFFECT": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": "주관 지표 미측정"
+    },
+    "SUBJECTIVE_STRESS": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "RUMINATION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "ATTENTION": {
+      "grade": "—",
+      "support": [],
+      "conflicts": [],
+      "note": null
+    },
+    "PHYSIO": {
+      "grade": "B",
+      "support": [
+        "E10-E1"
+      ],
+      "conflicts": [],
+      "note": "E10: 편도체 반응↓, 기전"
+    }
+  },
+  "paper_id_scheme": "RC_MASTER",
+  "evidence": [
+    {
+      "paper_id": "E10",
+      "experiment_id": "E10-E1",
+      "role": "PRIMARY",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 30,
+      "order": "—",
+      "population": "성인(미국)",
+      "stimulus": "정서 얼굴에 정서 단어 명명 vs 다른 과제(블록 순서 counterbalance)",
+      "outcomes": [
+        "PHYSIO"
+      ],
+      "result": "정서 명명 시 편도체 반응↓",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
+  "constraints": [
+    "fMRI 기전 연구",
+    "주관적 정서 변화는 측정 안 함"
+  ],
+  "safety": [],
+  "unverified_claims": [
+    "주관적 완화 효과"
+  ],
+  "population_validated": [
+    "성인(미국)"
+  ],
+  "population_note": "한국 성인 대상 검증 없음",
+  "compatible_with": [],
+  "exclusive_with": [],
+  "user_facing_flags": {
+    "default": null,
+    "by_goal": {},
+    "when_generated_assets": null
+  },
+  "review": {
+    "status": "DRAFT",
+    "open_items": [
+      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "시트 비고: 단독 프로토콜로 쓰지 않음"
+    ],
+    "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-16, 근거 arm 1행",
+    "reviewed_by": null,
+    "updated_at": "2026-10-26"
+  }
+}
