@@ -17,6 +17,14 @@
 `INS-SAM` · `INS-STAI6` · `INS-BSRI`. 문항 · 응답 척도 · 채점 규칙(`app/instruments.py`). SAM은 READY,
 STAI-6와 BSRI는 저작권·한국어판 확인 뒤 문항 원문을 채운다(`status: TODO`). LLM 번역 금지.
 
+## evidence_overrides.json — 사람이 확정한 근거 메타데이터
+
+`scripts/seed_evidence.py`(`make seed-evidence`)가 근거 arm 시트에서 정한 메타데이터를 필드 단위로
+덮어쓴다. 키는 `experiment_id`(arm이 없는 메타·관찰 레코드는 `paper_id`), 값은 `EvidenceMetadata`의 필드와
+근거를 적는 `_why`다. 시트의 결과 열은 자유 텍스트라 적재 스크립트가 방향을 못 정한 결과(UNCLEAR)나 시트와
+원문이 다른 값이 생긴다 — 검토 목록(`evidence_review.csv`)에서 골라 원문으로 확정한 값을 여기에 적고 적재를
+다시 돌린다. 시트에 없는 키나 `EvidenceMetadata`에 없는 필드가 있으면 적재가 멈춘다.
+
 ## manifest.csv — 논문 82편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·
