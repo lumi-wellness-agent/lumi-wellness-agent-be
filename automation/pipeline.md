@@ -52,7 +52,7 @@ CI·PR 체크 대기는 `automation/bin/`의 **폴링 스크립트**(`pr_gate.py
      - **변경 사항**: 변경 요점을 불릿으로. **변경 타입**: 타입 표의 해당 항목 하나만 `[x]`. **테스트 방법**: Phase 2에서 실제 수행한 명령과 결과(`make lint`, `make test` 통과 개수·건너뜀 등). **참고 사항**: 마이그레이션 적용 필요, 환경변수 추가 등 머지 후 사람이 할 일 — 없으면 "없음". **연결된 이슈**: `close #<이슈번호>`. **체크리스트**: 실제 확인한 항목만 `[x]`, 환경변수 변경이 있으면 키 이름만 적는다.
      - 본문 끝에 현재 하네스의 **PR 본문 서명**(있으면)을 붙인다. **라벨·담당자를 붙이지 않는다.**
      - 출력 URL 끝 숫자가 `<PR번호>`.
-5. 머지 게이트 폴링: **`.venv/bin/python automation/bin/pr_gate.py <PR번호> 600 check gitleaks`** (30초 간격, 최대 10분) → `PR_GATE_DONE` 마커. **게이트 = `mergeable` MERGEABLE + 앵커 체크(`check`·`gitleaks`) 존재 + 비차단 예외를 제외한 모든 체크가 완료·성공 (실패 0, 대기 0, 체크 1개 이상)** — 정확한 판정 로직·비차단 예외 목록은 `automation/bin/pr_gate.py`의 `judge()`·`EXEMPT`가 원천이다(`tests/automation/test_pr_gate.py`가 fixture로 검증). 체크를 이름 허용목록으로 고르지 않으므로 다른 잡도 자동으로 게이트에 포함되고, 잡이 추가·개명돼도 따라간다. 이 클라이언트 게이트는 관측·진행 판단용이고, **강제는 `main` 브랜치 보호(required checks `check`·`gitleaks`)가 서버에서 한다** — CI 잡 이름을 바꾸면 브랜치 보호 설정도 함께 갱신한다. 의심스러우면 `gh api repos/lumi-wellness-agent/lumi-wellness-agent-be/branches/main/protection`으로 확인하고, 확인한 값과 다르면 이 문장을 고친다.
+5. 머지 게이트 폴링: **`.venv/bin/python automation/bin/pr_gate.py <PR번호> 600 check gitleaks`** (30초 간격, 최대 10분) → `PR_GATE_DONE` 마커. **게이트 = `mergeable` MERGEABLE + 앵커 체크(`check`·`gitleaks`) 존재 + 비차단 예외를 제외한 모든 체크가 완료·성공 (실패 0, 대기 0, 체크 1개 이상)** — 정확한 판정 로직·비차단 예외 목록은 `automation/bin/pr_gate.py`의 `judge()`·`EXEMPT`가 원천이다(`tests/automation/test_pr_gate.py`가 fixture로 검증). 체크를 이름 허용목록으로 고르지 않으므로 다른 잡도 자동으로 게이트에 포함되고, 잡이 추가·개명돼도 따라간다. Vercel을 연결하면 PR마다 붙는 Preview 배포 상태도 같은 규칙으로 게이트에 들어간다. 이 클라이언트 게이트는 관측·진행 판단용이고, **강제는 `main` 브랜치 보호(required checks `check`·`gitleaks`)가 서버에서 한다** — CI 잡 이름을 바꾸면 브랜치 보호 설정도 함께 갱신한다. 의심스러우면 `gh api repos/lumi-wellness-agent/lumi-wellness-agent-be/branches/main/protection`으로 확인하고, 확인한 값과 다르면 이 문장을 고친다.
    - `result=PASS` → `gh pr merge <PR번호> --squash --subject "[TYPE] 설명 (#<PR번호>)"`. **`--auto`를 쓰지 않는 이유**: 머지를 서버에 위임하면 게이트 실패 시 아무 일도 일어나지 않은 채 대기만 남아 "실패 → 즉시 로그 요약·보고"라는 이 파이프라인의 실행 흐름이 끊긴다. 서버가 머지를 거부하면 `--admin`으로 우회하지 않고 게이트 실패로 보고한다.
    - `result=FAIL*` → 마커의 `failed=` 목록에 있는 체크의 로그를 요약해(`gh run view <run-id> --log-failed` 등) 보고하고 중단. `mergeable=CONFLICTING`·`TIMEOUT`·`API_ERROR`·`ERROR`도 각각 요약해 중단 (「폴링 실행 규칙」의 구분 참조).
 6. `MERGE_SHA=$(gh pr view <PR번호> --json mergeCommit --jq '.mergeCommit.oid')`
@@ -68,7 +68,7 @@ CI 폴링: **`.venv/bin/python automation/bin/run_wait.py ci.yml main "<MERGE_SH
 - `result=failure` 등 실패 conclusion → `main`이 깨진 상태다. 마커의 `run_id=`로 `gh run view <run-id> --log-failed`를 요약하고 **즉시 보고**한다 (「실패 시 재시작 규칙」).
 - `result=NOT_FOUND` → run이 아예 생성되지 않았다 — 워크플로우 미트리거(트리거 조건·파일명 변경 등) 신호이므로 `TIMEOUT`(진행 중일 수 있음)과 구분해 보고하고 중단. `TIMEOUT`·`API_ERROR`·`ERROR`는 「폴링 실행 규칙」대로 처리.
 
-> **CD 확장 지점**: FastAPI 호스트가 정해져 배포 워크플로우가 생기면 이 뒤에 Step을 추가한다 — `run_wait.py <배포워크플로우.yml> main "<MERGE_SHA>" <타임아웃>`으로 같은 방식으로 기다린다.
+> **CD 확장 지점**: 프로덕션 배포는 Vercel Git 연동이 GitHub Actions 밖에서 돌려 `run_wait.py`로 기다릴 수 없다. 배포 완료를 게이트로 삼으려면 이 뒤에 Step을 추가해 `MERGE_SHA`에 Vercel이 남기는 배포 상태(커밋 상태·Deployments)를 폴링한다.
 
 ## Step 3: 정리 & 보고
 
@@ -79,7 +79,7 @@ CI 폴링: **`.venv/bin/python automation/bin/run_wait.py ci.yml main "<MERGE_SH
    - main 머지 커밋(`MERGE_SHA`)·main CI 결과, 닫힌 이슈 번호
    - **마이그레이션 적용 안내**(해당 시): `supabase/migrations/<파일>`을 Supabase에 적용해야 한다 — 대시보드 SQL Editor 또는 `psql "$DATABASE_URL" -f <파일>` (README 「데이터베이스」). 적용 전까지 관련 기능은 동작하지 않는다.
    - 정리 실패 내역(있으면). 머지 성공 + 정리 실패는 파이프라인 실패로 취급하지 않는다.
-   - **프로덕션 배포는 없다** — CD가 없으므로 "배포"는 `main` 반영까지다. 배포됐다고 오해하지 않도록 명시한다.
+   - **프로덕션 배포는 Vercel이 한다** — ship이 확인한 것은 `main` 반영까지다. Vercel 배포 결과는 기다리지 않았으므로 Vercel 대시보드나 배포 주소의 `/health/db`로 확인하라고 안내한다.
 
 ## 실패 시 재시작 규칙
 
@@ -111,7 +111,7 @@ CI 폴링: **`.venv/bin/python automation/bin/run_wait.py ci.yml main "<MERGE_SH
 2. `.env` — 로컬 값 추가 (커밋 금지)
 3. `app/config.py` — 설정 모델에 필드 추가 (비어 있을 때의 동작을 정한다 — `DATABASE_URL`처럼 없어도 뜨는지, 필수인지)
 4. `README.md` — 관련 절에 설명
-5. 배포 호스트의 시크릿 — **아직 CD가 없다.** 호스트가 정해지면 등록 절차(예: `gh secret set`, 호스트 대시보드)를 여기에 추가한다. PR 본문 「참고 사항」에 키 이름만 적는다.
+5. Vercel 환경 변수 — 프로젝트 Settings → Environment Variables에 등록하고, 다시 배포해야 반영된다(README 「배포 (Vercel)」). PR 본문 「참고 사항」에 키 이름만 적는다.
 
 ## 민감 파일 커밋 금지
 

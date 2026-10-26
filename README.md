@@ -202,6 +202,23 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
+## 배포 (Vercel)
+
+FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나로 올립니다. 저장소를 Vercel 프로젝트에
+연결해 두면 `main`에 머지할 때 프로덕션으로, PR마다 Preview로 배포됩니다.
+
+| 설정 | 값 | 이유 |
+| --- | --- | --- |
+| 리전 | `icn1`(서울) · `vercel.json` | Supabase(`ap-northeast-2`) 옆에서 돌아야 쿼리마다 태평양을 건너지 않는다. 기본값은 `iad1`이고 Hobby는 리전 1개 |
+| Python | 3.12 · `.python-version` | CI와 같은 버전 |
+| `DATABASE_URL` | Transaction pooler(포트 6543) | 서버리스 함수라서(위 연결 방식 표). 로컬 `.env`의 Session pooler 주소와 포트만 다르다 |
+| `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | `.env`와 같은 값 | 폴백 키는 비워 둬도 된다 |
+
+환경 변수는 Vercel 프로젝트의 Settings → Environment Variables에 넣고, 바꾼 뒤에는 다시 배포해야 반영됩니다.
+배포한 뒤 `https://<배포 주소>/health/db`가 200이면 DB 연결·확장·체크포인트 테이블이 준비된 것입니다.
+Hobby 플랜은 함수 실행을 300초에서 끊고, 프로젝트 소유자가 작성한 커밋만 배포해 팀원 커밋이 배포되지 않을 수
+있습니다. 그때는 Vercel 대시보드에서 Redeploy합니다.
+
 ## 브랜치·PR 규칙
 
 역할별 담당 파일과 이번 주 작업 순서는 [TEAM.md](TEAM.md)에 있습니다.
@@ -237,8 +254,6 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 - STAI-6(Mind Garden)·BSRI 문항 사용 허가와 한국어판. 확인 전에는 문항 원문을 넣지 않습니다.
 - Session Outcome DB(측정값·라운드) 테이블 — 사용자 식별 방식과 함께 정합니다. Care Protocol은 JSON 파일로 둡니다.
 - 세션 API (설계안은 위에)
-- FastAPI 서버의 호스트. Supabase Edge Functions는 TypeScript(Deno)라 FastAPI를 올릴 수 없어 별도
-  호스트(예: Vercel, Render, Cloud Run)가 필요합니다.
 
 ## 디렉터리
 
@@ -272,6 +287,7 @@ data/
 └─ manifest.csv         논문 82편 매니페스트
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
+vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
 ├─ agent/               그래프 흐름 · Planner 배선 · 검증 규칙 (대본 모델)
 ├─ intake/ measure/ protocols/   역할별 테스트 (TEAM.md)

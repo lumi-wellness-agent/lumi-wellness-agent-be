@@ -45,6 +45,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
+# Vercel이 함수 하나로 올리는 FastAPI 앱(README '배포'). app/main.py는 자동 인식되지만 경로를 고정해 둔다
+[tool.vercel]
+entrypoint = "app.main:app"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

@@ -24,7 +24,7 @@ README 「브랜치·PR 규칙」이 원천이다. 요약:
 - **`dev` 없이 feature → `main`.** 인프라가 Supabase 하나라 `dev`를 두어도 환경이 나뉘지 않는다. `main`이 곧 통합 브랜치다.
 - **이슈 퍼스트.** 이슈 템플릿(`.github/ISSUE_TEMPLATE/*.yml`)으로 이슈를 만들고 `<타입>/#<이슈번호>` 브랜치를 딴다.
 - **PR 제목 `[<타입>/#<이슈번호>] 설명`, 본문에 `close #<이슈번호>`.** `main`은 PR 필수(승인 0명), 필수 체크 `check`(ruff·pytest)·`gitleaks`, 강제 푸시·삭제 금지로 보호된다. 머지는 **squash**다 (`automation/pipeline.md` 「제목 규범」).
-- **배포 파이프라인(CD)은 아직 없다.** FastAPI 호스트가 정해지지 않았다(README 「정하지 않은 것」). ship의 종착점은 **`main` 머지 + main push CI 성공**이고, CD가 생기면 `automation/pipeline.md` Step 2 뒤에 Step을 붙인다.
+- **CD는 Vercel Git 연동이 맡는다.** `main`에 머지하면 Vercel이 프로덕션으로 배포한다(README 「배포 (Vercel)」). ship의 종착점은 여전히 **`main` 머지 + main push CI 성공**이고 Vercel 배포는 기다리지 않는다 — 배포 완료까지 게이트로 삼으려면 `automation/pipeline.md` Step 2 뒤에 Step을 붙인다.
 - **DB 마이그레이션은 사람이 적용한다.** Supabase DB를 팀이 함께 쓰므로 `main`에 머지된 마이그레이션만 적용하고, 적용 자체는 ship이 하지 않는다 — 머지 후 최종 보고에서 적용 대상 파일을 안내한다.
 
 ## Preflight
