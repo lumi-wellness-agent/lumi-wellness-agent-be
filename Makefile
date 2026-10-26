@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -38,6 +38,13 @@ protocols-scaffold:
 #     make seed-evidence XLSX=<워크북> ARGS="--database-url postgresql://postgres:postgres@localhost:54329/postgres"
 seed-evidence:
 	$(PY) scripts/seed_evidence.py "$(XLSX)" $(ARGS)
+
+# 실제 모델로 intake → plan을 돌려 Planner가 고른 활동·검색 질의·근거를 본다(LLM 비용이 든다).
+# 근거 DB는 읽기만 하고, 없으면 .env의 DATABASE_URL. 리허설 · RAG 평가셋 질의 수집용
+# 예: make plan-trial ARGS="S2 --repeat 3"
+#     make plan-trial ARGS="S1 S2 --queries queries.jsonl --database-url postgresql://postgres:postgres@localhost:54329/postgres"
+plan-trial:
+	$(PY) scripts/plan_trial.py $(ARGS)
 
 # 세션 그래프(app/agent/graph.py)를 Mermaid로 출력한다. README·발표용
 graph:

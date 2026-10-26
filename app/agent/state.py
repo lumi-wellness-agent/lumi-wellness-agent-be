@@ -56,7 +56,9 @@ class PlannedActivity(BaseModel):
     protocol_id: str = Field(description="검수된 Care Protocol의 ID (get_care_protocols 결과)")
     minutes: int = Field(gt=0, description="활동 시간(분). 프로토콜의 duration_minutes 범위 안")
     evidence_record_ids: list[int] = Field(
-        default_factory=list, description="validate_evidence를 통과한 근거의 Evidence Record ID"
+        default_factory=list,
+        description="validate_evidence에서 usable=true인 Evidence Record ID. "
+        "supports_goal=true인 것을 앞에 둔다",
     )
 
 
@@ -64,7 +66,10 @@ class CarePlan(BaseModel):
     """① Planner의 출력. 라운드당 활동 노드 1개 — 검증된 다중매체 프로토콜도 노드 1개로 센다."""
 
     activity: PlannedActivity
-    rationale: str = Field(description="활동 선택 이유. Reference 카드의 바탕이 된다")
+    rationale: str = Field(
+        description="활동 선택 이유 2~3문장 — 사용자 상태, 고른 이유, 근거(저자·연도·지표)와 한계. "
+        "Reference 카드의 바탕이 된다"
+    )
 
 
 class ContentStep(BaseModel):

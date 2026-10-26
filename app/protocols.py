@@ -8,14 +8,19 @@ Protocol DB 테이블은 두지 않는다(발표 범위). 프로토콜은 검수
 - check_plan(app/agent/nodes/planner.py)은 get_protocol()로 검수 ID · 목표 · 순서 · 시간을 확인한다.
 """
 
+from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas.care import CareGoal
-from app.schemas.evidence import InterventionOrder
-from app.schemas.protocol import CareProtocol, Composition
+from app.schemas.care import CareGoal, ContentType
+from app.schemas.evidence import InterventionOrder, Medium
+from app.schemas.protocol import CareProtocol, Composition, Grade, SlotType
+from app.schemas.retrieval import GOAL_OUTCOMES
 
 PROTOCOL_DIR = Path(__file__).resolve().parents[1] / "data" / "protocols"
+
+# 후보 정렬용 등급 순서. 미확인(측정했으나 원문 확인 전)은 C와 D 사이, —(측정한 근거 없음)이 끝
+GRADE_ORDER: tuple[Grade, ...] = (Grade.A, Grade.B, Grade.C, Grade.PENDING, Grade.D, Grade.NONE)
 
 
 @lru_cache
@@ -34,22 +39,58 @@ def get_protocol(protocol_id: str) -> CareProtocol | None:
     return load_protocols().get(protocol_id)
 
 
+def goal_grade_rank(protocol: CareProtocol, goal: CareGoal) -> tuple[int, ...]:
+    """목표 1차 지표(retrieval.GOAL_OUTCOMES)의 등급 순위를 좋은 것부터. 작을수록 근거가 강하다.
+
+    S2(SUBJECTIVE_STRESS · AFFECT): PR-06 A·A → (0, 0), PR-18 B·B → (1, 1), PR-03 —·— → (5, 5).
+    """
+    primary = GOAL_OUTCOMES[goal].primary
+    return tuple(sorted(GRADE_ORDER.index(protocol.grades[o].grade) for o in primary))
+
+
 def candidates(
     goal: CareGoal,
     *,
     order: InterventionOrder | None = None,
     minutes: int | None = None,
+    exclude: Iterable[str] = (),
 ) -> list[CareProtocol]:
-    """목표에 맞는 검수 프로토콜. 단계 모듈은 뺀다. 주 목표가 앞, 부 목표가 뒤."""
+    """목표에 맞는 검수 프로토콜. 단계 모듈과 exclude(직전 라운드에서 바꾸기로 한 활동)는 뺀다.
+
+    주 목표가 앞, 부 목표가 뒤이고, 같은 쪽에서는 목표 1차 지표 등급이 높은 순이다. 플래너(LLM)는
+    목록의 앞쪽을 고르는 경향이 있어, 등급 순으로 두어야 근거가 강한 활동이 먼저 고려된다.
+    """
+    excluded = set(exclude)
     picked = [
         p
         for p in load_protocols().values()
         if p.composition is not Composition.STAGE_MODULE
+        and p.protocol_id not in excluded
         and p.serves(goal)
         and p.allows_order(order)
         and p.fits_minutes(minutes)
     ]
-    return sorted(picked, key=lambda p: (p.goal is not goal, p.protocol_id))
+    return sorted(
+        picked, key=lambda p: (p.goal is not goal, goal_grade_rank(p, goal), p.protocol_id)
+    )
+
+
+def delivered_media(protocol: CareProtocol, content_type: ContentType) -> list[Medium]:
+    """이번 세션에 실제로 제공할 구성 요소 — 근거 검증(validation.validate)의 media.
+
+    media에 STATIC_IMAGE와 AI_IMAGE가 함께 있으면(대안, PR-01) 사용자 선호에 맞는 하나만 남긴다.
+    선호가 AI 생성 이미지이고 정지 이미지 슬롯이 생성을 막지 않으면(source_policy.generated가
+    FORBIDDEN이 아니면) STATIC_IMAGE를 AI_IMAGE로 바꾼다 — 검증이 ADAPTED_STIMULUS로 표시한다.
+    """
+    media = list(protocol.media)
+    wants_generated = content_type is ContentType.AI_IMAGE
+    if Medium.STATIC_IMAGE in media and Medium.AI_IMAGE in media:
+        media.remove(Medium.STATIC_IMAGE if wants_generated else Medium.AI_IMAGE)
+    elif wants_generated and Medium.STATIC_IMAGE in media:
+        still_slots = [s for s in protocol.content_spec.slots if s.slot is SlotType.VISUAL_STILL]
+        if not any(s.source_policy.get("generated") == "FORBIDDEN" for s in still_slots):
+            media[media.index(Medium.STATIC_IMAGE)] = Medium.AI_IMAGE
+    return media
 
 
 def compact(protocol: CareProtocol) -> dict:

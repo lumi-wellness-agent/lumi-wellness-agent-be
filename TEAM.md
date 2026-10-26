@@ -52,8 +52,9 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
-| 화 | `supabase/migrations/20261026000000_evidence_contracts.sql` · 근거 arm 적재 스크립트 · `app/retrieval/hybrid.py` · `app/agent/validation.py` validate 본문 | 근거 65건 적재 · 검색 · 검증 |
-| 수 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/reference_card.py` | plan을 실제 모델로. check_plan의 근거 ID 재검증. Reference 카드 |
+| 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
+| 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `app/agent/tools/*` `scripts/plan_trial.py` | plan을 실제 모델로(S1 · S2 · S3 시나리오 통과, `make plan-trial`). 세션 값은 `PlannerContext`로 Tool에. 계획의 근거 ID 재검증(`keep_usable_evidence`) |
+| 수 | `app/agent/reference_card.py` | Reference 카드 — 계획의 근거 ID · 검증 플래그(ADAPTED_STIMULUS · CONFLICTING_EVIDENCE) · 프로토콜 composition(EXPERIMENTAL)에서 만든다. rationale 문장에 기대지 않는다 |
 | 수 | `app/api/routes.py` | 세션 API 세 개(README 「세션 API」) + FE |
 | 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
 
@@ -89,8 +90,10 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 
 ### plan (통합 담당 겸임)
 
-`app/agent/nodes/planner.py` · `prompts.py` · `tools/*`. 지금은 fixture(`tests/fixtures/evidence_hits.json`)로
-도구를 흉내 낸 테스트(`tests/agent/`)만 있다. 화요일 적재 뒤 실제 모델로 돌린다.
+`app/agent/nodes/planner.py` · `prompts.py` · `context.py` · `tools/*`. 테스트(`tests/agent/`)는
+fixture(`tests/fixtures/evidence_hits.json`)로 도구를 흉내 낸 대본 모델로 돈다. 실제 모델은
+`make plan-trial ARGS="S1 S2 S3"`로 돌린다 — gpt-4o-mini 실측(10/26): S1 → PR-09, S2 → PR-06, S3 → PR-01,
+호출당 5~7초 · 모델 호출 4~5회 · 입력 1.5~2만 토큰. 프롬프트를 고치면 세 시나리오를 다시 돌려 본다.
 
 ## 계약
 
