@@ -24,7 +24,7 @@
 POST /sessions …(API는 통합 담당이 붙인다)
   ↓
 intake          ① 상황 읽기(LLM) → State · 검색어 (시점이 불명확하면 질문 ⏸, 최대 2회)
-  ↓             ② 개념 정의 검색 → ③ 목표 추론(LLM) → Goal S1·S2·S3 + 근거 ID
+  ↓             ③ 목표 추론(LLM, 단서표) → Goal S1·S2·S3 (② 개념 정의 근거는 JSON을 받으면)
   ↓             ④ 추천을 바꾸는 환경 칸만 칩 질문 ⏸ → 기본값 · 환경 조건 (질문 합계 3회)
 measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
   ↓
@@ -87,7 +87,7 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 | --- | --- |
 | `app/agent/prompts.py` `READ_SYSTEM_PROMPT` `GOAL_SYSTEM_PROMPT` | 상황 읽기 · 목표 추론 규칙. 점수 추정 금지, 사건을 자세히 묻지 않는다 |
 | `app/agent/intake_rules.py` | 질문 여부(State 2회 · 합계 3회) · 보기 검증 · 답 병합(요청 칩 > 칩 답 > 문장) · 환경 질문 판정 · 목표 · 기본값. `StateReading` · `GoalInference` 필드 설명이 LLM이 읽는 설명이다 |
-| `data/construct_definitions.json` | 개념 카드(정의 · 단서 · 경계 · 원문 anchor)와 상태 단서. 원문 적재는 `make seed-definitions` |
+| `data/intake_cues.json` | 단서표(표현 단서 · 경계 · 요약 출처)와 상태 단서. ③이 이것만으로 돈다(② 개념 정의 JSON 전까지) |
 | `app/schemas/intake.py` | FE와 주고받는 질문·답 JSON. 키를 바꾸면 FE와 먼저 맞춘다 |
 | `tests/intake/` | `make test-intake`. 실제 호출 결과는 `tests/intake/`에 녹화본(JSON)으로 남긴다 |
 
@@ -103,8 +103,8 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 
 | 항목 | 정의 | 위치 |
 | --- | --- | --- |
-| `CareRequest` | `text` + 환경 칩(`location` `earphones` `minutes_available`) + `profile` | `app/schemas/care.py` |
-| `IntakeResult` | Goal(goal · secondary_goal · goal_source · 근거 ID) · State(order_condition · 사건 · 반복 단서) · Context(장소 · 이어폰 · 시간 · environment) | `app/agent/state.py` |
+| `CareRequest` | `text` + 환경 칩(`setting` `earphones` `minutes_available`) + `profile`. `Place`는 코드가 setting에서 정한다 | `app/schemas/care.py` |
+| `IntakeResult` | Goal(goal · secondary_goal · goal_source · target_outcomes · goal_evidence[paper_id, sentence]) · State(order_condition · 사건 · 반복 단서) · Context(setting · place · earphones · minutes · environment) · end_reason | `app/agent/state.py` |
 | intake 질문 interrupt | `IntakeQuestion{type, question_id, slot, turn, max_turns, text, groups[{key, select, options[{label, set}]}], allow_free_text}` ↔ `IntakeAnswer{question_id, answer \| text}` | `app/schemas/intake.py` |
 | `Measurement` · `GOAL_SCALE` | 도구 × 시점 × 라운드, `answers` · `scores` | `app/schemas/measure.py` |
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
@@ -112,7 +112,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
 | 후보 프로토콜 | `protocols.candidates()` → `compact()` 목록. 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
-| 세션 종료 | `final`(목표 척도). intake는 세션을 닫지 않는다 — 목표 단서가 없으면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
+| 세션 종료 | `final`(목표 척도). intake는 자유 입력 답이 안전 검사에 걸릴 때만 닫는다(`ended = SAFETY`). 목표 단서가 없으면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 
 ## 작업 순서 (10/26 월 ~ 10/29 목)
 

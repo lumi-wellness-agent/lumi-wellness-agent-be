@@ -9,9 +9,9 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 4개의
 계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
 적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
-통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(개념 정의 근거 추론) → Context(환경 칩)
-질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다 — 실제 모델 확인과 개념 정의 적재
-(`make seed-definitions`)는 아직입니다. Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
+통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
+질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다 — 실제 모델 확인과 개념 정의 근거(②)는
+아직입니다. Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
 [TEAM.md](TEAM.md)에 있습니다.
 
 ## 구조
@@ -80,10 +80,10 @@ graph TD;
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
 | `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 시점 질문 초안을 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
-| `intake_goal` | intake ②③ Goal (검색 + LLM) | 개념 정의(`evidence_records` DEFINITION — R1 논문)를 검색하고, 그 근거 · 개념 카드 · 상태 단서로 개선할 결과 지표 S1·S2·S3와 부목표를 정한다. 근거 ID는 검색 결과 안에서만. 단서가 없으면 S2(`goal_source = DEFAULT`) | `nodes/intake.py` |
-| `intake_context` | intake ④ Context (코드) | 장소 · 이어폰 · 시간 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다(`protocols.candidates`로 판정) | `nodes/intake.py` |
-| `intake_ask` ⏸ | intake 질문 | 시점 질문 · 재질문(스트레스/피로가 갈릴 때) · 환경 칩. 합계 3회, State는 2회까지. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
-| `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · 장소 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외)을 정한다 | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 단서표(`data/intake_cues.json`) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. State 두 질문이 모두 '잘 모르겠어요'거나 단서가 없으면 S2(`goal_source = DEFAULT`). ② 개념 정의 근거(paper_id · 문장)는 JSON을 받으면 붙인다 | `nodes/intake.py` |
+| `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
+| `intake_ask` ⏸ | intake 질문 | 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지. 시점 질문에 '잘 모르겠어요'면 고정 재질문. 자유 입력 답이 안전 검사에 걸리면 세션 종료(`ended = SAFETY`). payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
+| `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
 | `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계·안내 문구로 `ActivityContent`를 준비한다(이미지·음성·Reference 카드는 예정) | `nodes/executor.py` |
@@ -149,7 +149,7 @@ interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니�
 | 요청 | 그래프 | 응답 |
 | --- | --- | --- |
 | `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤 | 질문(`IntakeQuestion`) 또는 측정 문항 |
-| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회) | 질문 또는 측정 문항 |
+| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회). 자유 입력 답이 안전 검사에 걸리면 `ended = SAFETY`로 끝 | 질문 · 측정 문항 · 또는 종료(SAFETY) |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
 | `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
@@ -180,7 +180,6 @@ make run                # http://127.0.0.1:8000/health
 | `make graph` | 세션 그래프를 Mermaid로 출력 |
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
-| `make seed-definitions ARGS=--dry-run` | 개념 정의 카드의 원문 구간을 파싱 캐시에서 찾는다. `--database-url <URL>`이면 `evidence_records`에 DEFINITION으로 적재(intake 목표 추론 근거). 파싱 캐시가 없으면 `make parse-papers ARGS="P12 N26 N25 N07 N04 N01 P06 N27"` 먼저 |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
 | `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl`의 질의로 Hit@K · Recall@K · MRR을 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `build`가 케이스를 다시 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 
@@ -348,10 +347,12 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 - 세션 API (설계안은 위에)
 - intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
-  조용한 실내로 가정하고 `missing_slots`에 `location`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
+  조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
   "지금은 어려워요"(활동 변경)를 함께 보여 줘야 합니다.
-- 위기 신호 감지는 서비스 범위 밖으로 정했습니다(#49에서 intake의 안전 신호 · `SessionEnd`를 뺐습니다).
-  대상 범위(건강한 성인의 일상적 긴장 · 반추 · 피로, 의료적 진단·치료 아님)는 시작 화면에서 밝힙니다.
+- intake 안전 검사는 질문에 대한 자유 입력 답에만 겁니다(규칙 기반, `intake_rules.safety_hit`). 처음
+  입력 문장은 검사하지 않습니다. 걸리면 세션을 끝내고(`ended = SAFETY`) FE가 도움 안내를 보여 줍니다.
+- intake 질문 판정의 장소·오디오 필터는 임시로 `intake_rules.fits_environment`에 있습니다. 후보 조회
+  (`protocols.candidates`)에 필터가 들어오면 그것으로 바꿉니다.
 
 ## 디렉터리
 
@@ -362,7 +363,7 @@ app/
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval
-├─ constructs.py        개념 정의 카드 — data/construct_definitions.json 로더 · 상태 단서
+├─ intake_cues.py       intake 단서표 — data/intake_cues.json 로더 · 상태 단서
 ├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
 ├─ protocols.py         활동 노드 — data/protocols 로더 · 후보 조회 · LLM용 압축본
 ├─ agent/               LUMI Care Agent (LangGraph)
@@ -374,7 +375,6 @@ app/
 │  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
 │  ├─ prompts.py        intake · Planner 프롬프트와 입력 메시지
 │  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
-│  ├─ definitions.py    개념 정의 검색 (hybrid.search, record_type DEFINITION)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드
@@ -387,11 +387,10 @@ data/
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
 ├─ manifest.csv         논문 83편 매니페스트
-├─ construct_definitions.json 개념 정의 카드 S1·S2·S3(팀 요약 · 단서 · 경계 · 원문 anchor) + 상태 단서
+├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 └─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
-scripts/seed_definitions.py     개념 카드 anchor → 원문 문단 → evidence_records DEFINITION 적재(make seed-definitions)
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
