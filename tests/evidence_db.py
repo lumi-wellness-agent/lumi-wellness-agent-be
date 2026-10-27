@@ -59,7 +59,7 @@ class OneConnection:
         self.conn = conn
 
     @asynccontextmanager
-    async def connection(self) -> AsyncIterator[AsyncConnection]:
+    async def connection(self, timeout: float | None = None) -> AsyncIterator[AsyncConnection]:
         yield self.conn
 
 

@@ -200,7 +200,9 @@ class Round(BaseModel):
     pre: list[Measurement]  # 이 라운드가 비교한 측정 — SAM, S3는 MFVAS도
     post: list[Measurement]
     evaluation: OutcomeEvaluation
-    next_step: NextStep
+    next_step: NextStep  # 사용자가 고른 다음 단계
+    # 그때 보인 제안(권고 단계 · 선택지). 권고와 선택이 얼마나 맞는지 기록에 남긴다(app/records.py)
+    proposal: ReplanProposal | None = None
 
 
 class CareState(TypedDict):

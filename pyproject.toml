@@ -21,8 +21,10 @@ dependencies = [
     # 폴백 Anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5). 재시도·폴백 규칙은 app/agent/llm.py
     "langchain-openai>=1.7",
     "langchain-anthropic>=1.7",
-    # A 콘텐츠 공급자(Pixabay · Freesound · AI Horde · Art Institute) HTTP 호출
+    # A 콘텐츠 공급자(Pixabay · Freesound · AI Horde · Art Institute) HTTP 호출 · Supabase JWKS 조회
     "httpx>=0.27",
+    # 세션 API 인증 — Supabase Auth 액세스 토큰(ES256) 검증(app/auth.py). crypto가 EC 서명을 푼다
+    "pyjwt[crypto]>=2.10",
 ]
 
 [project.optional-dependencies]

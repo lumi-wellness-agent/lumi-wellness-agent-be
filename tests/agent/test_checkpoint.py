@@ -27,12 +27,24 @@ from app.agent.graph import build_graph
 from app.agent.state import CarePlan
 from app.config import get_settings
 from app.main import app
-from app.schemas.care import CareRequest
-from tests.agent.test_graph import BREATHING, S2_INTAKE, STAI6, FakeIntaker, FakePlanner, sam
+from app.schemas.care import CareGoal, CareRequest
+from tests.agent.test_graph import (
+    BREATHING,
+    S2_READING,
+    STAI6,
+    FakeIntaker,
+    FakePlanner,
+    inference,
+    sam,
+)
 
 DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="TEST_DATABASE_URL이 없다")
+
+
+def s2_intaker() -> FakeIntaker:
+    return FakeIntaker(S2_READING, goal=inference(CareGoal.S2))
 
 
 async def resume_on_another_instance() -> None:
@@ -43,9 +55,7 @@ async def resume_on_another_instance() -> None:
 
     # 인스턴스 A: 세션을 시작해 사전 측정을 넣고 run_session에서 멈춘다
     async with create_checkpoint_pool(DATABASE_URL) as pool:
-        graph = build_graph(
-            FakePlanner(BREATHING), FakeIntaker(S2_INTAKE), postgres_checkpointer(pool)
-        )
+        graph = build_graph(FakePlanner(BREATHING), s2_intaker(), postgres_checkpointer(pool))
         request = {"request": CareRequest(text="발표 앞두고 긴장돼요")}
         out = await graph.ainvoke(request, config, context=AgentContext())
         assert out["__interrupt__"][0].value["measure"] == "PRE"
@@ -57,7 +67,7 @@ async def resume_on_another_instance() -> None:
     # 계획이 없는 Planner를 넣어, 재개할 때 plan을 다시 돌면 실패하게 한다
     async with create_checkpoint_pool(DATABASE_URL) as pool:
         checkpointer = postgres_checkpointer(pool)
-        graph = build_graph(FakePlanner(), FakeIntaker(S2_INTAKE), checkpointer)
+        graph = build_graph(FakePlanner(), s2_intaker(), checkpointer)
         out = await graph.ainvoke(
             Command(resume={"completed": True}), config, context=AgentContext()
         )

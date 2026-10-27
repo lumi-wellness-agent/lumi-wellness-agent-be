@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +36,19 @@ class Settings(BaseSettings):
     cors_origin_regex: str = (
         r"https://lumi-wellness-agent-fe-[a-z0-9-]+-koothemavericks-projects\.vercel\.app"
     )
+
+    # Supabase 프로젝트 주소(https://<ref>.supabase.co). 세션 API가 로그인 토큰을 이 프로젝트의
+    # 공개 키(JWKS)로 검증한다(app/auth.py). 비우면 세션 API가 503 — 인증 없이 열리지 않는다
+    supabase_url: str = ""
+    # 원문(처음 입력 · 직접 쓴 답 · 활동 메모) 보관 기한(일). 원문 동의를 한 사용자만 저장하고,
+    # 기한이 지나면 정리 작업이 지운다(app/records.py)
+    text_retention_days: int = Field(default=90, gt=0)
+    # 이만큼 요청이 없던 미완료 세션은 정리 작업이 체크포인트(원문이 들어 있다)를 지우고 만료로
+    # 남긴다
+    session_idle_hours: int = Field(default=24, gt=0)
+    # Vercel Cron이 정리 작업(GET /internal/cleanup)을 부를 때 보내는 값(Authorization: Bearer).
+    # 비우면 정리 엔드포인트가 503
+    cron_secret: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

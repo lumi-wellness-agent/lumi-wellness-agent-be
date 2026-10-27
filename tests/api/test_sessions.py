@@ -1,10 +1,13 @@
 """세션 API — 대역 모델로 조립한 그래프에 HTTP로 흐름 · step · SSE · 오류를 확인한다.
 
 intake · Planner 대역은 tests/agent/test_graph.py의 것을 쓴다(상황 읽기 · 목표 추론 대역).
+로그인은 current_user를 바꿔 끼우고(토큰 검증은 tests/test_auth.py), 기록은 MemoryStore에 쓴다.
 """
 
 import asyncio
 import json
+import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import FastAPI
@@ -12,9 +15,11 @@ from fastapi.testclient import TestClient
 
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.graph import build_graph
-from app.api import sessions
+from app.api import internal, me, sessions
+from app.auth import User, current_user
 from app.config import Settings
 from app.main import add_cors
+from app.records import MemoryStore
 from app.schemas.care import CareGoal, Setting
 from app.schemas.evidence import InterventionOrder
 from tests.agent.test_graph import (
@@ -33,19 +38,49 @@ from tests.agent.test_graph import (
 
 SSE = {"Accept": "text/event-stream"}
 PRE_S2 = {**sam(3, 7), "INS-STAI6": STAI6}
+ALICE = User(id=uuid.UUID("00000000-0000-4000-8000-00000000a11c"), provider="kakao")
+BOB = User(id=uuid.UUID("00000000-0000-4000-8000-000000000b0b"), provider="google")
 
 
 def client_for(
-    planner: FakePlanner | None = None, intaker: FakeIntaker | None = None
+    planner: FakePlanner | None = None,
+    intaker: FakeIntaker | None = None,
+    *,
+    raw_text: bool = False,
+    consent: bool = True,
 ) -> TestClient:
-    """기본은 발표 앞 · 집 · 15분이 문장에 다 있는 S2 — 질문 없이 사전 측정으로 간다."""
+    """기본은 발표 앞 · 집 · 15분이 문장에 다 있는 S2 — 질문 없이 사전 측정으로 간다.
+
+    ALICE로 로그인했고 기록 동의(consent)를 했다. raw_text면 원문 보관에도 동의했다.
+    """
     app = FastAPI()
     app.include_router(sessions.router)
+    app.include_router(me.router)
+    app.include_router(internal.router)
     planner = planner or FakePlanner(BREATHING)
     intaker = intaker or FakeIntaker(S2_READING, goal=inference(CareGoal.S2))
-    app.state.session_graph = build_graph(planner, intaker, memory_checkpointer())
+    app.state.checkpointer = memory_checkpointer()
+    app.state.session_graph = build_graph(planner, intaker, app.state.checkpointer)
     app.state.db_pool = None
+    app.state.session_store = MemoryStore()
+    if consent:
+        asyncio.run(app.state.session_store.save_consent(ALICE.id, raw_text))
+    login(app, ALICE)
     return TestClient(app)
+
+
+def login(app: FastAPI, user: User) -> None:
+    app.dependency_overrides[current_user] = lambda: user
+
+
+def store_of(client: TestClient) -> MemoryStore:
+    return client.app.state.session_store
+
+
+def has_checkpoint(client: TestClient, sid: str) -> bool:
+    graph = client.app.state.session_graph
+    snapshot = asyncio.run(graph.aget_state({"configurable": {"thread_id": sid}}))
+    return snapshot.created_at is not None
 
 
 def asking_client() -> TestClient:
@@ -354,9 +389,235 @@ def test_off_topic_input_is_restated_and_can_be_skipped():
 def test_session_api_is_unavailable_without_a_graph():
     app = FastAPI()
     app.include_router(sessions.router)
+    login(app, ALICE)
     res = TestClient(app).post("/sessions", json={"text": "긴장돼요"})
     assert res.status_code == 503
     assert res.json()["detail"]["code"] == "AGENT_UNAVAILABLE"
+
+
+def test_session_api_is_closed_without_a_login_verifier():
+    # SUPABASE_URL이 없으면 검증기를 만들지 않는다 — 인증 없이 열리지 않는다
+    app = FastAPI()
+    app.include_router(sessions.router)
+    res = TestClient(app).post("/sessions", json={"text": "긴장돼요"})
+    assert res.status_code == 503
+    assert res.json()["detail"]["code"] == "AUTH_UNAVAILABLE"
+
+
+def test_a_new_session_needs_the_records_consent():
+    client = client_for(consent=False)
+    res = client.post("/sessions", json={"text": "발표 앞두고 긴장돼요"})
+    assert res.status_code == 403
+    assert res.json()["detail"]["code"] == "CONSENT_REQUIRED"
+    assert store_of(client).sessions == {}
+
+    view = client.get("/me/consent").json()
+    assert (view["agreed"], view["raw_text"], view["agreed_version"]) == (False, False, None)
+    # 필수 동의는 거절로 보낼 수 없다
+    assert client.put("/me/consent", json={"records": False}).status_code == 422
+    view = client.put("/me/consent", json={"records": True}).json()
+    assert (view["agreed"], view["raw_text"], view["text_retention_days"]) == (True, False, 90)
+    assert client.post("/sessions", json={"text": "발표 앞두고 긴장돼요"}).status_code == 201
+
+
+def test_sessions_are_visible_only_to_their_owner():
+    client = client_for()
+    sid = start(client)
+    asyncio.run(store_of(client).save_consent(BOB.id, raw_text=False))
+    login(client.app, BOB)
+    for res in (
+        client.get(f"/sessions/{sid}"),
+        client.post(f"/sessions/{sid}/measure", json=PRE_S2),
+        client.post(f"/sessions/{sid}/retry"),
+    ):
+        # 남의 세션은 없는 세션과 같다
+        assert res.status_code == 404
+        assert res.json()["detail"]["code"] == "SESSION_NOT_FOUND"
+    login(client.app, ALICE)
+    assert client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()["step"] == "RUN"
+    assert store_of(client).sessions[sid]["user_id"] == ALICE.id
+
+
+def run_s2_to_end(client: TestClient, **report) -> str:
+    sid = start(client)
+    client.post(f"/sessions/{sid}/measure", json=PRE_S2)
+    client.post(f"/sessions/{sid}/report", json={"completed": True, **report})
+    client.post(f"/sessions/{sid}/measure", json=sam(5, 4))
+    client.post(f"/sessions/{sid}/decision", json={"next_step": "END"})
+    final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
+    assert client.post(f"/sessions/{sid}/measure", json=final).json()["step"] == "END"
+    return sid
+
+
+def test_records_follow_the_session_and_the_checkpoint_goes_at_the_end():
+    client = client_for()
+    sid = start(client)
+    row = store_of(client).sessions[sid]
+    assert (row["step"], row["node"], row["goal"]) == ("MEASURE", "measure_pre", "S2")
+    assert row["request"] == {
+        "setting": None,
+        "earphones": None,
+        "minutes_available": None,
+        "goal": None,
+        "place": None,
+        "content_type": "CURATED_PHOTO",
+    }
+    assert row["intake"]["goal_source"] == "INFERRED"
+    assert "summary" not in row["intake"] and "cues" not in row["intake"]  # 글은 분석 기록에 없다
+
+    client.post(f"/sessions/{sid}/measure", json=PRE_S2)
+    client.post(f"/sessions/{sid}/report", json={"completed": True})
+    client.post(f"/sessions/{sid}/measure", json=sam(5, 4))
+    client.post(f"/sessions/{sid}/decision", json={"next_step": "END"})
+    assert has_checkpoint(client, sid)
+    final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
+    body = client.post(f"/sessions/{sid}/measure", json=final).json()
+
+    # 끝나면 원문이 든 체크포인트를 지우고, GET은 기록의 END payload로 답한다
+    assert not has_checkpoint(client, sid)
+    assert client.get(f"/sessions/{sid}").json() == body
+    assert client.post(f"/sessions/{sid}/retry").json()["detail"]["code"] == "STEP_MISMATCH"
+    row = store_of(client).sessions[sid]
+    assert (row["step"], row["end_reason"], row["end_summary"]) == ("END", "DONE", body["payload"])
+    assert row["ended_at"] is not None
+    assert [m["instrument_id"] for m in row["pre"]] == ["INS-SAM", "INS-STAI6"]
+    assert row["final"]["instrument_id"] == "INS-STAI6"
+    (key, round_row), *rest = store_of(client).rounds.items()
+    assert key == (sid, 1) and rest == []
+    assert (round_row["protocol_id"], round_row["completed"], round_row["improved"]) == (
+        "PR-06",
+        True,
+        True,
+    )
+    assert (round_row["recommended"], round_row["next_step"]) == ("END", "END")
+    assert round_row["options"] == ["END", "CHANGE_ACTIVITY", "ADDITIONAL_SESSION"]
+    assert store_of(client).texts == {}  # 원문 동의가 없다
+
+
+def test_raw_text_is_kept_only_with_its_consent_and_goes_when_withdrawn():
+    client = client_for(raw_text=True)
+    sid = run_s2_to_end(client, notice_words=["편안", "졸림"])
+    text = store_of(client).texts[sid]
+    assert text["request_text"] == "발표 앞두고 긴장돼요"
+    assert text["user_id"] == ALICE.id
+    assert text["rounds"][0]["notice_words"] == ["편안", "졸림"]
+    assert text["intake"].keys() == {"event", "cues", "summary", "goal_reason", "constraints"}
+    assert text["expires_at"] - store_of(client).sessions[sid]["created_at"] == pytest.approx(
+        timedelta(days=90), abs=timedelta(seconds=5)
+    )
+    # 원문 동의를 거두면 남긴 원문을 바로 지운다
+    view = client.put("/me/consent", json={"records": True, "raw_text": False}).json()
+    assert view["raw_text"] is False
+    assert store_of(client).texts == {}
+
+
+def test_free_text_answers_are_kept_with_the_question():
+    client = asking_client()
+    asyncio.run(store_of(client).save_consent(ALICE.id, raw_text=True))
+    sid = start(client)
+    answer = {"question_id": "q1", "text": "발표가 아까 끝났어요"}
+    client.post(f"/sessions/{sid}/answer", json=answer)
+    turns = store_of(client).sessions[sid]["turns"]
+    assert turns[0] | {"answer": None} == {
+        "question_id": "q1",
+        "slot": "state",
+        "answer": None,
+        "skipped": False,
+        "wrote": True,
+    }
+    (written,) = [a for a in store_of(client).texts[sid]["answers"] if a["free_text"]]
+    assert (written["question_id"], written["free_text"]) == ("q1", "발표가 아까 끝났어요")
+    assert written["question"]  # 질문 문장도 함께(LLM이 사용자 말을 되받았을 수 있다)
+
+
+def test_a_safety_ended_session_keeps_only_the_fact():
+    intaker = FakeIntaker(
+        reading(question=ASK_TIMING), reading(safety=True), goal=inference(CareGoal.S2)
+    )
+    client = client_for(intaker=intaker, raw_text=True)
+    sid = client.post("/sessions", json={"text": "요즘 좀 힘들어요", "setting": "HOME"}).json()[
+        "session_id"
+    ]
+    assert sid in store_of(client).texts  # 질문을 기다리는 동안은 원문이 있다
+    answer = {"question_id": "q1", "text": "살 이유를 모르겠어요"}
+    body = client.post(f"/sessions/{sid}/answer", json=answer).json()
+    assert body["payload"] == {"reason": "SAFETY"}
+    row = store_of(client).sessions[sid]
+    assert (row["end_reason"], row["intake"], row["turns"], row["request"], row["goal"]) == (
+        "SAFETY",
+        None,
+        [],
+        {},
+        None,
+    )
+    assert store_of(client).texts == {}
+    assert not has_checkpoint(client, sid)
+    assert client.get(f"/sessions/{sid}").json() == body
+
+
+def test_cleanup_drops_idle_and_orphan_checkpoints_and_expired_texts():
+    now = [datetime(2026, 10, 28, 12, tzinfo=UTC)]
+    client = client_for(raw_text=True)
+    store_of(client).clock = lambda: now[0]
+    app = client.app
+    app.state.cron_secret = "s3cret"
+    app.state.session_idle_hours = 24
+    idle = start(client)  # 사전 측정을 기다린 채 쉰다
+    finished = run_s2_to_end(client)
+    # 기록 없는 체크포인트 — 인증 전 세션이나 지운 사용자의 세션
+    orphan = str(uuid.uuid4())
+    graph = app.state.session_graph
+    asyncio.run(graph.aupdate_state({"configurable": {"thread_id": orphan}}, {"ended": None}))
+    assert has_checkpoint(client, orphan)
+
+    assert client.get("/internal/cleanup").status_code == 401
+    bad = {"Authorization": "Bearer nope"}
+    assert client.get("/internal/cleanup", headers=bad).status_code == 401
+
+    now[0] += timedelta(hours=25)
+    auth = {"Authorization": "Bearer s3cret"}
+    assert client.get("/internal/cleanup", headers=auth).json() == {
+        "texts": 0,
+        "threads": 2,
+        "expired_sessions": 1,
+    }
+    assert not has_checkpoint(client, idle) and not has_checkpoint(client, orphan)
+    res = client.get(f"/sessions/{idle}")
+    assert (res.status_code, res.json()["detail"]["code"]) == (410, "SESSION_EXPIRED")
+    assert client.get(f"/sessions/{finished}").json()["step"] == "END"  # 끝난 세션은 기록으로
+
+    now[0] += timedelta(days=90)
+    assert client.get("/internal/cleanup", headers=auth).json()["texts"] == 2
+    assert store_of(client).texts == {}
+
+
+def test_account_deletion_removes_the_user_their_records_and_checkpoints():
+    client = client_for(raw_text=True)
+    asyncio.run(store_of(client).save_consent(BOB.id, raw_text=False))
+    idle = start(client)  # 진행 중 — 체크포인트에 원문이 있다
+    finished = run_s2_to_end(client)
+    login(client.app, BOB)
+    bobs = start(client)
+    login(client.app, ALICE)
+
+    res = client.delete("/me")
+    assert (res.status_code, res.content) == (204, b"")
+    store = store_of(client)
+    assert ALICE.id not in store.consents
+    assert set(store.sessions) == {bobs}
+    assert store.texts == {} and store.rounds == {}
+    assert not has_checkpoint(client, idle)
+    assert has_checkpoint(client, bobs)  # 다른 사용자의 세션은 그대로
+    for sid in (idle, finished):
+        assert client.get(f"/sessions/{sid}").status_code == 404
+    # 운영에서는 로그인 세션도 지워져 같은 토큰이 401(SESSION_REVOKED)이다 — tests/test_auth.py
+    assert client.get("/me/consent").json()["agreed"] is False
+
+
+def test_cleanup_is_closed_without_a_cron_secret():
+    client = client_for()
+    res = client.get("/internal/cleanup", headers={"Authorization": "Bearer x"})
+    assert (res.status_code, res.json()["detail"]["code"]) == (503, "CRON_UNAVAILABLE")
 
 
 @pytest.mark.parametrize(
@@ -382,6 +643,23 @@ def test_cors_allows_only_fe_origins(origin: str, allowed: bool):
         },
     )
     assert (res.headers.get("access-control-allow-origin") == origin) is allowed
+
+
+def test_cors_allows_every_method_the_fe_calls():
+    app = FastAPI()
+    add_cors(app, Settings(_env_file=None))
+    app.include_router(me.router)
+    res = TestClient(app).options(
+        "/me",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "DELETE",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert {"GET", "POST", "PUT", "DELETE"} <= set(
+        res.headers["access-control-allow-methods"].split(", ")
+    )
 
 
 def test_heartbeat_fills_silence_and_passes_errors_through():
