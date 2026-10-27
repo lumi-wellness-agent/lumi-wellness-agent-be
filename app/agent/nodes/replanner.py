@@ -7,8 +7,7 @@
 - confirm: interrupt로 평가 · 제안 · 선택지를 보여 주고 ReplanDecision을 기다린다. 동의한 경우에만
   다음 라운드(plan)로 간다. 다음 라운드의 사전값은 직전 사후값(round_pre = post). 결정은 세션 API가
   선택지로 미리 거른다 — 여기서 거부하면 그 재개 값에 세션이 묶인다(app/api/sessions.py).
-- route_after_confirm: END면 사전·종료에만 재는 목표 척도(STAI-6 · BSRI)가 있을 때 measure_final을
-  거친다. 라운드마다 잰 S3(MFVAS)는 마지막 사후값이 종료값이라 바로 END.
+- route_after_confirm: END면 SAM 종료 측정을 거친다. MVP는 목표와 관계없이 PRE · POST · FINAL에서 SAM을 쓴다.
 """
 
 from typing import Literal
@@ -18,7 +17,6 @@ from langgraph.types import interrupt
 
 from app.agent.nodes.planner import planner_context, search_candidates
 from app.agent.state import CareState, NextStep, ReplanDecision, ReplanProposal, Round
-from app.schemas.measure import final_scale
 
 MAX_ROUNDS = 3  # 라운드 2–3회 제한(등급 규칙 시트 '라운드 규칙')
 
@@ -86,10 +84,7 @@ def confirm(state: CareState) -> dict:
 
 
 def route_after_confirm(state: CareState) -> Literal["plan", "measure_final", "__end__"]:
-    """종료면 STAI-6 · BSRI를 한 번 더 재고 끝낸다(라운드마다 잰 S3는 바로 끝).
-
-    활동 변경·추가 세션이면 Planner로.
-    """
+    """종료면 모든 목표에서 SAM을 한 번 더 측정한다. 활동 변경·추가 세션이면 Planner로."""
     if state["next_step"] is not NextStep.END:
         return "plan"
-    return "measure_final" if final_scale(state["intake"].goal) else END
+    return "measure_final"
