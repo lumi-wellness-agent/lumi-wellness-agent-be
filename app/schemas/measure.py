@@ -12,24 +12,21 @@ from app.schemas.care import CareGoal
 
 
 class InstrumentId(StrEnum):
-    SAM = "INS-SAM"  # 공통 앵커. 쾌·각성 그림 척도 2탭. 모든 MEASURE 노드
-    STAI6 = "INS-STAI6"  # S2 목표 척도. 6문항 4점 → 20–80 환산. 사전·종료만
-    BSRI = "INS-BSRI"  # S1 목표 척도. 8문항 0–100 슬라이더. 사전·종료만
-    MFVAS = "INS-MFVAS"  # S3 목표 척도(임시·미검증). 정신 피로 VAS 3문항 슬라이더. 사전·라운드마다
+    SAM = "INS-SAM"  # 현재 MVP의 공통 측정. 쾌·각성 그림 척도 2탭. 모든 MEASURE 노드
+    STAI6 = "INS-STAI6"  # 후속 후보(S2): TODO. 6문항 4점 → 20–80 환산 설계
+    BSRI = "INS-BSRI"  # 후속 후보(S1): TODO. 8문항 0–100 슬라이더 설계
+    MFVAS = "INS-MFVAS"  # 후속 후보(S3): PROVISIONAL·미검증. 현재 MVP payload에는 미포함
 
 
-# 목표별 척도. S3는 13편 안에 검증된 순간 피로·주의 자가보고가 없어 임시 도구(INS-MFVAS, 팀 작성·
-# 미검증)로 주관적 피로만 잰다. 근거 쪽 S3 1차 지표는 그대로 ATTENTION(과제)이다
-# (retrieval.GOAL_OUTCOMES) — 측정 지표와 근거 지표가 다르다는 것을 Reference 카드에 적는다
+# 후속 버전의 목표별 척도 후보. 현재 SAM-only MVP의 measure 노드에서는 이 매핑을 사용하지 않는다.
+# S3 후보 MFVAS는 팀 작성·미검증이며, 근거 쪽 1차 지표 ATTENTION(과제)과도 다르다.
 GOAL_SCALE: dict[CareGoal, InstrumentId | None] = {
     CareGoal.S1: InstrumentId.BSRI,
     CareGoal.S2: InstrumentId.STAI6,
     CareGoal.S3: InstrumentId.MFVAS,
 }
 
-# 짧아서 라운드마다 SAM과 함께 다시 재는 목표 척도. 라운드 판정에 직접 쓰고 종료(measure_final)
-# 에서는 다시 묻지 않는다 — 마지막 라운드의 사후값이 종료값이다.
-# 나머지 목표 척도(STAI-6 · BSRI)는 사전·종료에만 잰다
+# 미래에 goal-specific 척도를 활성화할 때 사용할 측정 빈도 표. 현재 MVP 노드는 사용하지 않는다.
 ROUND_SCALES: frozenset[InstrumentId] = frozenset({InstrumentId.MFVAS})
 
 
