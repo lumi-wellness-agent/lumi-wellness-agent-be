@@ -70,7 +70,87 @@
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr16/pr16-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "state_flow": [
+        "HOST_ACTIVITY_RUNNING",
+        "PR16_POPUP_READY",
+        "PR16_INPUTTING",
+        "PR16_COMPLETED",
+        "SKIPPED",
+        "STOPPED"
+      ],
+      "popup": {
+        "enabled": true,
+        "start_text": "감정이나 분위기를 1~3개의 짧은 단어로 입력해 주세요. 이 활동에는 정답이 있지 않습니다.",
+        "actions": [
+          "SKIP",
+          "CONTINUE"
+        ],
+        "close_button": false,
+        "outside_click_closes": false
+      },
+      "input": {
+        "mode": "three_slots",
+        "slot_count": 3,
+        "minimum_valid_slots": 1,
+        "allow_free_text": true,
+        "per_slot_min_words": 1,
+        "per_slot_max_words": 3,
+        "per_slot_max_characters": 20,
+        "allow_blank_slots": true,
+        "blank_policy": "block_confirmation",
+        "sentence_input": false,
+        "normalize_whitespace": true,
+        "reject_line_breaks": true
+      },
+      "completion": {
+        "normal": "at_least_one_valid_phrase_and_user_confirm",
+        "allowed_statuses": [
+          "COMPLETED",
+          "SKIPPED",
+          "STOPPED"
+        ],
+        "skip_returns_to_host": true,
+        "stop_returns_to_host": false,
+        "self_report_only": true
+      },
+      "timer": {
+        "enabled": false,
+        "host_activity_owns_timing": true
+      },
+      "host_integration": {
+        "host_protocol_ids": [
+          "PR-01",
+          "PR-09",
+          "PR-15",
+          "PR-21"
+        ],
+        "trigger": "HOST_NOTICE_STEP",
+        "return_target": "HOST_ACTIVITY",
+        "selection_status": "INTEGRATED",
+        "note": "steps에 NOTICE 단계가 있는 활동이 호스트다. prepare가 호스트의 ActivityContent.notice_module로 이 session_ui를 싣고, FE는 그 NOTICE 단계를 이 팝업으로 그린다. 호스트 NOTICE 슬롯에 text가 있으면 그 문구를, 없으면 popup.start_text를 보여 준다"
+      },
+      "persistence": {
+        "storage": "localStorage",
+        "key": "lumi.pr16.notice.v1",
+        "refresh_policy": "mark_host_and_pr16_stopped",
+        "duplicate_completion_block": true
+      },
+      "privacy": {
+        "server_text_storage": true,
+        "separate_record": true,
+        "allow_export": true,
+        "allow_delete": true
+      },
+      "constraints": {
+        "no_diagnosis": true,
+        "no_score": true,
+        "no_therapy_claim": true
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -147,11 +227,12 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: 단독 프로토콜로 쓰지 않음"
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr16의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
+      "시트 비고: 단독 프로토콜로 쓰지 않음",
+      "감정 단어는 서버로 보낸다(2026-10-27 결정 — 실사용 데이터 수집). SessionReport.notice_words가 1~3개(각 20자 이하)를 받고, privacy.server_text_storage를 true로 바꿨다. 저장한다는 안내 문구와 동의는 세션 저장(care_sessions) 동의 정책과 함께 정한다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-16, 근거 arm 1행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

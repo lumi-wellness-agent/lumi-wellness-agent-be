@@ -31,7 +31,7 @@ measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS �
 plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
   ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
 prepare         프로토콜의 steps · guide → ActivityContent
-run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
+run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_words)
 measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
 evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로↓)
 replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외)
@@ -53,6 +53,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates` 등급 순 · 환경 필터, `plan_candidates` 완화 순서) · LLM용 압축본(`compact`) |
 | 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO, S3용 MFVAS는 PROVISIONAL(팀 작성·미검증) |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
+| 완료 | `app/agent/nodes/executor.py` `app/static/coloring/` | 활동 노드 21개 통합(10-27) — prepare가 `content_spec`(대본 · 재생 시점 · 화면 명세)과 NOTICE 단계 모듈(PR-16)을 RUN 페이로드로 넘긴다. C 파트 실행 계약(`scratch/pr11`~`pr19`)을 `content_spec.session_ui`로 옮기고 컬러링 도안 SVG 11개를 검수 자산으로 등록했다 |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
 | 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
@@ -71,6 +72,14 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 
 묶음 제안: A = PR-01 02 03 04 05 20 21(자연 자극 감상) · B = PR-06 07 08 09 10 17 22(호흡·이완·명상·그라운딩) ·
 C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문을 한 사람이 읽도록 매체로 묶었다.
+
+**상태(10-27).** 셋 다 합류했다 — A #26 · B #48 · C #28 · #51. 실행 방법은 `content_spec`에 둔다: 슬롯별
+`scripts`(대본 · 단계별 문구) · `render`(재생 시점) · `selection`(공급자 · 검수 자산 키), 화면 명세 `session_ui`.
+prepare가 그대로 FE에 넘긴다(README 「RUN 페이로드」). `scratch/prNN`은 프로토타입으로 남기고 이후 수정은
+`data/protocols`에서 한다. 남은 확인은 각 파일의 `review.open_items`. 10-27에 정한 것 — PR-18 지시문은 E14 실험
+조건 지시문을 옮겼다(한국어 문구 검수), PR-17은 B 설계, PR-16 감정 단어는 서버로 받는다(`SessionReport.notice_words`),
+안내 음성은 녹음하지 않고 FE가 `speechSynthesis`로 읽는다(`generation.provider` `BROWSER_SPEECH_SYNTHESIS`). 남은 것 —
+컬러링 도안 원본의 출처 · 라이선스(C 확인 중).
 
 ### measure 담당 (먼저 끝난 사람, 화)
 

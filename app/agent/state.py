@@ -11,7 +11,7 @@ import operator
 from enum import StrEnum
 from typing import Annotated, Any, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.schemas.care import CareGoal, CareRequest, Environment, Place, Setting
 from app.schemas.evidence import InterventionOrder, Outcome
@@ -137,7 +137,16 @@ class ActivityContent(BaseModel):
     image_urls: list[str] = []
     guide_text: str = ""
     notice_prompt: str | None = None
-    # 안내 음성·자연음 URL · Reference 카드는 Executor를 구현하며 더한다
+    # 활동 노드 JSON의 content_spec 그대로 — 슬롯별 대본(scripts) · 재생 시점(render) ·
+    # 선택(selection)과 화면 명세(session_ui). 활동마다 모양이 달라 형을 고정하지 않고 FE 플레이어가
+    # 읽는다
+    content_spec: dict[str, Any] = Field(default_factory=dict)
+    # NOTICE 단계가 있으면 단계 모듈(PR-16)의 session_ui — FE가 그 단계를 이 입력 팝업으로 그린다
+    notice_module: dict[str, Any] | None = None
+
+
+# PR-16 팝업 한 칸 — 앞뒤 공백을 떼고 1~20자. 빈 칸은 FE가 빼고 보낸다
+NoticeWord = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 
 
 class SessionReport(BaseModel):
@@ -145,7 +154,9 @@ class SessionReport(BaseModel):
 
     completed: bool  # 불편하거나 어지러워 중간에 멈췄으면 False
     stopped_reason: str | None = None
-    notice_word: str | None = None  # NOTICE 단계의 한 단어 응답. 점수화하지 않는다
+    # NOTICE 단계(PR-16 팝업)에 적은 감정 단어 1~3개 — 칸 수 · 글자 수는 PR-16 session_ui.input을
+    # 따른다. 점수화하지 않고 실사용 데이터로 남긴다
+    notice_words: list[NoticeWord] = Field(default=[], max_length=3)
 
 
 class OutcomeEvaluation(BaseModel):

@@ -7,8 +7,13 @@
 
 - 스키마는 `app/schemas/protocol.py`의 `CareProtocol`. 코드가 읽는 필드(id · 목표 · 매체 · 구성 · 시간 ·
   순서 조건 · steps · content_spec.slots · measures · evidence · grades)만 형을 고정하고 나머지 블록은 자유다.
-- `PR-01.json`은 손으로 쓴 완성 예시. 나머지 20개는 `scripts/scaffold_protocols.py`가 워크북(프로토콜 ·
-  근거 arm 시트)에서 만든 **초안**이다 — `review.status = DRAFT`, 확인할 것은 `review.open_items`.
+- `PR-01.json`은 손으로 쓴 기준이다. 나머지 20개는 `scripts/scaffold_protocols.py`가 워크북(프로토콜 ·
+  근거 arm 시트)에서 만든 초안을 활동 노드 담당(A · B · C)이 채웠다. 검수 전이라 `review.status = DRAFT`이고,
+  남은 확인은 `review.open_items`.
+- 실행 방법(FE 플레이어가 읽는 것)은 `content_spec`에 둔다 — 슬롯별 대본 `scripts` · 재생 시점 `render` ·
+  고르는 방식 `selection`(검수 자산이면 `app/static/*/manifest.json`의 키), 화면 명세 `session_ui`. 모양은
+  활동마다 다르고 prepare가 그대로 `ActivityContent.content_spec`으로 넘긴다. PR-16은 단독 활동이 아니라
+  다른 활동의 NOTICE 단계를 그리는 모듈이다(`ActivityContent.notice_module`).
 - `evidence[].evidence_record_ids`는 적재 뒤 BE가 역기입하는 유일한 필드다.
 - 합격 기준: `make test-protocols`.
 

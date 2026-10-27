@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "record_type": "care_protocol",
   "protocol_id": "PR-14",
-  "name": "만다라·구조 도안 컬러링 20분",
+  "name": "만다라 컬러링",
   "name_en": null,
-  "summary": "만다라·구조 도안 컬러링 20분. 약 20분. 매체 COLORING. 허용 사용자 상태 POST_STRESS.",
+  "summary": "독립된 만다라 영역을 색칠하며 자연스럽게 몰입하는 활동",
   "goal": "S2",
   "secondary_goals": [
     "S1"
@@ -33,7 +33,7 @@
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 만다라·구조 도안 컬러링 20분을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 만다라 컬러링을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
     "intro_text_ref": "guide/pr14_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -87,9 +87,98 @@
           "generated": "ALLOWED_WITH_FLAG",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "도안은 독립 영역(data-region-id)과 외곽선(id=outline)이 있는 SVG다(app/static/coloring/pr14). FE는 SVG를 받아 DOM에 넣고 영역을 칠한다 — 실행 중 PNG→SVG 변환은 하지 않는다",
+        "selection": {
+          "provider": "CURATED_ASSET_LIBRARY",
+          "mode": "FIRST_THEN_RANDOM",
+          "asset_refs": [
+            "coloring/pr14_mandala_1",
+            "coloring/pr14_mandala_2",
+            "coloring/pr14_mandala_3",
+            "coloring/pr14_mandala_4",
+            "coloring/pr14_mandala_5",
+            "coloring/pr14_mandala_6"
+          ],
+          "default_asset_ref": "coloring/pr14_mandala_1",
+          "note": "첫 도안을 먼저 보여 주고, 다 칠한 뒤 '다음 도안'을 누르면 저장된 도안 중 하나를 무작위로 보여 준다"
+        }
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr14/pr14-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "asset_policy": {
+        "input_format": "SVG_ONLY",
+        "png_to_svg_runtime_conversion": false,
+        "required_region_attribute": "data-region-id",
+        "outline_id": "outline",
+        "source_directory": "app/static/coloring/pr14"
+      },
+      "timer": {
+        "planned_seconds": 1200,
+        "minimum_completion_seconds": 960,
+        "display_mode": "PROGRESS_ELAPSED",
+        "auto_stop_on_target": false,
+        "allow_pause": false,
+        "resume_on_valid_region_click": true
+      },
+      "palette": [
+        {
+          "name": "Deep Teal",
+          "hex": "#397D78"
+        },
+        {
+          "name": "Soft Blue",
+          "hex": "#759BC3"
+        },
+        {
+          "name": "Muted Purple",
+          "hex": "#8873A6"
+        },
+        {
+          "name": "Dusty Rose",
+          "hex": "#B86F87"
+        },
+        {
+          "name": "Terracotta",
+          "hex": "#C48760"
+        },
+        {
+          "name": "Soft Gold",
+          "hex": "#D4B85F"
+        },
+        {
+          "name": "Olive Green",
+          "hex": "#89964E"
+        },
+        {
+          "name": "Light Sand",
+          "hex": "#DFD1B5"
+        }
+      ],
+      "state": {
+        "region_states": [
+          "UNCOLORED",
+          "COLORED"
+        ],
+        "refresh": "pause_timer_keep_coloring_state",
+        "reset": "all_regions_uncolored",
+        "undo": "restore_previous_fill"
+      },
+      "storage": {
+        "mode": "browser_local_storage",
+        "key": "lumi.pr14.coloring.v1",
+        "official_server_record": false
+      },
+      "completion_rule": {
+        "required_completed_designs": 1,
+        "minimum_elapsed_seconds": 960
+      },
+      "verification": {
+        "automatic_activity": "not_performed",
+        "self_report": "not_required"
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -281,11 +370,12 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: S1에 넣더라도 '불안·부정 정서 완화'로만 설명"
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr14의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
+      "시트 비고: S1에 넣더라도 '불안·부정 정서 완화'로만 설명",
+      "도안 SVG 6개의 원본 이미지 출처·라이선스가 적혀 있지 않다 — 확인 전까지 자산 verification은 PENDING_CONTENT_REVIEW"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-14, 근거 arm 7행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

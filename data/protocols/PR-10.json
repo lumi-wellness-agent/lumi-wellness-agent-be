@@ -254,10 +254,10 @@
           "script_rewrite": false
         },
         "generation": {
-          "method": "RECORDED_VOICE_OR_TTS_FROM_APPROVED_TEXT",
+          "method": "TTS_FROM_APPROVED_TEXT",
           "status": "SPEC_ONLY",
           "language": "ko-KR",
-          "provider": null,
+          "provider": "BROWSER_SPEECH_SYNTHESIS",
           "voice_id": null,
           "clips": [
             {
@@ -580,7 +580,8 @@
       "P38 원본 대본 미확보 및 사용자 승인 대본의 오디오 재생 길이 미검증",
       "P38-E1 표기와 연구 결과, 5주 프로그램을 단회에 적용할 한계 팀 검토",
       "영상 파일 선정, 저작권 및 반복 경계 확인",
-      "Pixabay 영상 검색의 키, 영상 반복 및 실제 환경 모드에서 검색 생략 분기 검증 필요"
+      "Pixabay 영상 검색의 키, 영상 반복 및 실제 환경 모드에서 검색 생략 분기 검증 필요",
+      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-10, 근거 arm 6행",
     "reviewed_by": null,

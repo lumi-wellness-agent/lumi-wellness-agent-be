@@ -73,7 +73,67 @@
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr19/pr19-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "challenge": {
+        "duration_days": 7,
+        "one_entry_per_day": true,
+        "max_good_things": 3,
+        "min_good_things": 1
+      },
+      "state_flow": [
+        "DAILY_OVERVIEW",
+        "DAY_ENTRY",
+        "EDITING",
+        "DAY_COMPLETED",
+        "WEEK_OVERVIEW"
+      ],
+      "entry": {
+        "fields": [
+          "content"
+        ],
+        "prompt": "오늘 어떤 좋은 일이 있었나요? 그 일이 왜 좋았는지도 함께 적어 보세요.",
+        "max_items": 3,
+        "min_items_for_completion": 1,
+        "ignore_blank_or_whitespace_only": true,
+        "allow_edit": true,
+        "allow_delete": true
+      },
+      "date": {
+        "source": "submitted_at",
+        "timezone_source": "browser",
+        "entry_date_format": "YYYY-MM-DD",
+        "allow_past_edit": true
+      },
+      "timer": {
+        "recommended_seconds": 300,
+        "display_mode": "HIDDEN_INTERNAL",
+        "record_started_at": true,
+        "record_submitted_at": true,
+        "record_elapsed_seconds": true,
+        "required_for_completion": false
+      },
+      "completion": {
+        "daily_requires_minimum_entries": true,
+        "challenge_completion_requires_all_days": false,
+        "self_report_only": true
+      },
+      "persistence": {
+        "storage": "localStorage",
+        "key": "lumi.pr19.journal.v1"
+      },
+      "privacy": {
+        "server_text_storage": false,
+        "allow_export": true,
+        "allow_delete": true
+      },
+      "research": {
+        "evidence_status": "MIXED_NEEDS_REVIEW",
+        "no_guaranteed_effect_claim": true
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -187,7 +247,7 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr19의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
       "grades.AFFECT: 등급 셀이 E12-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
       "grades.AFFECT: 등급 셀이 E11-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
       "시트의 측정 도구 ['INS-PANAS']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
@@ -195,6 +255,6 @@
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-19, 근거 arm 3행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

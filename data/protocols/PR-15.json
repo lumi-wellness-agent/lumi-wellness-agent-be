@@ -93,7 +93,20 @@
           "generated": "ALLOWED_WITH_FLAG",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "도안은 독립 영역(data-region-id)과 외곽선(id=outline)이 있는 SVG다(app/static/coloring/pr15). FE는 SVG를 받아 DOM에 넣고 영역을 칠한다",
+        "selection": {
+          "provider": "CURATED_ASSET_LIBRARY",
+          "mode": "RANDOM_ONE",
+          "asset_refs": [
+            "coloring/pr15_nature_1",
+            "coloring/pr15_nature_3",
+            "coloring/pr15_nature_5",
+            "coloring/pr15_nature_6",
+            "coloring/pr15_nature_7"
+          ],
+          "default_asset_ref": "coloring/pr15_nature_1",
+          "note": "도안 1개를 무작위로 골라 보여 준다"
+        }
       },
       {
         "slot": "NOTICE_PROMPT",
@@ -106,7 +119,68 @@
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr15/pr15-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "design_count": 5,
+      "recommended_duration_seconds": 300,
+      "timer": {
+        "display_mode": "HIDDEN_INTERNAL",
+        "start_trigger": "first_valid_region_click",
+        "record_started_at": true,
+        "record_elapsed_seconds": true,
+        "auto_stop": false
+      },
+      "palette": {
+        "fixed": true,
+        "colors": [
+          "#397D78",
+          "#759BC3",
+          "#8873A6",
+          "#B86F87",
+          "#C48760",
+          "#D4B85F",
+          "#89964E",
+          "#DFD1B5"
+        ]
+      },
+      "state": {
+        "region_states": [
+          "uncolored",
+          "colored"
+        ],
+        "initial_state": "uncolored",
+        "outline_click_ignored": true
+      },
+      "eraser": {
+        "enabled": true,
+        "ui": "palette_adjacent_icon",
+        "effect": "fill_white_and_set_uncolored"
+      },
+      "completion": {
+        "minimum_completion_percent": 80,
+        "requires_user_confirmation": true,
+        "auto_complete": false,
+        "continue_coloring_after_threshold": true
+      },
+      "progress": {
+        "show_completion_rate": true,
+        "show_remaining_region_count": true,
+        "show_timer": false
+      },
+      "persistence": {
+        "storage": "localStorage",
+        "key": "lumi.pr15.coloring.v1",
+        "autosave_debounce_ms": 500,
+        "restore_after_reload_or_close": true,
+        "clear_on_completed": true
+      },
+      "features": {
+        "undo": false,
+        "reset": false
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -186,12 +260,13 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr15의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
       "grades.AFFECT: 등급 셀이 P34-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
-      "시트 비고: S1 A/B 실험 전용. 사용자에게 '실험적' 표시"
+      "시트 비고: S1 A/B 실험 전용. 사용자에게 '실험적' 표시",
+      "도안 SVG 5개의 원본 이미지 출처·라이선스가 적혀 있지 않다 — 확인 전까지 자산 verification은 PENDING_CONTENT_REVIEW"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-15, 근거 arm 1행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

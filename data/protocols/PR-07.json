@@ -121,7 +121,8 @@
           "note": "검수 후 고정 한국어 대본 제작. 실제 TTS·영상 생성은 아직 진행하지 않음.",
           "language": "ko-KR",
           "voice_direction": "차분하고 또렷한 동일 화자, 자연스러운 속도, 속삭임·배경 음악 없음",
-          "llm_rewrite": false
+          "llm_rewrite": false,
+          "provider": "BROWSER_SPEECH_SYNTHESIS"
         },
         "render": {
           "status": "DRAFT_TIMELINE",
@@ -529,10 +530,11 @@
       "준비·종료 음성 길이 측정 후 전체 소요 시간과 시간 적합성 검사에 반영",
       "P18의 이완 척도와 AFFECT·SUBJECTIVE_STRESS 분류 관계 및 P19 원문 검수",
       "스키마·make test-protocols·FE 시퀀스와 부위별 생략 계약 확인",
-      "한국어 18부위 대본은 초안. 강도 완화·가슴배 감각 관찰 각색 검수와 음성 10초·경계 검수 전 실행 준비 완료로 표시 금지"
+      "한국어 18부위 대본은 초안. 강도 완화·가슴배 감각 관찰 각색 검수와 음성 10초·경계 검수 전 실행 준비 완료로 표시 금지",
+      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-07, 근거 arm 2행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

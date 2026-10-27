@@ -184,14 +184,14 @@
           "attention_alternative": "호흡이 불편하면 발이 바닥에 닿는 느낌 또는 주변 소리"
         },
         "generation": {
-          "method": "RECORDED_VOICE_OR_TTS_FROM_APPROVED_TEXT",
+          "method": "TTS_FROM_APPROVED_TEXT",
           "status": "SPEC_ONLY",
           "language": "ko-KR",
           "voice_direction": "차분하고 또렷한 한국어, 동일 화자, 자연스러운 속도",
           "background_music": false,
           "background_ambience": false,
           "llm_rewrite": false,
-          "provider": null,
+          "provider": "BROWSER_SPEECH_SYNTHESIS",
           "voice_id": null,
           "clips": [
             {
@@ -425,7 +425,8 @@
       "음성 실제 길이와 안내 간 겹침 및 guide.max_seconds 검토",
       "타이머·음파·중단·선택형 NOTICE 및 측정 연동 구현 확인",
       "원본 음성 또는 번역을 재사용할 경우 이용 권한 확인",
-      "P16·P14·P13 근거 등급과 세부 결과 팀 검토"
+      "P16·P14·P13 근거 등급과 세부 결과 팀 검토",
+      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-09, 근거 arm 4행",
     "reviewed_by": null,

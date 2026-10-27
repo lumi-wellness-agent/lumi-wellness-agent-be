@@ -88,9 +88,306 @@
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "scripts는 화면 단계(phase)별 고정 문구다 — C 제안의 phase 슬롯(INTRO_GUIDE …)이 SlotType이 아니라 문구라서 이 슬롯의 scripts로 옮겼다. FE는 phase로 찾고 text가 비면 fallback_text를 쓴다",
+        "scripts": [
+          {
+            "id": "INTRO_GUIDE",
+            "phase": "PRE_ACTIVITY_CHECK",
+            "required": true,
+            "text": "권장 시간 동안 편안한 속도로 걸으며 주변의 자연물을 바라보고, 불편하거나 위험하다고 느끼면 무리하지 말고 중단하세요.",
+            "fallback_text": "권장 시간 동안 편안한 속도로 걸으며 주변의 자연물을 바라보고, 불편하거나 위험하다고 느끼면 무리하지 말고 중단하세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "ALLOWED",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "DURING_ACTIVITY_GUIDE",
+            "phase": "RUNNING",
+            "required": false,
+            "text": "화면을 계속 바라보기보다 타이머를 가끔 확인하며 주변의 자연물을 보세요.",
+            "fallback_text": "주변의 자연물을 바라보며 활동을 이어가세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "TARGET_REACHED_GUIDE",
+            "phase": "TARGET_REACHED",
+            "required": true,
+            "text": "권장 시간에 도달했습니다. 활동을 마쳤다면 완료를 눌러주세요.",
+            "fallback_text": "권장 시간에 도달했습니다. 활동을 마쳤다면 완료를 눌러주세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "ALLOWED",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "STOP_CONFIRMATION",
+            "phase": "STOP_CONFIRMATION",
+            "required": true,
+            "text": "활동을 중단하시겠습니까?",
+            "fallback_text": "활동을 중단하시겠습니까?",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "LIMITATION_NOTICE",
+            "phase": "RESULT",
+            "required": true,
+            "text": "이 활동은 실제 보행 여부나 개인별 효과를 자동으로 확인하거나 검증하지 않습니다.",
+            "fallback_text": "실제 보행 여부나 개인별 효과는 자동으로 확인되지 않습니다.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          }
+        ]
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr11/pr11-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "ui": {
+        "title": "야외 자연 보행",
+        "show_safety_check": true,
+        "show_self_report": false
+      },
+      "timer": {
+        "recommended_duration_seconds": 3000,
+        "user_duration_options_minutes": [
+          20,
+          50,
+          90
+        ],
+        "default_user_duration_minutes": 50,
+        "display_mode": "PROGRESS_ELAPSED",
+        "progress_max_percent": 100,
+        "show_elapsed_time": true,
+        "show_remaining_time": true,
+        "auto_stop_on_target": false,
+        "continue_elapsed_after_target": true,
+        "clock": "wall_clock_ms",
+        "allow_pause": true,
+        "allow_early_stop": false,
+        "resume_from_local_storage": true,
+        "test_presets_seconds": [
+          30,
+          60
+        ],
+        "selection_mode": "FIXED_RECOMMENDED_PENDING_INTAKE",
+        "user_duration_selection_enabled": false
+      },
+      "duration_options": {
+        "PR11-20": {
+          "minutes": 20,
+          "planned_seconds": 1200
+        },
+        "PR11-50": {
+          "minutes": 50,
+          "planned_seconds": 3000
+        },
+        "PR11-90": {
+          "minutes": 90,
+          "planned_seconds": 5400
+        }
+      },
+      "duration_input": {
+        "field": "selected_duration_option",
+        "allowed_values": [
+          "PR11-20",
+          "PR11-50",
+          "PR11-90"
+        ],
+        "default": "PR11-50",
+        "user_override": false
+      },
+      "safety_check": {
+        "required": true,
+        "mode": "USER_SELF_CONFIRMATION",
+        "all_required": true,
+        "items": [
+          "walking_environment",
+          "body_condition"
+        ],
+        "labels": {
+          "walking_environment": "현재 보행할 장소와 경로가 충분히 안전합니다.",
+          "body_condition": "현재 몸 상태로 이 활동을 진행할 수 있습니다."
+        },
+        "initial_value": false,
+        "start_enabled_when": "all_items_true",
+        "does_not_certify_safety": true,
+        "request_location_permission": false,
+        "request_sensor_permission": false
+      },
+      "self_report": {
+        "enabled": false,
+        "deferred_to_team_review": true,
+        "fields": {
+          "walked_outdoors": {
+            "type": "boolean",
+            "required": true
+          },
+          "walked_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "required": true
+          },
+          "completed_activity": {
+            "type": "boolean",
+            "required": true
+          },
+          "discomfort": {
+            "type": "string",
+            "required": false
+          },
+          "reflection": {
+            "type": "string",
+            "required": false
+          }
+        }
+      },
+      "verification": {
+        "automatic_walking": "disabled",
+        "gps": "disabled",
+        "sensor_steps": "disabled",
+        "self_report_is_not_objective_verification": true
+      },
+      "step_tracking_extension": {
+        "enabled": false,
+        "provider": "DeviceMotionEvent",
+        "permission_requested": false,
+        "estimated_steps": null,
+        "confidence": null,
+        "status": "not_measured"
+      },
+      "storage": {
+        "mode": "browser_local_storage",
+        "key": "lumi.pr11.outdoor.v1",
+        "official_server_record": false
+      },
+      "state_model": {
+        "screen_states": [
+          "INTRO",
+          "ACTIVITY",
+          "REPORT",
+          "RESULT"
+        ],
+        "timer_states": [
+          "READY",
+          "RUNNING",
+          "PAUSED",
+          "STOPPED"
+        ],
+        "transitions": [
+          "READY>RUNNING",
+          "RUNNING>PAUSED",
+          "PAUSED>RUNNING",
+          "RUNNING>STOPPED",
+          "PAUSED>STOPPED"
+        ]
+      },
+      "duration_selection": {
+        "default_minutes": 50,
+        "options": [
+          {
+            "minutes": 20,
+            "when": "limited_time_or_lower_capacity",
+            "evidence_level": "within_protocol_range_not_direct_PR11_duration",
+            "exposed_in_ui": false
+          },
+          {
+            "minutes": 50,
+            "when": "default",
+            "evidence_level": "direct_PR11_evidence",
+            "exposed_in_ui": true
+          },
+          {
+            "minutes": 90,
+            "when": "sufficient_time_and_condition",
+            "evidence_level": "direct_evidence_in_N20",
+            "exposed_in_ui": false
+          }
+        ]
+      },
+      "clock_policy": {
+        "clock_source": "wall_clock_ms",
+        "timestamp_format": "ISO-8601 UTC",
+        "exclude_paused_time": true,
+        "background_callback_guaranteed": false
+      },
+      "recovery": {
+        "on_refresh_running": "PAUSED",
+        "on_refresh_paused": "PAUSED",
+        "resume_requires_user_action": true,
+        "no_action_keeps_paused": true,
+        "safety_stop_available_in": [
+          "RUNNING",
+          "PAUSED"
+        ],
+        "safety_stop_terminal": true,
+        "store_refresh_count": true,
+        "show_refresh_count_to_user": false
+      },
+      "execution_context": {
+        "production_mode": "PROTOCOL_ACTIVITY",
+        "development_presets_seconds": [
+          30,
+          60
+        ],
+        "development_counts_as_protocol_completion": false
+      },
+      "content_validation": {
+        "required_slots": [
+          "INTRO_GUIDE",
+          "TARGET_REACHED_GUIDE",
+          "STOP_CONFIRMATION",
+          "LIMITATION_NOTICE"
+        ],
+        "missing_required_slot": "SHOW_ERROR_AND_BLOCK_START",
+        "missing_text_with_fallback": "USE_FALLBACK_TEXT",
+        "missing_optional_slot": "HIDE_AND_LOG_SLOT",
+        "error_text": "안내 문구를 불러오지 못했습니다. 활동을 시작하지 말고 잠시 후 다시 시도해 주세요."
+      },
+      "phase_history_policy": {
+        "record_events": [
+          "PRE_ACTIVITY_CHECK_CONFIRMED",
+          "ACTIVITY_STARTED",
+          "PAUSED",
+          "RESUMED",
+          "TARGET_REACHED",
+          "COMPLETED",
+          "STOPPED"
+        ],
+        "pause_recording": "FIRST_PAUSE_ONLY_UNTIL_RESUME",
+        "refresh_pause_same_as_manual_pause": true,
+        "cancelled_popup_recorded": false,
+        "paused_seconds": "NOT_IMPLEMENTED"
+      },
+      "post_activity_report": {
+        "enabled": false,
+        "planned_when": "NORMAL_COMPLETION_ONLY"
+      },
+      "stop_policy": {
+        "general_early_stop_ui": false,
+        "safety_stop_always_allowed": true,
+        "safety_stop_reason": "SAFETY_OR_DISCOMFORT",
+        "record_for_follow_up": true,
+        "allowed_stop_reasons": [
+          "SAFETY",
+          "DISCOMFORT"
+        ],
+        "user_choice_before_target": "FORBIDDEN"
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -273,7 +570,7 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "steps · content_spec · guide 문안은 scratch/pr11 실행 계약과 대조 검수 필요",
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr11의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
       "시트의 INS-GAP-S3는 코드의 INS-MFVAS(정신 피로 VAS 3문항, 임시·미검증)로 들어갔다 — S3 세션은 SAM + MFVAS를 사전·라운드마다 잰다",
       "앱 밖 활동이므로 FE는 타이머와 진행률만 실행하며 현재 버전에서는 활동 후 자기보고를 수집하지 않음",
       "20분(E19)과 90분(N20)은 참고 근거로 기록하지만 현재 UI에는 노출하지 않음",
@@ -291,6 +588,6 @@
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-11, 근거 arm 6행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

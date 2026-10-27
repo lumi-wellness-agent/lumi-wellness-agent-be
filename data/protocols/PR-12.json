@@ -4,7 +4,7 @@
   "protocol_id": "PR-12",
   "name": "자연 속 걷기 + 좋은 것 3가지 알아차리기",
   "name_en": null,
-  "summary": "자연 속 걷기 + 좋은 것 3가지 알아차리기. 약 30분. 매체 OUTDOOR_WALK, NOTICING. 허용 사용자 상태 NO_INDUCTION.",
+  "summary": "자연 속에서 걷고 좋은 것 3가지를 알아차려 기록하는 활동입니다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -18,8 +18,8 @@
   ],
   "duration_minutes": {
     "default": 30.0,
-    "min": null,
-    "max": null,
+    "min": 30.0,
+    "max": 30.0,
     "evidence": "30분 × 5일(E18) / 매일 기록 5일(E17)"
   },
   "eligibility": {
@@ -32,7 +32,7 @@
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 자연 속 걷기 + 좋은 것 3가지 알아차리기를 약 30분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "자연 속을 편안하게 걸으며 좋은 것 3가지를 알아차려 기록합니다.",
     "intro_text_ref": "guide/pr12_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -47,7 +47,7 @@
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "30분 보행, 좋은 것 3가지 기록",
+      "label": "자연 속 걷기와 알아차림",
       "minutes": 30.0,
       "slots": [
         "OUTDOOR_TASK",
@@ -86,7 +86,69 @@
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "scripts는 화면 단계(phase)별 고정 문구다(PR-11과 같은 id). FE는 phase로 찾고 text가 비면 fallback_text를 쓴다",
+        "scripts": [
+          {
+            "id": "INTRO_GUIDE",
+            "phase": "PRE_ACTIVITY_CHECK",
+            "required": true,
+            "text": "권장 시간 동안 편안하게 걸으며 주변의 좋은 것을 알아차려 보세요. 불편하거나 위험하면 중단하세요.",
+            "fallback_text": "권장 시간 동안 편안하게 걷고, 불편하면 중단하세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "ALLOWED",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "DURING_ACTIVITY_GUIDE",
+            "phase": "RUNNING",
+            "required": true,
+            "text": "자연 속을 편안하게 걸으며 주변을 살펴보세요.",
+            "fallback_text": "주변을 살펴보며 편안하게 걸어보세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "TARGET_REACHED_GUIDE",
+            "phase": "TARGET_REACHED",
+            "required": true,
+            "text": "권장 시간에 도달했습니다. 활동을 마쳤다면 다음 단계로 이동하세요.",
+            "fallback_text": "권장 시간에 도달했습니다.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "ALLOWED",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "STOP_CONFIRMATION",
+            "phase": "STOP_CONFIRMATION",
+            "required": true,
+            "text": "활동을 중단하시겠습니까?",
+            "fallback_text": "활동을 중단하시겠습니까?",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          },
+          {
+            "id": "LIMITATION_NOTICE",
+            "phase": "RESULT",
+            "required": true,
+            "text": "이 활동은 실제 보행 여부나 개인별 효과를 자동으로 확인하거나 검증하지 않습니다.",
+            "fallback_text": "실제 보행 여부와 효과는 자동으로 확인되지 않습니다.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          }
+        ]
       },
       {
         "slot": "WRITING_PROMPT",
@@ -97,9 +159,194 @@
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "보행이 끝난 뒤 알아차린 좋은 것을 1~3개 적는다(session_ui.noticing)",
+        "scripts": [
+          {
+            "id": "NOTICING_PROMPT",
+            "phase": "NOTICING_INPUT",
+            "required": true,
+            "text": "자연에서 발견한 좋은 것을 한 가지 이상 기록해 주세요.",
+            "fallback_text": "좋았던 것을 한 가지 이상 기록해 주세요.",
+            "source_policy": {
+              "fixed_text": "ALLOWED",
+              "tts": "FORBIDDEN",
+              "llm_rewrite": "FORBIDDEN"
+            }
+          }
+        ]
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr12/pr12-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "timer": {
+        "recommended_duration_seconds": 1800,
+        "display_mode": "PROGRESS_ELAPSED",
+        "progress_max_percent": 100,
+        "show_elapsed_time": true,
+        "show_remaining_time": true,
+        "auto_stop_on_target": false,
+        "continue_elapsed_after_target": false,
+        "allow_pause": true,
+        "allow_early_stop": true,
+        "test_presets_seconds": [
+          30,
+          60
+        ]
+      },
+      "safety_check": {
+        "required": true,
+        "mode": "USER_SELF_CONFIRMATION",
+        "items": [
+          "walking_environment",
+          "body_condition"
+        ],
+        "labels": {
+          "walking_environment": "현재 보행할 장소와 경로가 충분히 안전합니다.",
+          "body_condition": "현재 몸 상태로 이 활동을 진행할 수 있습니다."
+        },
+        "initial_value": false,
+        "start_enabled_when": "all_items_true",
+        "does_not_certify_safety": true,
+        "request_location_permission": false,
+        "request_sensor_permission": false
+      },
+      "content_validation": {
+        "required_slots": [
+          "INTRO_GUIDE",
+          "TARGET_REACHED_GUIDE",
+          "STOP_CONFIRMATION",
+          "LIMITATION_NOTICE"
+        ],
+        "missing_required_slot": "SHOW_ERROR_AND_BLOCK_START",
+        "missing_optional_slot": "HIDE_AND_LOG_SLOT",
+        "error_text": "안내 문구를 불러오지 못했습니다. 활동을 시작하지 말고 잠시 후 다시 시도해 주세요."
+      },
+      "duration_input": {
+        "field": "selected_duration_option",
+        "allowed_values": [
+          "PR12-30"
+        ],
+        "default": "PR12-30",
+        "options": {
+          "PR12-30": {
+            "minutes": 30,
+            "planned_seconds": 1800
+          }
+        },
+        "user_override": false
+      },
+      "tts_policy": {
+        "play_once_at": [
+          "PROGRESS_0",
+          "PROGRESS_25",
+          "PROGRESS_50",
+          "PROGRESS_75",
+          "PROGRESS_100"
+        ],
+        "on_failure": "CONSOLE_WARN_ONLY",
+        "user_error_message": false
+      },
+      "voice_guide": {
+        "milestones": {
+          "0": "자연 속을 편안하게 걸으며 주변을 살펴보세요.",
+          "25": "주변에서 눈에 띄는 좋은 것을 하나 찾아보세요.",
+          "50": "걸음을 이어가며 지금 느껴지는 좋은 점을 알아차려 보세요.",
+          "75": "조금 더 걸은 뒤 기억에 남는 좋은 것을 기록해 보세요.",
+          "100": "보행 시간이 끝났습니다. 다음 단계에서 알아차린 내용을 기록해 주세요."
+        },
+        "source_policy": {
+          "fixed_text": "ALLOWED",
+          "llm_rewrite": "FORBIDDEN"
+        }
+      },
+      "phase_history_policy": {
+        "record_events": [
+          "PRE_ACTIVITY_CHECK_CONFIRMED",
+          "ACTIVITY_STARTED",
+          "PAUSED",
+          "RESUMED",
+          "TARGET_REACHED",
+          "NOTICING_INPUT",
+          "REPORT_STARTED",
+          "COMPLETED",
+          "STOPPED"
+        ],
+        "cancelled_popup_recorded": false,
+        "paused_seconds": "NOT_IMPLEMENTED"
+      },
+      "noticing": {
+        "target_count": 3,
+        "allow_during_activity": false,
+        "allow_after_activity": true,
+        "allow_edit": true,
+        "allow_partial_save": true,
+        "prompts": [
+          "자연에서 보거나 발견한 것",
+          "들린 소리",
+          "몸이나 마음으로 느낀 점",
+          "자연환경에서 인상 깊었던 점"
+        ],
+        "recording_phase": "AFTER_ACTIVITY",
+        "minimum_count": 1,
+        "maximum_count": 3
+      },
+      "self_report": {
+        "fields": {
+          "walked_outdoors": {
+            "type": "boolean",
+            "required": true
+          },
+          "walked_minutes": {
+            "type": "integer",
+            "minimum": 0,
+            "required": true
+          },
+          "completed_activity": {
+            "type": "boolean",
+            "required": true
+          },
+          "discomfort": {
+            "type": "string",
+            "required": false
+          },
+          "reflection": {
+            "type": "string",
+            "required": false
+          }
+        }
+      },
+      "verification": {
+        "automatic_walking": "disabled",
+        "gps": "disabled",
+        "sensor_steps": "disabled",
+        "self_report_is_not_objective_verification": true
+      },
+      "storage": {
+        "mode": "browser_local_storage",
+        "key": "lumi.pr12.noticing.v1",
+        "official_server_record": false
+      },
+      "completion_rules": {
+        "walking_ended": "target_reached == true and timer_status == STOPPED",
+        "noticing_completed": "recorded_count >= minimum_count",
+        "self_report_saved": "noticing_report_saved == true",
+        "wellness_completed": "walking_ended == true and noticing_completed == true and noticing_report_saved == true"
+      },
+      "state_model": {
+        "walking_states": [
+          "READY",
+          "RUNNING",
+          "PAUSED",
+          "STOPPED_WALKING"
+        ],
+        "wellness_states": [
+          "NOTICING_INPUT",
+          "REPORT",
+          "COMPLETED"
+        ]
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -197,11 +444,12 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: 자연 연결감은 2개월 유지(E17)"
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr12의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
+      "시트 비고: 자연 연결감은 2개월 유지(E17)",
+      "C 제안 중 channel OUTDOOR와 슬롯 NOTICING은 받지 않았다 — 보행 뒤 앱에 기록하므로 OUTDOOR_APP, 기록 슬롯은 WRITING_PROMPT로 둔다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-12, 근거 arm 2행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

@@ -178,3 +178,25 @@ def test_pr05_returns_three_verified_fixed_music_choices_without_api_key():
     assert all(asset.metadata["playback_duration_seconds"] == 600 for asset in music)
     assert all(asset.metadata["evidence_relation"] == "ADAPTED_STIMULUS" for asset in music)
     assert result.warnings == []
+
+
+def test_pr14_offers_registered_mandala_svgs_without_api_key():
+    protocol = get_protocol("PR-14")
+    assert protocol is not None
+    result = resolve_activity_assets(
+        protocol,
+        CareRequest(text="색칠하면서 머리를 비우고 싶어요"),
+        settings=Settings(pixabay_api_key=""),
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: (_ for _ in ()).throw(AssertionError())
+            )
+        ),
+    )
+    templates = [asset for asset in result.assets if asset.slot == "COLORING_TEMPLATE"]
+    assert [asset.url for asset in templates] == [
+        f"/assets/coloring/pr14/mandala-{n}.svg" for n in range(1, 7)
+    ]
+    assert [asset.metadata["is_default"] for asset in templates] == [True] + [False] * 5
+    assert all(asset.metadata["selection_mode"] == "FIRST_THEN_RANDOM" for asset in templates)
+    assert len(result.warnings) == 6 and all("내용 검수" in w for w in result.warnings)
