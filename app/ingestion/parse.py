@@ -406,17 +406,18 @@ def layout_items(boxes: Iterable[OcrBox], page: int) -> list[RawItem]:
 
 
 def make_ocr_engine():
-    """RapidOCR(PP-OCR, onnxruntime). 모델을 한 번만 읽도록 호출한 쪽이 들고 있는다."""
+    """RapidOCR(PP-OCR, onnxruntime). PIL 이미지를 받아 결과를 돌려주는 함수다 — 모델을 한 번만
+    읽도록 호출한 쪽이 들고 있는다. numpy · rapidocr는 `.[ingestion]` extras라 여기서만 읽는다."""
+    import numpy as np
     from rapidocr import RapidOCR
 
-    return RapidOCR()
+    engine = RapidOCR()
+    return lambda image: engine(np.asarray(image))
 
 
 def ocr_boxes(image, engine) -> list[OcrBox]:
     """이미지 한 장 → OcrBox. 위아래 MARGIN은 머리글 · 바닥글로 보고 뺀다."""
-    import numpy as np
-
-    result = engine(np.array(image.convert("RGB")))
+    result = engine(image.convert("RGB"))
     if result.boxes is None or result.txts is None:
         return []
     width, height = image.size

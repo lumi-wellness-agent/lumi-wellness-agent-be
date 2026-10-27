@@ -170,9 +170,17 @@ def test_layout_items_builds_headings_and_paragraphs():
     assert paper.blocks[0].section is M and paper.blocks[1].section is R
 
 
-def test_ocr_boxes_normalizes_coordinates_and_drops_margins():
-    from PIL import Image
+class FakeImage:
+    """PIL 없이(CI는 .[dev]만 설치) ocr_boxes가 쓰는 size · convert만 흉내 낸다."""
 
+    def __init__(self, width, height):
+        self.size = (width, height)
+
+    def convert(self, mode):
+        return [[[0, 0, 0]] * self.size[0]] * self.size[1]
+
+
+def test_ocr_boxes_normalizes_coordinates_and_drops_margins():
     class Result:
         boxes = [
             [[10, 2], [190, 2], [190, 8], [10, 8]],  # 위 5% 안 — 머리글
@@ -180,10 +188,10 @@ def test_ocr_boxes_normalizes_coordinates_and_drops_margins():
         ]
         txts = ["Cognitive Benefits of Nature Interaction", "Body text line"]
 
-    boxes = parse.ocr_boxes(Image.new("RGB", (200, 400)), lambda array: Result())
+    boxes = parse.ocr_boxes(FakeImage(200, 400), lambda array: Result())
     assert boxes == [parse.OcrBox("Body text line", 0.05, 0.25, 0.95, 0.275)]
 
     class Empty:
         boxes = txts = None
 
-    assert parse.ocr_boxes(Image.new("RGB", (10, 10)), lambda array: Empty()) == []
+    assert parse.ocr_boxes(FakeImage(10, 10), lambda array: Empty()) == []
