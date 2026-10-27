@@ -23,7 +23,6 @@ from app.agent.state import IntakeResult, default_environment
 from app.schemas.care import (
     CareGoal,
     CareRequest,
-    Environment,
     Place,
     Setting,
     environment_for,
@@ -49,7 +48,6 @@ from app.schemas.intake import (
     StateQuestionDraft,
     parse_set,
 )
-from app.schemas.protocol import CareProtocol
 from app.schemas.retrieval import GOAL_OUTCOMES
 
 DEFAULT_MINUTES = 10
@@ -328,35 +326,19 @@ SETTING_OPTIONS: tuple[tuple[str, Setting], ...] = (
 EARPHONE_OPTIONS: tuple[tuple[str, bool], ...] = (("있어요", True), ("없어요", False))
 
 
-def fits_environment(protocol: CareProtocol, environment: Environment) -> bool:
-    """활동 노드 eligibility(needs · quiet_required · place)와 환경.
-
-    모르는 조건(None)으로는 거르지 않는다.
-
-    후보 조회(protocols.candidates)의 장소·오디오 필터는 담당 팀원이 넣는다. 그전까지 intake의
-    질문 판정만 이 함수로 거르고, 들어오면 candidates의 필터로 바꾼다.
-    """
-    needs = set(protocol.eligibility.needs)
-    if "AUDIO" in needs and environment.audio is False:
-        return False
-    if "SCREEN" in needs and environment.screen is False:
-        return False
-    if protocol.eligibility.quiet_required and environment.quiet is False:
-        return False
-    outdoors = "OUTDOORS" in needs or protocol.eligibility.place == "OUTDOOR"
-    return not (outdoors and environment.outdoor is False)
-
-
 def top_activity(intake: IntakeResult, **override: Any) -> str | None:
-    """이 조건일 때 후보 1순위(protocols.candidates — 플래너와 같은 정렬) — 환경으로 거른 뒤."""
+    """이 조건일 때 후보 1순위. 플래너와 같은 후보 조회(protocols.plan_candidates — 환경 필터 ·
+    완화 순서)를 봐야 '이 칸이 추천을 바꾸는가'가 실제 계획과 맞는다."""
     if intake.goal is None:
         return None
     setting = override.get("setting", intake.setting)
     earphones = override.get("earphones", intake.earphones)
-    minutes = override.get("minutes", intake.minutes)
-    environment = environment_for(setting, earphones)
-    found = protocols.candidates(intake.goal, order=intake.order_condition, minutes=minutes)
-    found = [p for p in found if fits_environment(p, environment)]
+    found = protocols.plan_candidates(
+        intake.goal,
+        order=intake.order_condition,
+        minutes=override.get("minutes", intake.minutes),
+        environment=environment_for(setting, earphones),
+    ).protocols
     return found[0].protocol_id if found else None
 
 

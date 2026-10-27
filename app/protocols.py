@@ -3,16 +3,19 @@
 Protocol DB 테이블은 두지 않는다(발표 범위). 프로토콜은 검수된 정적 콘텐츠라 저장소에 함께 배포하고
 시작할 때 한 번 읽는다. 테이블이 필요해지면 이 모듈의 함수 시그니처를 유지한 채 바꾼다.
 
-- plan(app/agent/nodes/planner.py)은 candidates()의 compact()를 LLM에 주고, planned_minutes()로
+- plan(app/agent/nodes/planner.py)은 plan_candidates()의 compact()를 LLM에 주고, planned_minutes()로
   시간을, delivered_media()로 검색·검증할 매체를 정하고, check_plan이 get_protocol()로 후검증한다.
+  intake의 환경 질문 판정(intake_rules.top_activity)과 replan의 활동 변경 가능 여부도 같은
+  plan_candidates()를 본다 — 셋이 다른 후보를 보면 묻는 질문 · 고르는 활동 · 선택지가 어긋난다.
 - prepare(app/agent/nodes/executor.py)는 get_protocol()로 steps · guide를 읽는다.
 """
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas.care import CareGoal, ContentType
+from app.schemas.care import CareGoal, ContentType, Environment
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.protocol import CareProtocol, Composition, Grade, SlotType
 from app.schemas.retrieval import GOAL_OUTCOMES
@@ -48,17 +51,41 @@ def goal_grade_rank(protocol: CareProtocol, goal: CareGoal) -> tuple[int, ...]:
     return tuple(sorted(GRADE_ORDER.index(protocol.grades[o].grade) for o in primary))
 
 
+def environment_gaps(protocol: CareProtocol, environment: Environment | None) -> list[str]:
+    """이 환경에서 이 활동을 하기 어려운 이유 — AUDIO · SCREEN · QUIET · OUTDOORS. 비면 할 수 있다.
+
+    활동 노드의 eligibility(needs · quiet_required · place)와 환경(schemas/care.environment_for)을
+    맞댄다. 모르는 조건(None)으로는 거르지 않는다.
+    """
+    if environment is None:
+        return []
+    eligibility = protocol.eligibility
+    needs = set(eligibility.needs)
+    gaps = []
+    if "AUDIO" in needs and environment.audio is False:
+        gaps.append("AUDIO")
+    if "SCREEN" in needs and environment.screen is False:
+        gaps.append("SCREEN")
+    if eligibility.quiet_required and environment.quiet is False:
+        gaps.append("QUIET")
+    if ("OUTDOORS" in needs or eligibility.place == "OUTDOOR") and environment.outdoor is False:
+        gaps.append("OUTDOORS")
+    return gaps
+
+
 def candidates(
     goal: CareGoal,
     *,
     order: InterventionOrder | None = None,
     minutes: int | None = None,
+    environment: Environment | None = None,
     exclude: Iterable[str] = (),
 ) -> list[CareProtocol]:
     """목표에 맞는 검수 프로토콜. 단계 모듈과 exclude(직전 라운드에서 바꾸기로 한 활동)는 뺀다.
 
-    주 목표가 앞, 부 목표가 뒤이고, 같은 쪽에서는 목표 1차 지표 등급이 높은 순이다. 플래너(LLM)는
-    목록의 앞쪽을 고르는 경향이 있어, 등급 순으로 두어야 근거가 강한 활동이 먼저 고려된다.
+    environment를 주면 그 환경에서 할 수 있는 것만 남긴다(environment_gaps). 주 목표가 앞, 부 목표가
+    뒤이고, 같은 쪽에서는 목표 1차 지표 등급이 높은 순이다. 플래너(LLM)는 목록의 앞쪽을 고르는
+    경향이 있어, 등급 순으로 두어야 근거가 강한 활동이 먼저 고려된다.
     """
     excluded = set(exclude)
     picked = [
@@ -69,10 +96,54 @@ def candidates(
         and p.serves(goal)
         and p.allows_order(order)
         and p.fits_minutes(minutes)
+        and not environment_gaps(p, environment)
     ]
     return sorted(
         picked, key=lambda p: (p.goal is not goal, goal_grade_rank(p, goal), p.protocol_id)
     )
+
+
+@dataclass(frozen=True)
+class CandidateSearch:
+    protocols: list[CareProtocol]
+    relaxed: tuple[str, ...] = ()  # 후보를 찾으려고 푼 조건 — "order" · "environment"
+
+
+# 다 맞는 후보가 없을 때 푸는 순서. 사용자 상태(order)는 근거와 맞는지의 문제라 풀어도 활동은 할
+# 수 있고, 환경(소리 · 조용함 · 화면 · 야외)은 풀면 지금 자리에서 하기 어렵다 — 그래서 상태를 먼저
+# 푼다. 시간은 풀지 않는다(가용 시간을 넘는 활동은 check_plan이 막는다)
+RELAX_STEPS: tuple[tuple[str, ...], ...] = (
+    (),
+    ("order",),
+    ("environment",),
+    ("order", "environment"),
+)
+
+
+def plan_candidates(
+    goal: CareGoal,
+    *,
+    order: InterventionOrder | None = None,
+    minutes: int | None = None,
+    environment: Environment | None = None,
+    exclude: Iterable[str] = (),
+) -> CandidateSearch:
+    """플래너가 고를 후보. 다 맞는 것이 없으면 RELAX_STEPS 순서로 조건을 풀고, 푼 조건을 남긴다.
+
+    2026-10-27 프로토콜 기준 S3 + 사건 전(PRE_STRESS)은 상태를 맞는 S3 활동이 없어 상태를 푼다.
+    """
+    exclude = tuple(exclude)
+    for relaxed in RELAX_STEPS:
+        found = candidates(
+            goal,
+            order=None if "order" in relaxed else order,
+            minutes=minutes,
+            environment=None if "environment" in relaxed else environment,
+            exclude=exclude,
+        )
+        if found:
+            return CandidateSearch(found, relaxed)
+    return CandidateSearch([])
 
 
 def planned_minutes(protocol: CareProtocol, available: int | None) -> int:

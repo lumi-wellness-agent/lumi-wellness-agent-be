@@ -27,7 +27,7 @@ from app.agent.state import (
     SessionReport,
 )
 from app.agent.validation import judge
-from app.schemas.care import CareGoal, CareRequest, ContentType, UserProfile
+from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 from tests.agent import fakes
@@ -146,6 +146,7 @@ def test_planner_context_carries_the_session():
         goal=CareGoal.S1,
         user_order=InterventionOrder.POST_STRESS,
         minutes_available=20,
+        environment=Environment(),  # 인테이크가 환경을 모른다 — 거르지 않는다
         content_type=ContentType.AI_IMAGE,
     )
 

@@ -13,7 +13,7 @@ from app import protocols
 from app.agent.context import AgentContext
 from app.agent.nodes.planner import ActivityChoice, PlanRejected, make_plan_node
 from app.agent.state import IntakeResult
-from app.schemas.care import CareGoal, CareRequest, ContentType, UserProfile
+from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
 
@@ -118,6 +118,29 @@ def test_pipeline_rejects_when_nothing_fits():
     state = {**STATE, "intake": INTAKE.model_copy(update={"minutes": 2})}
     with pytest.raises(PlanRejected, match="맞는 검수 프로토콜이 없다"):
         run_plan(RecordingPlanner(choice("PR-09")), state)
+
+
+def test_pipeline_relaxes_the_user_state_when_no_activity_fits_it():
+    # S3 + 사건 전 — 상태가 맞는 S3 활동이 없다. 상태를 풀고(check_plan도 상태를 보지 않는다) 남긴다
+    intake = IntakeResult(
+        goal=CareGoal.S3, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+    )
+    state = {
+        "request": CareRequest(text="시험 앞두고 오래 공부해서 머리가 멍해요"),
+        "intake": intake,
+    }
+    planner = RecordingPlanner(choice("PR-01"))
+    plan = run_plan(planner, state)
+    assert planner.chosen == [(["PR-01", "PR-04"], [])]
+    assert plan.activity.protocol_id == "PR-01"
+    assert (plan.relaxed, plan.environment_gaps) == (["order"], [])
+
+
+def test_pipeline_relaxes_the_environment_last_and_reports_the_gaps():
+    nothing = Environment(audio=False, screen=False, quiet=False, outdoor=False)
+    state = {**STATE, "intake": INTAKE.model_copy(update={"environment": nothing})}
+    plan = run_plan(RecordingPlanner(choice("PR-15")), state)
+    assert (plan.relaxed, plan.environment_gaps) == (["environment"], ["SCREEN"])
 
 
 def test_demo_s2_session_offers_breathing_first():

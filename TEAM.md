@@ -34,7 +34,7 @@ prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
 measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
 evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로↓)
-replan          종료 · 활동 변경 · 추가 세션 제안 (라운드 ≤ 3)
+replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외)
 confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
 measure_final ⏸ 종료 경로에서 STAI-6 · BSRI 1회 (라운드마다 잰 S3는 건너뜀)
 ```
@@ -50,7 +50,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | --- | --- | --- |
 | 완료 | `app/agent/state.py` `graph.py` `checkpoint.py` | v2 state · 배선 · 직렬화 허용 타입 |
 | 완료 | `app/agent/nodes/intake.py` `measure.py` `executor.py` `evaluator.py` `replanner.py` | 노드 뼈대. intake·measure는 담당이 본문을 채운다 |
-| 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates`, 등급 순) · LLM용 압축본(`compact`) |
+| 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates` 등급 순 · 환경 필터, `plan_candidates` 완화 순서) · LLM용 압축본(`compact`) |
 | 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO, S3용 MFVAS는 PROVISIONAL(팀 작성·미검증) |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
@@ -110,7 +110,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
-| 후보 프로토콜 | `protocols.candidates()` → `compact()` 목록. 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
+| 후보 프로토콜 | `protocols.plan_candidates()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
 | 세션 종료 | `final`(목표 척도). intake는 자유 입력 답이 안전 검사에 걸릴 때만 닫는다(`ended = SAFETY`). 목표 단서가 없으면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 

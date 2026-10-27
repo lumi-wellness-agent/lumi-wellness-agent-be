@@ -10,8 +10,12 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 종료가 보장되고 모델 호출이 4~5회에서 2회로 준다. 적응은 이 노드 안의 루프가 아니라 측정 → 평가 →
 재계획 → plan 순환(graph.py)에서 온다.
 
+후보는 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로 거른다. 다 맞는 것이 없으면
+사용자 상태 → 환경 순으로 풀고(protocols.plan_candidates), 푼 조건을 CarePlan.relaxed에, 고른 활동이
+환경에서 어려운 이유를 environment_gaps에 남긴다. 시간은 풀지 않는다.
+
 LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
-순서 · 시간 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
+순서 · 시간 · 환경 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
 묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
 evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
 
@@ -20,7 +24,7 @@ evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
 """
 
 import logging
-from collections.abc import Awaitable, Sequence
+from collections.abc import Awaitable, Collection, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -100,12 +104,15 @@ class PlanRejected(Exception):
     """후보가 없거나, 선택이 후검증을 두 번 통과하지 못했다."""
 
 
-def check_plan(activity: PlannedActivity, state: CareState) -> list[str]:
+def check_plan(
+    activity: PlannedActivity, state: CareState, relaxed: Collection[str] = ()
+) -> list[str]:
     """활동 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
 
-    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 활동 변경 시 같은 프로토콜 금지.
-    후보 조회(protocols.candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을 고를 수 있어 따로
-    둔다.
+    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 환경 · 활동 변경 시 같은
+    프로토콜 금지. 후보 조회(protocols.plan_candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을
+    고를 수 있어 따로 둔다. 후보 조회가 푼 조건(relaxed — order · environment)은 여기서도 보지
+    않는다.
     """
     intake = state["intake"]
     protocol = protocols.get_protocol(activity.protocol_id)
@@ -116,9 +123,12 @@ def check_plan(activity: PlannedActivity, state: CareState) -> list[str]:
         problems.append(f"{activity.protocol_id}는 단계 모듈이라 단독 활동으로 쓸 수 없다")
     if intake.goal and not protocol.serves(intake.goal):
         problems.append(f"{activity.protocol_id}는 {intake.goal.value} 목표용이 아니다")
-    if not protocol.allows_order(intake.order_condition):
+    if "order" not in relaxed and not protocol.allows_order(intake.order_condition):
         allowed = [o.value for o in protocol.intervention_order]
         problems.append(f"사용자 상태 {intake.order_condition}는 허용 상태 {allowed}에 맞지 않는다")
+    gaps = protocols.environment_gaps(protocol, intake.environment)
+    if "environment" not in relaxed and gaps:
+        problems.append(f"{activity.protocol_id}는 지금 환경에서 하기 어렵다({', '.join(gaps)})")
     duration = protocol.duration_minutes
     if duration.min is not None and activity.minutes < duration.min:
         problems.append(f"활동 시간 {activity.minutes}분이 최소 {duration.min}분보다 짧다")
@@ -155,8 +165,27 @@ def planner_context(context: AgentContext | None, state: CareState) -> PlannerCo
         goal=intake.goal,
         user_order=intake.order_condition,
         minutes_available=intake.minutes,
+        environment=intake.environment,
         content_type=state["request"].profile.content_type,
         excluded_protocol_ids=excluded_protocols(state),
+    )
+
+
+def search_candidates(
+    session: PlannerContext, exclude: Iterable[str] | None = None
+) -> protocols.CandidateSearch:
+    """세션 값으로 후보를 찾는다. plan과 replan(활동 변경을 고를 수 있는지)이 같은 조회를 본다.
+
+    exclude를 주지 않으면 세션의 뺄 활동(직전 라운드에서 바꾸기로 한 활동)을 뺀다.
+    """
+    if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
+        raise PlanRejected("목표가 없어 계획할 수 없다")
+    return protocols.plan_candidates(
+        session.goal,
+        order=session.user_order,
+        minutes=session.minutes_available,
+        environment=session.environment,
+        exclude=session.excluded_protocol_ids if exclude is None else exclude,
     )
 
 
@@ -267,17 +296,15 @@ def make_plan_node(planner: Planner):
         session = planner_context(runtime.context, state)
         if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
             raise PlanRejected("목표가 없어 계획할 수 없다")
-        found = protocols.candidates(
-            session.goal,
-            order=session.user_order,
-            minutes=session.minutes_available,
-            exclude=session.excluded_protocol_ids,
-        )
+        search = search_candidates(session)
+        found = search.protocols
         if not found:
             raise PlanRejected(
                 f"{session.goal.value} 목표 · 사용자 상태 {session.user_order} · "
                 f"{session.minutes_available}분에 맞는 검수 프로토콜이 없다"
             )
+        if search.relaxed:
+            log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
         by_id = {p.protocol_id: p for p in found}
         candidates = [protocols.compact(p) for p in found]
 
@@ -291,11 +318,11 @@ def make_plan_node(planner: Planner):
                 if known is not None:  # 왜 후보가 아닌지도 알려 준다
                     minutes = protocols.planned_minutes(known, session.minutes_available)
                     activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
-                    problems += check_plan(activity, state)
+                    problems += check_plan(activity, state, search.relaxed)
                 continue
             minutes = protocols.planned_minutes(protocol, session.minutes_available)
             activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
-            problems = check_plan(activity, state)
+            problems = check_plan(activity, state, search.relaxed)
             if not problems:
                 break
         else:
@@ -323,6 +350,12 @@ def make_plan_node(planner: Planner):
         activity = activity.model_copy(
             update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
         )
-        return {"plan": CarePlan(activity=activity, rationale=rationale)}
+        plan = CarePlan(
+            activity=activity,
+            rationale=rationale,
+            relaxed=list(search.relaxed),
+            environment_gaps=protocols.environment_gaps(protocol, session.environment),
+        )
+        return {"plan": plan}
 
     return plan

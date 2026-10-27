@@ -30,7 +30,7 @@ from app.agent.state import (
     SessionEnd,
     SessionReport,
 )
-from app.schemas.care import CareGoal, CareRequest, Place, Setting
+from app.schemas.care import CareGoal, CareRequest, Place, Setting, environment_for
 from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import (
     GoalSource,
@@ -478,6 +478,69 @@ def test_check_plan_rules():
     with_round = {**state, "rounds": [changed]}
     assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
     assert check_plan(activity("PR-07", 9), with_round) == []
+
+
+def test_check_plan_follows_the_environment_and_what_the_search_relaxed():
+    cafe = IntakeResult(
+        goal=CareGoal.S1, minutes=10, environment=environment_for(Setting.OFFICE_CAFE, False)
+    )
+    state = {"intake": cafe}
+    assert check_plan(activity("PR-09", 3), state) == [
+        "PR-09는 지금 환경에서 하기 어렵다(AUDIO, QUIET)"
+    ]
+    assert check_plan(activity("PR-09", 3), state, relaxed=("environment",)) == []
+    assert check_plan(activity("PR-15"), state) == []
+    pre_stress = {"intake": S2_INTAKE}
+    assert any("허용 상태" in p for p in check_plan(PHOTO.activity, pre_stress))
+    assert check_plan(PHOTO.activity, pre_stress, relaxed=("order",)) == []
+
+
+BSRI = {f"item{i}": 60 for i in range(1, 9)}
+
+
+def test_change_is_not_offered_when_no_other_activity_fits():
+    # S1 · 이어폰 없는 카페 · 5분 — 후보가 PR-15 하나라 활동을 바꿀 수 없다
+    cafe = reading(
+        order_condition=InterventionOrder.POST_STRESS,
+        setting=Setting.OFFICE_CAFE,
+        earphones=False,
+        minutes=5,
+    )
+    graph = graph_with(
+        FakePlanner(plan("PR-15", 5)), FakeIntaker(cafe, goal=inference(CareGoal.S1))
+    )
+    run(graph, {"request": CareRequest(text="회의 끝나고 같은 말이 계속 떠올라요")})
+    out = run(graph, Command(resume={**sam(4, 6), "INS-BSRI": BSRI}))
+    assert out["__interrupt__"][0].value["plan"]["activity"]["protocol_id"] == "PR-15"
+    run(graph, Command(resume={"completed": True}))
+    out = run(graph, Command(resume=sam(4, 6)))  # 쾌가 그대로 — 나아지지 않았다
+    confirm = out["__interrupt__"][0].value
+    assert confirm["options"] == ["END", "ADDITIONAL_SESSION"]
+    assert confirm["proposal"]["recommended"] == "END"
+    assert (
+        confirm["proposal"]["reason"] == "사전보다 나아지지 않았다 — 지금 여건에서 바꿀 활동이 없다"
+    )
+
+
+def test_third_round_offers_only_to_end():
+    graph = graph_with(
+        FakePlanner(BREATHING, BREATHING, BREATHING),
+        FakeIntaker(S2_READING, goal=inference(CareGoal.S2)),
+    )
+    run(graph, {"request": CareRequest(text="발표 앞두고 긴장돼요")})
+    run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
+    for round_no in (1, 2, 3):
+        run(graph, Command(resume={"completed": True}))
+        confirm = run(graph, Command(resume=sam(3, 7)))["__interrupt__"][0].value
+        if round_no < 3:
+            assert confirm["options"] == ["END", "CHANGE_ACTIVITY", "ADDITIONAL_SESSION"]
+            run(graph, Command(resume={"next_step": "ADDITIONAL_SESSION"}))
+    assert confirm["options"] == ["END"]
+    assert confirm["proposal"] == {
+        "recommended": "END",
+        "reason": "라운드 3회를 채웠다",
+        "options": ["END"],
+    }
 
 
 def test_routes():
