@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "record_type": "care_protocol",
   "protocol_id": "PR-21",
-  "name": "실내 자연 이미지 + 15분 명상(S1 핵심 조합)",
+  "name": "실내 자연 이미지 + 약 16분 명상(S1 핵심 조합)",
   "name_en": null,
-  "summary": "실내 자연 이미지 + 15분 명상. 약 15분. 매체 STATIC_IMAGE, MINDFULNESS. 허용 사용자 상태 제한 없음.",
+  "summary": "자연 이미지 한 장을 배경으로 등록된 고정 명상 음성을 약 16분간 듣는다. 조합 근거가 현재 근거 세트에 없어 실험적 프로토콜로만 제공한다.",
   "goal": "S1",
   "secondary_goals": [],
   "media": [
@@ -15,23 +15,27 @@
   "channel": "IN_APP",
   "intervention_order": [],
   "duration_minutes": {
-    "default": 15.0,
+    "default": 16.0,
     "min": null,
     "max": null,
-    "evidence": "15분(P38 서론 인용 Lymeus 2017 기준)"
+    "evidence": "15분(P38 서론 인용 Lymeus 2017 기준). 채택한 한국어 고정 음성은 15분 52초"
   },
   "eligibility": {
-    "min_minutes_available": 15.0,
+    "min_minutes_available": 16.0,
     "needs": [
       "SCREEN",
       "AUDIO"
     ],
     "place": "ANY",
     "quiet_required": true,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "명상 중 불편한 기억이나 감정이 강해지는 경우",
+      "약 16분 동안 화면·음성을 사용할 수 없는 상황",
+      "안전상 주변 소리를 들어야 하는 이동·운전 상황"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 실내 자연 이미지 + 15분 명상을 약 15분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 자연 이미지를 바라보며 약 16분간 안내 명상을 합니다. 이 조합의 효과는 아직 충분히 검증되지 않았습니다. 편한 자세로 시작하고 불편하면 언제든 멈춰 주세요.",
     "intro_text_ref": "guide/pr21_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -40,19 +44,20 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "GUIDE_AUDIO",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 활동 중에는 검수된 고정 명상 음성만 재생하며 LLM 재작성 금지"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "이미지 보며 명상 15분",
-      "minutes": 15.0,
+      "label": "자연 이미지를 보며 고정 안내 명상",
+      "minutes": 16.0,
       "slots": [
         "VISUAL_STILL",
         "GUIDE_AUDIO"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "AI 또는 큐레이션 이미지 한 장과 검수된 고정 명상 음성을 함께 제공한다"
     },
     {
       "order": 2,
@@ -90,35 +95,127 @@
       {
         "slot": "VISUAL_STILL",
         "required": true,
-        "evidence_stimulus": null,
+        "evidence_stimulus": "P38 서론에서 인용한 Lymeus 2017의 실내 자연 이미지 기반 명상(원문 미수집·미검증)",
         "source_policy": {
           "curated": "ALLOWED",
           "generated": "ALLOWED_WITH_FLAG",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "PIXABAY",
+          "endpoint": "IMAGE_SEARCH",
+          "pool": "indoor_nature_meditation",
+          "query_tags": [
+            "quiet forest garden water",
+            "calm nature meditation"
+          ],
+          "include_tags": [
+            "숲",
+            "정원",
+            "잔잔한 물",
+            "부드러운 자연광"
+          ],
+          "exclude_tags": [
+            "사람",
+            "문자·로고",
+            "위협 장면",
+            "강한 대비",
+            "복잡한 인공 구조물"
+          ],
+          "quality_gate": "15분 고정 화면으로 사용해도 시각 피로·불편 요소가 없는 검수 이미지"
+        },
+        "render": {
+          "mode": "SINGLE_IMAGE",
+          "duration_seconds": 900,
+          "transition": "NONE",
+          "pan_zoom": false,
+          "brightness": "사용자 조절"
+        },
+        "personalization": {
+          "scenery": "CareRequest.preferred_scenery",
+          "palette": "CareRequest.preferred_colors − avoided_colors",
+          "accessibility": "low_vision·reduce_motion 설정을 반영"
+        },
+        "generation": {
+          "provider": "AI_HORDE",
+          "when": "큐레이션 풀에 선호·제약 조건을 충족하는 이미지가 없을 때",
+          "prompt_template_ref": "prompts/indoor_nature_meditation_v1",
+          "style": "사실적 자연 사진",
+          "negative": [
+            "사람",
+            "문자",
+            "위협 동물",
+            "초현실 색",
+            "복잡한 건축물"
+          ],
+          "timing": "세션 시작 전 비동기 생성·검수 완료. 세션 중 생성 금지",
+          "fallback": "생성 실패·대기 초과·검수 실패 시 검수된 기본 이미지 사용",
+          "verification": "UNVERIFIED"
+        }
       },
       {
         "slot": "GUIDE_AUDIO",
         "required": true,
-        "evidence_stimulus": null,
+        "evidence_stimulus": "P38 서론에서 인용한 Lymeus 2017의 15분 명상 안내(원문 미수집·대본 미확인)",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "CURATED_ASSET_LIBRARY",
+          "audio_asset_ref": "audio/pr21_meditation_ko_v1",
+          "script_ref": "scripts/pr21_meditation_ko_v1",
+          "quality_gate": "대본·발음·음량·침묵 구간을 사람이 검수한 고정 자산만",
+          "selected_asset": {
+            "ref": "audio/pr21_meditation_ko_v1",
+            "filename": "korean-complete.mp3",
+            "duration_seconds": 952,
+            "sha256": "A80143695BD4D849152E3B51D2D8A3210152EC2A419772B7EC6549585169DBD2",
+            "license": "USER_PROVIDED_NONCOMMERCIAL",
+            "review_status": "PENDING_CONTENT_REVIEW"
+          }
+        },
+        "render": {
+          "duration_seconds": 952,
+          "autoplay": false,
+          "playback_rate": 1.0,
+          "volume": "사용자 조절, 안전 상한 적용",
+          "captions": "script_ref와 동일한 고정 자막 제공"
+        },
+        "personalization": {
+          "allowed": [
+            "음량",
+            "자막 표시"
+          ],
+          "forbidden": [
+            "대본 재작성",
+            "문장 추가·삭제",
+            "속도 변경"
+          ]
+        },
+        "generation": {
+          "tts": "ALLOWED_FROM_FIXED_SCRIPT",
+          "llm_rewrite": "FORBIDDEN",
+          "cache": "검수 완료된 음성 파일을 재사용하고 세션 중 생성 금지"
+        }
       },
       {
         "slot": "NOTICE_PROMPT",
         "required": false,
-        "evidence_stimulus": null,
+        "evidence_stimulus": "E10의 정서 명명 원리를 참고한 선택 단계이며 PR-21 중재 효과 근거로 사용하지 않음",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "text": "지금 느껴지는 감정이나 몸의 감각을 한 단어로 표현해 보세요.",
+        "text_ref": "notice/one_word_feeling_ko",
+        "render": {
+          "response": "OPTIONAL_ONE_WORD",
+          "scored": false
+        },
+        "note": "선택 응답이며 점수화하지 않고 LLM이 문안을 바꾸지 않는다"
       }
     ]
   },
@@ -175,8 +272,9 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: 인포그래픽 S1 중심 중재. Lymeus 2017 수집 후 재평가"
+      "Lymeus 2017 원문 수집 후 이미지·명상 대본·15분 조합을 재평가",
+      "등록된 한국어 고정 음성의 대본·발음·음량·침묵 구간을 검수",
+      "AI Horde 생성 이미지와 검수 기본 이미지의 실제 후보 검수"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-21, 근거 arm 0행",
     "reviewed_by": null,

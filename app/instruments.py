@@ -3,7 +3,8 @@
 measure_pre · measure_post · measure_final(app/agent/nodes/measure.py)이 present()로 interrupt에
 문항을 싣고, FE 응답을 score()로 채점해 Measurement(app/schemas/measure.py)로 남긴다.
 문항 원문(text)이 비어 있는 도구(status TODO)는 measure 담당이 저작권·한국어판을 확인한 뒤 채운다.
-LLM 번역 금지 — 척도는 번역·타당화된 문항만 쓴다.
+LLM 번역 금지 — 척도는 번역·타당화된 문항만 쓴다. PROVISIONAL은 팀이 쓴 임시 문항(번역 아님)으로
+제시는 하되 타당화가 없다 — Reference 카드에 '미검증'을 적는다(INS-MFVAS).
 """
 
 from collections.abc import Mapping
@@ -58,7 +59,9 @@ class Instrument(BaseModel):
     scale: Scale
     scoring: Scoring
     license_note: str | None = None
-    status: Literal["READY", "TODO"] = "TODO"  # READY = 문항 원문까지 채워져 제시할 수 있다
+    # READY = 문항 원문까지 채워져 제시할 수 있다.
+    # PROVISIONAL = 제시는 하지만 임시·미검증(팀이 쓴 문항). TODO = 원문을 아직 못 채웠다
+    status: Literal["READY", "PROVISIONAL", "TODO"] = "TODO"
     note: str | None = None
 
     @model_validator(mode="after")
@@ -66,8 +69,8 @@ class Instrument(BaseModel):
         ids = [item.id for item in self.items]
         if len(set(ids)) != len(ids):
             raise ValueError("문항 id가 겹친다")
-        if self.status == "READY" and any(item.text is None for item in self.items):
-            raise ValueError("READY 도구는 모든 문항에 text가 있어야 한다")
+        if self.status != "TODO" and any(item.text is None for item in self.items):
+            raise ValueError(f"{self.status} 도구는 모든 문항에 text가 있어야 한다")
         if self.scoring.kind is ScoringKind.SUM_PRORATED and not self.scoring.prorate_items:
             raise ValueError("SUM_PRORATED는 prorate_items가 필요하다")
         return self

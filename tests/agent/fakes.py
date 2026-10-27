@@ -1,4 +1,4 @@
-"""테스트 대역 — 대본 채팅 모델과 fixture 기반 가짜 검색·검증.
+"""테스트 대역 — 구조화 출력 모델 대역과 fixture 기반 가짜 검색·검증.
 
 가짜 검색·검증은 app/retrieval/hybrid.search · app/agent/validation.validate와 같은 시그니처라
 monkeypatch로 바꿔 끼운다. tests/fixtures/evidence_hits.json은 후보 저장소이고, 가짜 검색이 필터를
@@ -9,32 +9,41 @@ import json
 from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
-
-from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from pydantic import Field
+from typing import Any
 
 from app.agent.validation import judge, missing_verdict
 from app.retrieval.hybrid import DEFAULT_RECORD_TYPES, TOP_K
 from app.schemas.care import CareGoal
 from app.schemas.evidence import InterventionOrder, Medium, Outcome, RecordType
 from app.schemas.protocol import ProtocolEvidenceSection
-from app.schemas.retrieval import EvidenceHit, EvidenceVerdict
+from app.schemas.retrieval import ORDER_COMPATIBILITY, EvidenceHit, EvidenceVerdict
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 PROTOCOLS = FIXTURES.parent.parent / "data" / "protocols"
 
 
-class ScriptedChatModel(GenericFakeChatModel):
-    """`messages` 순서대로 AIMessage를 돌려준다. OpenAI 등 실제 LLM을 부르지 않는다.
+class FakeStructuredModel:
+    """`with_structured_output(…).ainvoke(messages)`가 정해 둔 출력을 차례로 내는 모델 대역.
 
-    create_agent가 거치는 bind_tools는 받은 Tool 이름을 남기고 자신을 돌려준다.
+    make_chooser · make_explainer(nodes/planner.py)가 모델에서 쓰는 두 메서드만 흉내 낸다. 받은
+    스키마는 schemas에, 메시지는 inputs에 남긴다. 출력이 예외면 던진다(폴백 테스트).
     """
 
-    offered: list[list[str]] = Field(default_factory=list)
+    def __init__(self, *outputs: Any):
+        self.outputs = list(outputs)
+        self.schemas: list[tuple[type, str]] = []
+        self.inputs: list[list] = []
 
-    def bind_tools(self, tools, **kwargs):
-        self.offered.append([tool.name for tool in tools])
+    def with_structured_output(self, schema: type, method: str = "json_schema"):
+        self.schemas.append((schema, method))
         return self
+
+    async def ainvoke(self, messages: list):
+        self.inputs.append(messages)
+        output = self.outputs.pop(0)
+        if isinstance(output, BaseException):
+            raise output
+        return output
 
 
 @lru_cache
@@ -63,7 +72,7 @@ async def fake_search(
     limit: int = TOP_K,
 ) -> list[EvidenceHit]:
     allowed = {record_type} if record_type else set(DEFAULT_RECORD_TYPES)
-    wanted_orders = {intervention_order, InterventionOrder.NO_INDUCTION}
+    wanted_orders = ORDER_COMPATIBILITY[intervention_order] if intervention_order else set()
     out = []
     for hit in load_hits():
         meta = hit.metadata

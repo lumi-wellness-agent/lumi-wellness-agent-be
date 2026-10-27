@@ -1,10 +1,22 @@
-"""validation.judge()의 규칙 — DB 없이 fixture 레코드로 검사 6개와 플래그를 확인한다."""
+"""validation의 DB 없는 부분 — judge() 규칙(fixture 레코드로 검사 6개와 플래그), 시점·상충 후보
+조건, 풀이 없을 때. DB 조회는 tests/agent/test_validation_db.py가 본다.
+"""
+
+import asyncio
+import logging
 
 import pytest
 
-from app.agent.validation import judge, media_match, missing_verdict
+from app.agent.validation import (
+    conflict_params,
+    judge,
+    media_match,
+    missing_verdict,
+    resolve_orders,
+    validate,
+)
 from app.schemas.care import CareGoal
-from app.schemas.evidence import ClinicalStatus, InterventionOrder, Medium, Outcome
+from app.schemas.evidence import ClinicalStatus, InterventionOrder, Medium, Outcome, Verification
 from app.schemas.retrieval import Check, Flag, MediaMatch
 from tests.agent import fakes
 
@@ -52,7 +64,11 @@ def test_ai_image_is_flagged_not_blocked():
 
 
 def test_secondary_source_is_blocked():
-    verdict = judge(BY_ID[P05_RESULTS], goal=CareGoal.S3, media=[Medium.STATIC_IMAGE])
+    # P05-E2는 2026-10-27 쪽 이미지 대조로 FULL_TEXT가 됐다 — 같은 레코드를 2차 자료로 바꿔 본다
+    hit = BY_ID[P05_RESULTS]
+    metadata = hit.metadata.model_copy(update={"verification": Verification.SECONDARY})
+    secondary = hit.model_copy(update={"metadata": metadata})
+    verdict = judge(secondary, goal=CareGoal.S3, media=[Medium.STATIC_IMAGE])
     assert check(verdict, Check.SOURCE_EXISTS).passed is False
     assert not verdict.usable
     assert verdict.supports_goal  # 지지는 하지만 인용할 수 없다
@@ -149,3 +165,48 @@ def test_missing_record_verdict():
 )
 def test_media_match(delivered, studied, expected):
     assert media_match(delivered, studied) is expected
+
+
+def test_orders_come_from_user_then_protocol():
+    assert resolve_orders(InterventionOrder.POST_STRESS, "PR-06") == POST_STRESS
+    assert resolve_orders(None, "PR-01") == [
+        InterventionOrder.POST_STRESS,
+        InterventionOrder.POST_FATIGUE,
+    ]
+    assert resolve_orders(None, "PR-99") == []  # 검수 목록에 없는 ID
+    assert resolve_orders(None, None) == []
+
+
+def test_conflict_params_mirror_judge_rule():
+    params = conflict_params(CareGoal.S1, [Medium.AI_IMAGE, Medium.STATIC_IMAGE])
+    assert params == {
+        "types": [{"record_type": "ARM"}, {"record_type": "SYNTHESIS"}],
+        "media": [{"media": ["STATIC_IMAGE"]}],  # AI_IMAGE는 연구 매체로 바꿔 찾는다
+        "results": [
+            {"results": [{"outcome": "RUMINATION", "effect": "NEGATIVE"}]},
+            {"results": [{"outcome": "RUMINATION", "effect": "NOT_SIGNIFICANT"}]},
+        ],
+    }
+
+
+def test_validate_without_pool_cannot_confirm_sources(caplog):
+    with caplog.at_level(logging.WARNING, logger="app.agent.validation"):
+        verdicts = asyncio.run(
+            validate(
+                None,
+                evidence_record_ids=[P24_RESULTS, 999],
+                goal=CareGoal.S1,
+                media=[Medium.STATIC_IMAGE],
+            )
+        )
+    assert [v.evidence_record_id for v in verdicts] == [P24_RESULTS, 999]
+    assert not any(v.usable for v in verdicts)
+    assert "DATABASE_URL" in caplog.text
+
+
+def test_validate_without_ids_skips_db():
+    # 풀 대신 아무 객체를 넣는다 — DB를 쓰려 하면 AttributeError로 실패한다
+    verdicts = asyncio.run(
+        validate(object(), evidence_record_ids=[], goal=CareGoal.S1, media=[Medium.STATIC_IMAGE])
+    )
+    assert verdicts == []

@@ -15,7 +15,7 @@ from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
 from app.agent.nodes.intake import route_after_intake
-from app.agent.nodes.planner import PlanRejected, check_plan
+from app.agent.nodes.planner import ActivityChoice, PlanRejected, check_plan
 from app.agent.nodes.replanner import route_after_confirm
 from app.agent.state import (
     ActivityContent,
@@ -59,15 +59,22 @@ class FakeIntaker:
 
 
 class FakePlanner:
-    """계획을 차례로 돌려주고, 호출마다 (지난 라운드 수, 거부 사유)를 남긴다."""
+    """계획의 활동을 차례로 고르고, choose 호출마다 (지난 라운드 수, 거부 사유)를 남긴다.
+
+    시간은 코드가 정한다(protocols.planned_minutes). 근거 검색은 DB 풀이 없어 0건이다.
+    """
 
     def __init__(self, *plans: CarePlan):
         self.plans = list(plans)
         self.calls: list[tuple[int, list[str]]] = []
 
-    async def __call__(self, state, context, problems):
+    async def choose(self, state, candidates, problems):
         self.calls.append((len(state.get("rounds", [])), list(problems)))
-        return self.plans.pop(0)
+        protocol_id = self.plans.pop(0).activity.protocol_id
+        return ActivityChoice(protocol_id=protocol_id, search_query="-", reason="-")
+
+    async def explain(self, state, choice, protocol, evidence):
+        return "-"
 
 
 def run(graph, value):
@@ -76,6 +83,15 @@ def run(graph, value):
 
 def sam(valence: int, arousal: int) -> dict:
     return {"INS-SAM": {"valence": valence, "arousal": arousal}}
+
+
+def mfvas(fatigue: int, concentration: int, energy: int) -> dict:
+    return {"INS-MFVAS": {"fatigue": fatigue, "concentration": concentration, "energy": energy}}
+
+
+def anchor(timepoint: Timepoint, round_no: int) -> list[Measurement]:
+    sam = {"instrument_id": InstrumentId.SAM, "answers": {}, "scores": {}}
+    return [Measurement(timepoint=timepoint, round=round_no, **sam)]
 
 
 STAI6 = {"calm": 2, "tense": 3, "upset": 2, "relaxed": 2, "content": 2, "worried": 3}
@@ -96,7 +112,7 @@ def test_session_loops_until_user_ends(caplog):
     out = run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
     session = out["__interrupt__"][0].value
     assert session["plan"]["activity"]["protocol_id"] == "PR-06"
-    assert session["content"]["name"] == "5분 구조화 호흡(주기적 한숨·느린 호흡)"
+    assert session["content"]["name"] == "주기적 한숨 호흡 5분"
     assert session["content"]["steps"][0]["minutes"] == 5  # 계획한 시간으로 맞춘다
     assert out["pre"][1].scores == {"total": 56.67}  # 역채점 후 (3,3,2,3,3,3) 합 17 × 20/6
 
@@ -115,7 +131,7 @@ def test_session_loops_until_user_ends(caplog):
     # 추가 세션에 동의 → Planner로 돌아간다. 다음 라운드의 사전값은 이번 사후값이다
     out = run(graph, Command(resume={"next_step": "ADDITIONAL_SESSION"}))
     assert out["__interrupt__"][0].value["plan"]["activity"]["protocol_id"] == "PR-17"
-    assert out["round_pre"].scores == {"valence": 5.0, "arousal": 4.0}
+    assert [m.scores for m in out["round_pre"]] == [{"valence": 5.0, "arousal": 4.0}]
 
     # 2라운드: 중간에 멈춤 → 활동 변경 제안
     out = run(graph, Command(resume={"completed": False, "stopped_reason": "어지러움"}))
@@ -150,21 +166,42 @@ def test_session_loops_until_user_ends(caplog):
     assert isinstance(values["proposal"], ReplanProposal)
     assert values["next_step"] is NextStep.END
     assert all(isinstance(r, Round) for r in values["rounds"])
+    assert isinstance(values["post"][0], Measurement)
     assert isinstance(values["final"], Measurement)
 
 
-def test_s3_skips_goal_scale_and_has_no_improvement_rule():
+def test_s3_measures_fatigue_every_round_and_ends_without_final():
     intake = IntakeResult(goal=CareGoal.S3, minutes=30, place=Place.OUTDOOR)
     graph = build_graph(FakePlanner(plan("PR-11", 20)), FakeIntaker(intake), memory_checkpointer())
+
+    # 사전: SAM + 정신 피로 VAS(임시 도구). 둘 다 라운드마다 다시 재므로 round_pre에 같이 들어간다
     out = run(graph, {"request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요")})
-    assert [i["instrument_id"] for i in out["__interrupt__"][0].value["instruments"]] == ["INS-SAM"]
-    run(graph, Command(resume=sam(4, 5)))
-    run(graph, Command(resume={"completed": True}))
-    out = run(graph, Command(resume=sam(6, 5)))
-    assert out["evaluation"].improved is None
+    pre = out["__interrupt__"][0].value
+    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM", "INS-MFVAS"]
+    assert pre["instruments"][1]["scale"]["max"] == 100
+    out = run(graph, Command(resume={**sam(4, 5), **mfvas(80, 70, 20)}))
+    assert [m.instrument_id for m in out["round_pre"]] == [InstrumentId.SAM, InstrumentId.MFVAS]
+
+    # 사후: 같은 두 도구. 피로 80 → 45로 줄어 개선 → 종료 제안
+    out = run(graph, Command(resume={"completed": True}))
+    post = out["__interrupt__"][0].value
+    assert post["measure"] == "POST" and post["round"] == 1
+    assert [i["instrument_id"] for i in post["instruments"]] == ["INS-SAM", "INS-MFVAS"]
+    out = run(graph, Command(resume={**sam(6, 5), **mfvas(45, 40, 55)}))
+    assert out["evaluation"].deltas == {
+        "valence": 2.0,
+        "arousal": 0.0,
+        "fatigue": -35.0,
+        "concentration": -30.0,
+        "energy": 35.0,
+    }
+    assert out["evaluation"].improved is True
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "END"
+
+    # 종료: MFVAS는 라운드마다 쟀으니 measure_final 없이 끝난다. 마지막 사후값이 종료값이다
     out = run(graph, Command(resume={"next_step": "END"}))
     assert "__interrupt__" not in out and "final" not in out
+    assert out["rounds"][-1].post[1].scores["fatigue"] == 45.0
 
 
 def test_intake_ends_session_without_goal_or_on_safety_signal():
@@ -199,40 +236,41 @@ def test_plan_is_retried_once_with_problems_then_rejected():
     with pytest.raises(PlanRejected, match="S2 목표용이 아니다"):
         run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
     assert planner.calls[0] == (0, [])
-    assert planner.calls[1][1] == check_plan(invalid, {"intake": S2_INTAKE})
+    assert planner.calls[1][1] == ["PR-09는 후보 목록에 없다", "PR-09는 S2 목표용이 아니다"]
+
+
+def activity(protocol_id: str, minutes: int = 5):
+    return plan(protocol_id, minutes).activity
 
 
 def test_check_plan_rules():
     state = {"intake": S2_INTAKE}
-    assert check_plan(BREATHING, state) == []
-    assert check_plan(plan("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
-    assert "단계 모듈" in check_plan(plan("PR-16", 1), state)[0]
-    assert any("최대 20" in p for p in check_plan(plan("PR-06", 25), state))
-    assert any("최소 5" in p for p in check_plan(plan("PR-06", 3), state))
-    assert any("가용 시간 15분" in p for p in check_plan(plan("PR-07", 20), state))
+    assert check_plan(BREATHING.activity, state) == []
+    assert check_plan(activity("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
+    assert "단계 모듈" in check_plan(activity("PR-16", 1), state)[0]
+    assert any("최대 5" in p for p in check_plan(activity("PR-06", 25), state))
+    assert any("최소 5" in p for p in check_plan(activity("PR-06", 3), state))
+    assert any("가용 시간 15분" in p for p in check_plan(activity("PR-07", 20), state))
     # PR-01은 POST_STRESS·POST_FATIGUE만 허용 — PRE_STRESS 사용자에게는 맞지 않는다
-    assert any("허용 상태" in p for p in check_plan(PHOTO, state))
+    assert any("허용 상태" in p for p in check_plan(PHOTO.activity, state))
     post_stress = {
         "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS})
     }
-    assert check_plan(PHOTO, post_stress) == []
+    assert check_plan(PHOTO.activity, post_stress) == []
     # 활동 변경을 골랐으면 같은 프로토콜을 다시 넣을 수 없다
     changed = Round(
         plan=BREATHING,
         report=SessionReport(completed=False),
-        pre=Measurement(
-            instrument_id=InstrumentId.SAM, timepoint=Timepoint.PRE, round=0, answers={}, scores={}
-        ),
-        post=Measurement(
-            instrument_id=InstrumentId.SAM, timepoint=Timepoint.POST, round=1, answers={}, scores={}
-        ),
+        pre=anchor(Timepoint.PRE, 0),
+        post=anchor(Timepoint.POST, 1),
         evaluation=OutcomeEvaluation(
             goal=CareGoal.S2, round=1, deltas={}, improved=False, completed=False
         ),
         next_step=NextStep.CHANGE_ACTIVITY,
     )
-    assert any("같은 프로토콜" in p for p in check_plan(BREATHING, {**state, "rounds": [changed]}))
-    assert check_plan(plan("PR-07", 15), {**state, "rounds": [changed]}) == []
+    with_round = {**state, "rounds": [changed]}
+    assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
+    assert check_plan(activity("PR-07", 9), with_round) == []
 
 
 def test_routes():
@@ -242,5 +280,8 @@ def test_routes():
     assert route_after_confirm({**s2, "next_step": NextStep.END}) == "measure_final"
     assert route_after_confirm({**s2, "next_step": NextStep.CHANGE_ACTIVITY}) == "plan"
     assert route_after_confirm({**s2, "next_step": NextStep.ADDITIONAL_SESSION}) == "plan"
+    s1 = {"intake": IntakeResult(goal=CareGoal.S1), "next_step": NextStep.END}
+    assert route_after_confirm(s1) == "measure_final"
+    # S3의 MFVAS는 라운드마다 재므로 종료에 다시 묻지 않는다
     s3 = {"intake": IntakeResult(goal=CareGoal.S3), "next_step": NextStep.END}
     assert route_after_confirm(s3) == END

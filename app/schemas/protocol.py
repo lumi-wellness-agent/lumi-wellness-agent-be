@@ -2,7 +2,7 @@
 
 앞부분(ProtocolEvidenceSection)은 근거 연결 — evidence[]·grades. PR-A 계약 2. BE는
 evidence[].evidence_record_ids만 역기입한다. 근거는 활동 노드를 제약하는 장치가 아니라 Reference
-카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 82편 밖 근거뿐인
+카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 83편 밖 근거뿐인
 노드(PR-21)는 evidence[]를 비워 둔다.
 
 뒷부분(CareProtocol)은 본문 — steps · content_spec · measures · duration · eligibility … 활동 노드
@@ -153,7 +153,7 @@ class ProtocolEvidenceSection(BaseModel):
     intervention_order: list[InterventionOrder] = []
     paper_id_scheme: str
     grades: dict[Outcome, GradeEntry]
-    evidence: list[ProtocolEvidenceRef] = []  # 82편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
+    evidence: list[ProtocolEvidenceRef] = []  # 83편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
 
     @field_validator("intervention_order", mode="before")
     @classmethod
@@ -392,11 +392,16 @@ class CareProtocol(ProtocolEvidenceSection):
         return goal in self.goals
 
     def allows_order(self, order: InterventionOrder | None) -> bool:
-        """허용 사용자 상태. 빈 목록은 제한 없음. NO_INDUCTION(일상 반복)이면 어느 상태에도 쓴다."""
+        """허용 사용자 상태. 빈 목록은 제한 없음. NO_INDUCTION은 양쪽 다 '어느 쪽이든'이다 —
+        프로토콜의 NO_INDUCTION(일상 반복)은 어느 상태의 사용자에게나 쓰고, 특별한 계기가 없는
+        사용자(NO_INDUCTION)는 어느 프로토콜이든 쓴다. 근거 쪽 retrieval.ORDER_COMPATIBILITY와 같은
+        정책이다.
+        """
         if order is None or not self.intervention_order:
             return True
-        return order in self.intervention_order or (
-            InterventionOrder.NO_INDUCTION in self.intervention_order
+        return (
+            order in self.intervention_order
+            or InterventionOrder.NO_INDUCTION in (order, *self.intervention_order)
         )
 
     def fits_minutes(self, minutes: int | None) -> bool:

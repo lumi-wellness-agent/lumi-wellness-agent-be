@@ -4,7 +4,7 @@
   "protocol_id": "PR-05",
   "name": "이완 음악 듣기",
   "name_en": null,
-  "summary": "이완 음악 듣기. 약 10분. 매체 MUSIC. 허용 사용자 상태 PRE_STRESS, POST_STRESS.",
+  "summary": "검수된 고정 음원 후보 3개 중 하나를 선택해 10분간 듣는다. 연구 원본과 다른 연주를 사용하므로 변형 자극으로 표시하고 효과를 단정하지 않는다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -20,7 +20,7 @@
     "default": 10.0,
     "min": null,
     "max": null,
-    "evidence": "원문 확인"
+    "evidence": "E09 원문: 모든 조건을 정확히 10분간 제공"
   },
   "eligibility": {
     "min_minutes_available": 10.0,
@@ -29,10 +29,13 @@
     ],
     "place": "ANY",
     "quiet_required": true,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "음악이 집중을 방해하거나 특정 음악에 불편한 기억이 있는 경우",
+      "안전상 주변 소리를 들어야 하는 이동·운전 상황"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 이완 음악 듣기를 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "검수된 음악 후보 중 하나를 골라 10분 동안 듣습니다. 연구 근거는 제한적이며, 편안하지 않으면 언제든 다른 활동으로 바꾸거나 멈출 수 있습니다.",
     "intro_text_ref": "guide/pr05_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -41,18 +44,19 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "NONE",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 제한된 근거를 사용자에게 숨기지 않는다"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "음악",
+      "label": "검수된 음악 후보 중 한 곡 선택해 듣기",
       "minutes": 10.0,
       "slots": [
         "MUSIC"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "CC BY-SA 4.0 고정 음원 후보 3개 중 사용자가 한 개를 선택한다. 각 자산은 600초만 재생하며 LLM이나 세션 중 생성은 사용하지 않는다"
     }
   ],
   "measures": {
@@ -79,13 +83,72 @@
       {
         "slot": "MUSIC",
         "required": true,
-        "evidence_stimulus": "E09-E1: 스트레스 전 음악",
+        "evidence_stimulus": "E09-E1의 Allegri Miserere와 E08에 수록된 Mozart K.448 및 Vivaldi Spring 계열 자극을 참고한 고정 후보. 모두 원 연구와 다른 재배포 가능 연주이므로 ADAPTED_STIMULUS",
         "source_policy": {
           "curated": "ALLOWED",
-          "generated": "ALLOWED_WITH_FLAG",
+          "generated": "FORBIDDEN",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "CURATED_ASSET_LIBRARY",
+          "collection": "reviewed_relaxation_music",
+          "mode": "USER_CHOICE",
+          "audio_asset_refs": [
+            "audio/pr05_miserere_cc_by_sa_v1",
+            "audio/pr05_mozart_k448_cc_by_sa_v1",
+            "audio/pr05_vivaldi_spring_cc_by_sa_v1"
+          ],
+          "default_audio_asset_ref": "audio/pr05_miserere_cc_by_sa_v1",
+          "license_allowlist": [
+            "OWNED",
+            "CC0",
+            "CC BY",
+            "CC BY-SA 4.0"
+          ],
+          "include_tags": [
+            "classical_or_choral",
+            "fixed_recording",
+            "user_choice",
+            "standardized_stimulus"
+          ],
+          "exclude_tags": [
+            "갑작스러운 음량 변화",
+            "경고음과 유사한 소리",
+            "과도한 저음",
+            "불분명한 저작권"
+          ],
+          "quality_gate": "재배포 허용 라이선스·파일 해시·재생 길이를 확인한 고정 파일만"
+        },
+        "render": {
+          "duration_minutes": 10,
+          "start_seconds": 0,
+          "stop_seconds": 600,
+          "loop": false,
+          "fade_in_seconds": 0,
+          "fade_out_seconds": 0,
+          "volume": "사용자 조절, 안전 상한 적용"
+        },
+        "personalization": {
+          "enabled": true,
+          "allowed": "등록된 검수 후보 3개 중 한 개 선택만 허용",
+          "avoid": "합창·종교 음악 또는 특정 클래식 작품에 불편함이 있으면 다른 후보나 프로토콜 선택",
+          "default": "audio/pr05_miserere_cc_by_sa_v1"
+        },
+        "generation": {
+          "enabled": false,
+          "reason": "생성 음악은 근거·저작권·재현성 검증 전까지 사용하지 않음"
+        },
+        "attribution": {
+          "required": true,
+          "fields": [
+            "title",
+            "creator",
+            "source_url",
+            "license",
+            "license_url",
+            "adaptation_note"
+          ]
+        }
       }
     ]
   },
@@ -154,7 +217,7 @@
       "n": 60,
       "order": "PRE_STRESS",
       "population": "건강 여성(스위스)",
-      "stimulus": "스트레스 전 음악",
+      "stimulus": "Allegri의 Miserere 라틴 합창(Tallis Scholars, Gimell 454 939-2)을 정확히 10분 제공",
       "outcomes": [
         "SUBJECTIVE_STRESS",
         "PHYSIO"
@@ -166,7 +229,8 @@
   ],
   "constraints": [
     "E08 건강 성인 메타 비유의",
-    "E09 생리 혼재"
+    "E09 생리 혼재",
+    "제공 파일 3개는 원 연구의 녹음본이 아닌 CC BY-SA 대체 연주 또는 합성 연주이므로 ADAPTED_STIMULUS"
   ],
   "safety": [],
   "unverified_claims": [
@@ -182,15 +246,13 @@
   "user_facing_flags": {
     "default": "LIMITED_EVIDENCE",
     "by_goal": {},
-    "when_generated_assets": null
+    "when_generated_assets": null,
+    "asset_fidelity": "ADAPTED_STIMULUS"
   },
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)",
-      "grades.AFFECT: 등급 셀이 E08를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
-      "시트 비고: 제공 비권장. 넣더라도 '근거 불충분' 표시"
+      "후보 3개 팀 최종 청취 검수 후 review.status와 reviewed_by 확정"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-05, 근거 arm 2행",
     "reviewed_by": null,

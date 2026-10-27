@@ -28,6 +28,7 @@ from psycopg.rows import dict_row, scalar_row
 from psycopg_pool import AsyncConnectionPool
 
 from app.agent.state import (
+    ActivityAsset,
     ActivityContent,
     CarePlan,
     ContentStep,
@@ -63,6 +64,7 @@ STATE_TYPES = (
     Timepoint,
     CarePlan,
     PlannedActivity,
+    ActivityAsset,
     ActivityContent,
     ContentStep,
     SessionReport,

@@ -1,0 +1,296 @@
+{
+  "P24-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "PA",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.010"
+      },
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "NA",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.003"
+      },
+      {
+        "outcome": "RUMINATION",
+        "effect": "POSITIVE",
+        "measure": "state rumination",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "stat": "p=.037"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "salivary cortisol",
+        "comparison": "자연 vs 도시 집단 차이"
+      }
+    ]
+  },
+  "P33-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "RUMINATION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "state rumination",
+        "comparison": "자연 vs 도시 vs 대기"
+      },
+      {
+        "outcome": "AFFECT",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "negative mood",
+        "comparison": "자연 vs 도시 vs 대기"
+      },
+      {
+        "outcome": "OTHER",
+        "effect": "POSITIVE",
+        "measure": "perceived restorativeness (being away, fascination)",
+        "comparison": "자연 vs 도시"
+      }
+    ]
+  },
+  "P03-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "SART",
+        "comparison": "회복적 vs 비회복적·기하 사진",
+        "timepoint": "직후"
+      }
+    ],
+    "exposure_minutes": 6.25
+  },
+  "P05-E2": {
+    "_why": "2026-10-27 쪽 이미지 대조(Berman 2008, 3–4쪽). 실험 2 표본 12명(여 8, 남 4), 사진 감상 약 10분(자연 · 도시 사진 각 50장). 자연 vs 도시 차이는 ANT 실행 주의에서 유의, BDS는 장소 × 시점 상호작용이 비유의이고 자연 사진 전후만 유의. tests/fixtures/evidence_hits.json과 같다",
+    "verification": "FULL_TEXT",
+    "n": 12,
+    "n_detail": "12 (여 8, 남 4)",
+    "exposure_minutes": 10,
+    "population_detail": "대학생(미국 미시간대)",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "ANT 실행 주의",
+        "comparison": "자연 vs 도시 사진(사진 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 10) = 17.089, p_rep = .99"
+      },
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 사진 전후",
+        "timepoint": "직후",
+        "stat": "t(11) = 2.972, p_rep = .96"
+      },
+      {
+        "outcome": "ATTENTION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 vs 도시 사진(장소 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 10) = 0.486, p_rep = .68"
+      }
+    ]
+  },
+  "N19-E1": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SART",
+        "comparison": "자연 vs 도시 이미지",
+        "timepoint": "직후",
+        "note": "재현 실패(회복 효과 불안정)"
+      }
+    ]
+  },
+  "N24": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "POSITIVE",
+        "comparison": "디지털 자연 노출(통합)",
+        "stat": "디지털 = 실제 자연, SMD −0.01"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "UNCLEAR",
+        "comparison": "디지털 자연 노출(통합)",
+        "note": "[fixture] 통합 효과 방향은 원문 확인 전"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "VR"
+    ]
+  },
+  "P01": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "comparison": "자연 vs 비자연 환경(통합)"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "OUTDOOR_WALK"
+    ]
+  },
+  "P04": {
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "comparison": "자연 vs 비자연 노출(통합)",
+        "note": "노출 시간이 효과를 비선형으로 조절"
+      }
+    ],
+    "media": [
+      "STATIC_IMAGE",
+      "VIDEO",
+      "OUTDOOR_WALK"
+    ]
+  },
+  "P25-E1": {
+    "_why": "시트 결과 '공포 회복·여러 지표에서 6개 환경 간 비유의'와 비고 'PR-02 생리 상충'",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "ZIPERS",
+        "comparison": "6개 환경 간",
+        "note": "공포 회복·여러 지표에서 6개 환경 간 비유의"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SCR·PEP·RMSSD·RSA",
+        "comparison": "6개 환경 간",
+        "note": "공포 회복·여러 지표에서 6개 환경 간 비유의"
+      }
+    ]
+  },
+  "N18-E1": {
+    "_why": "arm 표기 '숲 VR+소리' — 연구 자극은 VR과 자연음이다(evidence.py Medium 설명의 예). 프로토콜에서 가져오면 PR-02의 VIDEO가 된다",
+    "media": [
+      "VR",
+      "NATURE_SOUND"
+    ]
+  },
+  "E09-E1": {
+    "_why": "시트 결과 '코르티솔 음악 조건이 가장 높음'은 가설과 반대 방향이다(evidence.py Effect.NEGATIVE의 예)",
+    "results": [
+      {
+        "outcome": "PHYSIO",
+        "effect": "NEGATIVE",
+        "measure": "코르티솔",
+        "comparison": "음악 vs 물소리·휴식",
+        "note": "코르티솔 음악 조건이 가장 높음"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "POSITIVE",
+        "measure": "sAA",
+        "note": "sAA 기저 회복은 빠름"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "HR",
+        "note": "HR·주관 지표 차이 없음"
+      },
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "주관 스트레스·불안",
+        "note": "HR·주관 지표 차이 없음"
+      }
+    ]
+  },
+  "E10-E1": {
+    "_why": "정서 명명 과제. PR-16(단계 모듈)은 매체가 없어 프로토콜에서 못 가져온다 — Medium.NOTICING의 예(E10)",
+    "media": [
+      "NOTICING"
+    ]
+  },
+  "E12-E1": {
+    "_why": "PR-19가 인용하는 조건(세 가지 좋은 일)은 효과 없음 — 시트 결과와 비고 'PR-19 상충'",
+    "results": [
+      {
+        "outcome": "OTHER",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "행복·우울",
+        "comparison": "세 가지 좋은 일 vs 위약",
+        "note": "세 가지 좋은 일·웃긴 일 효과 없음; 코핑 유머만 유의"
+      }
+    ]
+  },
+  "P32-E1": {
+    "_why": "2026-10-27 학위논문 원문 대조(Drew 2018, 65쪽 등). 시트는 2차 자료로 채웠지만 표본 90명(조건당 30명), 반추 조건 차이 비유의(F(2, 87) = 0.21, p = .81), 컬러링 · 주의분산의 부정 정서 개선(p = .001)이 본문과 같다. 대상은 성인이 아니라 학부생이고, 유도는 어려운 철자 바꾸기 과제(스트레스)다",
+    "verification": "FULL_TEXT",
+    "population": "UNIVERSITY_STUDENT",
+    "population_detail": "학부생(영국, 학위논문)",
+    "n_detail": "90 (조건당 30)",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "PANAS NA",
+        "comparison": "컬러링 · 주의분산 vs 반추 글쓰기",
+        "timepoint": "직후",
+        "stat": "t = 3.57, p = .001, d = 0.72"
+      },
+      {
+        "outcome": "RUMINATION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SRQ 상태 반추",
+        "comparison": "조건 × 시점 상호작용",
+        "timepoint": "직후",
+        "stat": "F(2, 87) = 0.21, p = .81"
+      }
+    ]
+  },
+  "P05-E1": {
+    "_why": "2026-10-27 쪽 이미지 대조(Berman 2008, 2–3쪽). 실험 1 표본 38명(여 23, 남 15), 피로 과제(35분) 뒤 50~55분 보행, BDS 장소 × 시점 상호작용 유의",
+    "verification": "FULL_TEXT",
+    "n": 38,
+    "n_detail": "38 (여 23, 남 15)",
+    "exposure_minutes": 50,
+    "population_detail": "대학생(미국 미시간대)",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 vs 도시 보행(장소 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 36) = 6.055, p_rep = .95"
+      }
+    ]
+  },
+  "P26-E1": {
+    "_why": "2026-10-27 쪽 이미지 대조(Ulrich 1991, 10 · 18쪽). 대학생 120명, 스트레스 영화 10분 뒤 자연 2 · 도시 4 영상 10분(조건마다 20명), PTT · SCR · EMG 회복이 자연에서 더 빠르고 완전",
+    "verification": "FULL_TEXT",
+    "exposure_minutes": 10,
+    "population_detail": "대학생(미국 델라웨어대, 남 60 · 여 60)"
+  }
+}

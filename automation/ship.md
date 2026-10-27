@@ -1,6 +1,6 @@
 # ship — 코드 변경 배포 자동화 (하네스 중립 명세)
 
-워킹 트리의 코드 변경사항을 검증하고 이슈 → 브랜치 → PR → CI → `main` 머지까지 자동화한다.
+워킹 트리의 코드 변경사항을 검증하고 이슈 → 브랜치 → PR → CI → `main` 머지 → Vercel 프로덕션 배포 확인까지 자동화한다.
 코드 수정이 이미 완료된 상태에서 사용한다 — 문제 분석·코드 변경은 수행하지 않는다.
 브랜치명에 `#`이 포함되므로(`feat/#12`), 모든 git/gh 명령에서 브랜치명은 반드시 따옴표로 감싼다.
 
@@ -8,7 +8,7 @@
 > - Claude Code → `.claude/commands/ship.md` (`/ship`)
 > - Codex → `.agents/skills/ship/SKILL.md` (`$ship`)
 >
-> 각 어댑터는 **폴링 모드**, **Co-Author 트레일러**, **안전 규칙 적용 방식**(훅 유무)을 지정한다. 배포(Phase 4)의 CI·PR 체크 폴링은 `automation/pipeline.md`의 「폴링 실행 규칙」에 정의된 **하네스별 모드**를 따른다.
+> 각 어댑터는 **폴링 모드**, **Co-Author 트레일러**, **안전 규칙 적용 방식**(훅 유무)을 지정한다. 배포(Phase 4)의 CI·PR 체크·Vercel 배포 폴링은 `automation/pipeline.md`의 「폴링 실행 규칙」에 정의된 **하네스별 모드**를 따른다.
 
 ## 실행 환경
 
@@ -24,7 +24,7 @@ README 「브랜치·PR 규칙」이 원천이다. 요약:
 - **`dev` 없이 feature → `main`.** 인프라가 Supabase 하나라 `dev`를 두어도 환경이 나뉘지 않는다. `main`이 곧 통합 브랜치다.
 - **이슈 퍼스트.** 이슈 템플릿(`.github/ISSUE_TEMPLATE/*.yml`)으로 이슈를 만들고 `<타입>/#<이슈번호>` 브랜치를 딴다.
 - **PR 제목 `[<타입>/#<이슈번호>] 설명`, 본문에 `close #<이슈번호>`.** `main`은 PR 필수(승인 0명), 필수 체크 `check`(ruff·pytest)·`gitleaks`, 강제 푸시·삭제 금지로 보호된다. 머지는 **squash**다 (`automation/pipeline.md` 「제목 규범」).
-- **CD는 Vercel Git 연동이 맡는다.** `main`에 머지하면 Vercel이 프로덕션으로 배포한다(README 「배포 (Vercel)」). ship의 종착점은 여전히 **`main` 머지 + main push CI 성공**이고 Vercel 배포는 기다리지 않는다 — 배포 완료까지 게이트로 삼으려면 `automation/pipeline.md` Step 2 뒤에 Step을 붙인다.
+- **CD는 Vercel Git 연동이 맡는다.** `main`에 머지하면 Vercel이 프로덕션으로 배포한다(README 「배포 (Vercel)」). ship의 종착점은 **`main` 머지 + main push CI 성공 + 프로덕션 배포 확인**이다. `automation/pipeline.md` Step 3이 머지 커밋의 `Vercel` 커밋 상태로 배포 결과와 연결 여부를 판정하고(이 레포의 Vercel은 GitHub Deployment를 만들지 않는다), 배포 뒤 프로덕션 `/health/db`가 200인지까지 본다.
 - **DB 마이그레이션은 사람이 적용한다.** Supabase DB를 팀이 함께 쓰므로 `main`에 머지된 마이그레이션만 적용하고, 적용 자체는 ship이 하지 않는다 — 머지 후 최종 보고에서 적용 대상 파일을 안내한다.
 
 ## Preflight
@@ -93,7 +93,7 @@ CI(`.github/workflows/ci.yml`)의 **`check` 잡과 같은 명령을 같은 순�
 ## Phase 4: 배포
 
 `automation/pipeline.md`를 읽고 Step 1부터 실행한다.
-CI·PR 체크 대기 폴링은 `automation/pipeline.md`의 「폴링 실행 규칙」에 정의된 **현재 하네스의 폴링 모드**를 따른다 (진입 어댑터가 지정).
+CI·PR 체크·Vercel 배포 대기 폴링은 `automation/pipeline.md`의 「폴링 실행 규칙」에 정의된 **현재 하네스의 폴링 모드**를 따른다 (진입 어댑터가 지정).
 
 전달할 컨텍스트:
 - 브랜치명, 타입, 이슈번호

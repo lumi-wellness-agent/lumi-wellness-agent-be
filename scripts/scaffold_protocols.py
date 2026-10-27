@@ -39,11 +39,13 @@ from app.schemas.evidence import (  # noqa: E402
     parse_media,
     parse_orders,
 )
-from app.schemas.measure import GOAL_SCALE  # noqa: E402
+from app.schemas.measure import GOAL_SCALE, InstrumentId  # noqa: E402
 from app.schemas.protocol import CareProtocol, Composition, EvidenceRole, Grade  # noqa: E402
 
 OUT_DIR = ROOT / "data" / "protocols"
 KEEP = {"PR-01"}  # 손으로 쓴 기준 파일
+# 시트가 부르는 도구 이름 → data/instruments.
+KNOWN_TOOLS = {i.value for i in InstrumentId}
 
 # ── xlsx 읽기 ─────────────────────────────────────────────────────────────────────────────
 
@@ -559,14 +561,10 @@ def build_protocol(row: dict[str, str], arms: list[dict[str, str]], today: str) 
 
     measure_cell = row["사전·사후 측정 노드"].strip()
     anchor = "INS-SAM" if "INS-SAM" in measure_cell else None
-    extra_tools = [
-        t
-        for t in re.findall(r"INS-[A-Z0-9-]+", measure_cell)
-        if t not in ("INS-SAM", "INS-STAI6", "INS-BSRI")
-    ]
+    extra_tools = [t for t in re.findall(r"INS-[A-Z0-9-]+", measure_cell) if t not in KNOWN_TOOLS]
     if extra_tools:
         open_items.append(
-            f"시트의 측정 도구 {extra_tools}는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다"
+            f"시트의 측정 도구 {extra_tools}는 data/instruments 묶음 밖이라 넣지 않았다"
         )
     measures = {
         "anchor": anchor,

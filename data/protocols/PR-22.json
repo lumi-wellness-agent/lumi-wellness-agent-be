@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "record_type": "care_protocol",
   "protocol_id": "PR-22",
-  "name": "자연 이미지 보며 호흡(S2 조합)",
-  "name_en": null,
-  "summary": "자연 이미지 보며 호흡. 약 5분. 매체 STATIC_IMAGE, BREATHING. 허용 사용자 상태 제한 없음.",
+  "name": "자연 이미지 보며 주기적 한숨 호흡 (5분)",
+  "name_en": "Cyclic sighing with nature images",
+  "summary": "자연 사진 20장을 15초씩 보며 자기 속도로 주기적 한숨 호흡을 한다. 조합 효과 미검증.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -15,13 +15,13 @@
   "channel": "IN_APP",
   "intervention_order": [],
   "duration_minutes": {
-    "default": 5.0,
-    "min": null,
-    "max": null,
-    "evidence": "5분"
+    "default": 5,
+    "min": 5,
+    "max": 5,
+    "evidence": "P16 매일 5분 × 1개월 호흡. P03 사진 15초 참고; 20장 및 동시 제공은 LUMI 설계."
   },
   "eligibility": {
-    "min_minutes_available": 5.0,
+    "min_minutes_available": 5,
     "needs": [
       "SCREEN",
       "AUDIO"
@@ -31,7 +31,7 @@
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 자연 이미지 보며 호흡을 약 5분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 5분 동안 주기적 한숨 호흡을 합니다. 편하게 앉거나 누워 주세요. 안내에 따라 호흡하되, 어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오세요.",
     "intro_text_ref": "guide/pr22_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -46,12 +46,11 @@
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "이미지 + 안내 호흡 5분",
-      "minutes": 5.0,
+      "label": "자연 사진과 주기적 한숨 호흡 5분",
+      "minutes": 5,
       "slots": [
         "VISUAL_STILL",
-        "GUIDE_AUDIO",
-        "PACER"
+        "GUIDE_AUDIO"
       ],
       "user_can_stop": true
     }
@@ -80,37 +79,284 @@
       {
         "slot": "VISUAL_STILL",
         "required": true,
-        "evidence_stimulus": null,
+        "evidence_stimulus": "P03 사진 25장 × 15초; P33 자연 사진 슬라이드쇼. 호흡과 결합하지 않은 사진 참고 연구.",
         "source_policy": {
           "curated": "ALLOWED",
           "generated": "ALLOWED_WITH_FLAG",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)",
+        "count": 20,
+        "seconds_each": 15,
+        "selection": {
+          "provider": "PIXABAY",
+          "endpoint": "IMAGE_SEARCH",
+          "query_tags": [
+            "calm forest water",
+            "green nature landscape"
+          ],
+          "include_tags": [
+            "물",
+            "식생",
+            "자연광"
+          ],
+          "exclude_tags": [
+            "사람 중심",
+            "문자·로고",
+            "위협 장면"
+          ],
+          "quality_gate": "자연 사진 적합성·출처·이용 조건 검토"
+        },
+        "render": {
+          "duration_seconds": 300,
+          "seconds_each": 15,
+          "count": 20,
+          "transition": "FADE",
+          "transition_ms": 800,
+          "note": "20장 × 15초는 LUMI의 5분 조정. 전환은 호흡 박자가 아님."
+        },
+        "personalization": {
+          "scenery": "CareRequest.preferred_scenery",
+          "note": "실제 이미지 선호 적용 및 검수 연동 확인"
+        },
+        "generation": {
+          "provider": "PIXABAY",
+          "status": "SPEC_ONLY",
+          "note": "기존 검색 코드 이용, 실제 키·자산·FE 연동 검증 필요"
+        }
       },
       {
         "slot": "GUIDE_AUDIO",
         "required": true,
-        "evidence_stimulus": null,
+        "evidence_stimulus": "P16 하루 5분 주기적 한숨 호흡의 참고 근거. 이미지+호흡 조합 및 한국어 안내 효과는 미검증.",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
-      },
-      {
-        "slot": "PACER",
-        "required": true,
-        "evidence_stimulus": null,
-        "source_policy": {
-          "fixed_text": "ALLOWED",
-          "tts": "ALLOWED",
-          "llm_rewrite": "FORBIDDEN"
+        "note": "PR-06의 시작·남은 3분·1분·종료 대본과 마지막 10초 종료음을 동일하게 사용. 실제 음성·플레이어 연결 필요.",
+        "text": "코로 천천히 숨을 들이쉰 뒤, 이어서 한 번 더 짧게 들이쉬세요. 두 번째 들숨은 첫 번째보다 짧고 양이 적어도 괜찮습니다. 그다음 입으로 천천히 숨을 충분히 내쉬세요. 원하시면 내쉴 때도 코를 사용하셔도 됩니다.\n이 순서를 자신의 속도로 반복합니다. 무리하지 마시고, 어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오세요.\n마지막 10초에는 종료를 알리는 짧은 소리가 들립니다.\n이제 5분 활동을 시작합니다.",
+        "script_review": {
+          "status": "DRAFT",
+          "source": "P16 — B) Cyclic Sighing (사용자 제공 원문 캡처)",
+          "adaptations": [
+            "원문의 최대 흡기 표현을 한 번 더 짧게 들이쉬기로 완화",
+            "자신의 속도·무리하지 않기·불편 시 중단 안내 추가",
+            "3분·1분 안내 및 마지막 10초 종료 예고음은 LUMI 추가 설계이며 P16의 동일 조건 검증 근거 없음"
+          ],
+          "timing_note": "방법 설명 후 5분 시작. 남은 180초·60초 안내, 10~1초 종료 예고음, 0초 종료 안내. 들숨·날숨별 고정 박자 없음."
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "scripts": [
+          {
+            "id": "PRE_START",
+            "text": "코로 천천히 숨을 들이쉰 뒤, 이어서 한 번 더 짧게 들이쉬세요. 두 번째 들숨은 첫 번째보다 짧고 양이 적어도 괜찮습니다. 그다음 입으로 천천히 숨을 충분히 내쉬세요. 원하시면 내쉴 때도 코를 사용하셔도 됩니다.\n이 순서를 자신의 속도로 반복합니다. 무리하지 마시고, 어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오세요.\n마지막 10초에는 종료를 알리는 짧은 소리가 들립니다.\n이제 5분 활동을 시작합니다."
+          },
+          {
+            "id": "REMAINING_180",
+            "text": "3분 남았습니다. 천천히 들이쉬고, 한 번 더 짧게 들이쉰 뒤, 천천히 내쉬는 순서를 떠올려 주세요. 무리하지 않고 자신의 속도로 이어가시면 됩니다."
+          },
+          {
+            "id": "REMAINING_60",
+            "text": "이제 1분 남았습니다. 마무리를 위해 호흡을 서두르지 마세요. 남은 시간도 자신의 속도로 이어가고, 활동이 끝나면 평소 호흡으로 돌아오겠습니다."
+          },
+          {
+            "id": "END",
+            "text": "5분 활동이 끝났습니다. 반복을 마치고 평소 호흡으로 돌아오세요. 잠시 편안하게 머물러 주세요."
+          }
+        ],
+        "render": {
+          "status": "SPEC_ONLY",
+          "activity_seconds": 300,
+          "before_timer": [
+            "guide.intro_text",
+            "PRE_START"
+          ],
+          "timer_start": "AFTER_PRE_START_AUDIO_END",
+          "timer_continues_during_audio": true,
+          "cues": [
+            {
+              "remaining_seconds": 180,
+              "script_id": "REMAINING_180"
+            },
+            {
+              "remaining_seconds": 60,
+              "script_id": "REMAINING_60"
+            },
+            {
+              "remaining_seconds": 0,
+              "script_id": "END"
+            }
+          ],
+          "countdown_sound": {
+            "remaining_seconds": [
+              10,
+              9,
+              8,
+              7,
+              6,
+              5,
+              4,
+              3,
+              2,
+              1
+            ],
+            "count": 10,
+            "same_pitch": true,
+            "same_volume": true,
+            "purpose": "END_NOTIFICATION",
+            "asset_ref": null,
+            "note": "소리의 높이·크기·길이는 미정. 마지막 소리가 종료 음성을 덮지 않도록 검토"
+          },
+          "on_stop": "STOP_TIMER_AND_CANCEL_ALL_PENDING_AUDIO",
+          "note": "재생 시점 명세. 실제 음성 생성과 실행기 연결은 별도 구현 필요. text는 시작 전 문안이며 시점별 scripts 전체를 일괄 재생하지 않음.",
+          "ui_spec_ref": "content_spec.session_ui"
+        },
+        "selection": {
+          "type": "APPROVED_FIXED_SCRIPT",
+          "script_ids": [
+            "guide.intro_text",
+            "PRE_START",
+            "REMAINING_180",
+            "REMAINING_60",
+            "END"
+          ],
+          "same_speaker_for_all_clips": true
+        },
+        "personalization": {
+          "script_rewrite": false,
+          "automatic_speech_rate_adaptation": false,
+          "note": "현재 버전에서는 승인된 문안과 화자를 고정한다."
+        },
+        "generation": {
+          "method": "TTS_FROM_APPROVED_TEXT",
+          "status": "SPEC_ONLY",
+          "language": "ko-KR",
+          "provider": null,
+          "voice_id": null,
+          "voice_gender": "UNSPECIFIED",
+          "voice_direction": "차분하지만 또렷한 한국어 목소리 한 명. 친근한 존댓말, 과장된 감정 표현과 속삭임 없이 자연스럽게 안내.",
+          "speech_rate": "NATURAL_CLEAR_REVIEW_WITH_SAMPLE",
+          "sentence_pause": "의미가 구분될 만큼 짧게 쉬기. 호흡 박자로 사용하지 않음.",
+          "background_music": false,
+          "background_ambience": false,
+          "llm_rewrite": false,
+          "timing": "PREPARE_BEFORE_SESSION",
+          "clips": [
+            {
+              "id": "INTRO",
+              "text_ref": "guide.intro_text",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "PRE_START",
+              "text_ref": "content_spec.slots[GUIDE_AUDIO].scripts[PRE_START].text",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "REMAINING_180",
+              "text_ref": "content_spec.slots[GUIDE_AUDIO].scripts[REMAINING_180].text",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "REMAINING_60",
+              "text_ref": "content_spec.slots[GUIDE_AUDIO].scripts[REMAINING_60].text",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "END",
+              "text_ref": "content_spec.slots[GUIDE_AUDIO].scripts[END].text",
+              "asset_url": null,
+              "duration_seconds": null
+            }
+          ],
+          "quality_checks": [
+            "승인 대본과 발화 내용 일치",
+            "한국어 발음과 문장 끝 잘림 확인",
+            "다섯 파일의 동일 화자 및 일관된 음량 확인",
+            "갑작스러운 음량 변화·불필요한 무음 확인",
+            "각 파일 실제 재생 길이 측정",
+            "INTRO의 guide.max_seconds 15초 충족 여부 확인. 미충족 시 과속하지 않고 문안 또는 제한값 검토"
+          ],
+          "evidence_note": "음색·속도·분할·배경음 미사용은 LUMI 제작 기준이며 P16에서 해당 TTS 조건의 효과 동등성을 검증한 것은 아님."
+        }
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "SPEC_ONLY",
+      "component": "CIRCULAR_SESSION_TIMER",
+      "reference": "사용자 첨부 image(4).png",
+      "center_orb": {
+        "style": "SOFT_GRADIENT",
+        "colors": [
+          "TEAL",
+          "BLUE",
+          "PURPLE"
+        ],
+        "size_behavior": "FIXED",
+        "breathing_synchronization": false
+      },
+      "timer": {
+        "format": "MM:SS",
+        "initial_seconds": 300,
+        "visible_during_instruction": true,
+        "start_after": "PRE_START_AUDIO_END",
+        "continues_during_audio": true,
+        "at_zero": "HOLD_00_00_DURING_END_AUDIO"
+      },
+      "outer_wave": {
+        "visible_when": "GUIDE_SPEECH_PLAYING",
+        "hidden_when": [
+          "SILENCE",
+          "COUNTDOWN_BEEP"
+        ],
+        "animation": "SOFT_PLAYBACK_ANIMATION",
+        "actual_amplitude_analysis_required": false,
+        "breathing_synchronization": false
+      },
+      "text": {
+        "persistent_breathing_sequence": false,
+        "breath_phase_label": false,
+        "show_breathe_out": false,
+        "show_intermediate_script_text": false
+      },
+      "controls": {
+        "large_stop_button": false,
+        "close_icon": true,
+        "back_navigation": true,
+        "on_exit": "STOP_TIMER_AND_ALL_AUDIO_AND_CANCEL_PENDING_CUES",
+        "report": {
+          "completed": false,
+          "stopped_reason": "USER_EXIT"
+        }
+      },
+      "completion": {
+        "after_end_audio": "SUBMIT_SESSION_REPORT",
+        "report": {
+          "completed": true
+        },
+        "next": "MEASURE_POST"
+      },
+      "accessibility": {
+        "reduce_motion": "HIDE_OUTER_WAVE_KEEP_TIMER_AND_AUDIO",
+        "close_accessible_label": "활동 종료"
+      },
+      "evidence_note": "P03 이미지 단독, P16 호흡 단독. 두 자극 동시 제공은 미검증.",
+      "integration_note": "UI 명세를 읽는 실행기·FE 연결 필요. 새로운 SlotType은 추가하지 않았으며 PACER 필수 슬롯은 제거함.",
+      "background": {
+        "type": "NATURE_PHOTO_SLIDESHOW",
+        "photo_count": 20,
+        "seconds_each": 15,
+        "transition": "FADE",
+        "starts_at": "AFTER_PRE_START_AUDIO_END",
+        "ends_at": "TIMER_ZERO",
+        "provider": "PIXABAY",
+        "sync_with_breath": false
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -145,15 +391,72 @@
     }
   },
   "paper_id_scheme": "RC_MASTER",
-  "evidence": [],
+  "evidence": [
+    {
+      "paper_id": "P16",
+      "experiment_id": "P16-E1",
+      "role": "CONTEXT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 114,
+      "order": "무관",
+      "population": "일반 성인(미국)",
+      "stimulus": "매일 5분 × 1개월 호흡",
+      "outcomes": [
+        "AFFECT",
+        "SUBJECTIVE_STRESS",
+        "PHYSIO"
+      ],
+      "result": "호흡 단독 연구. 이미지 결합 효과 미측정.",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P03",
+      "experiment_id": "P03-E1",
+      "role": "CONTEXT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": null,
+      "order": "POST_FATIGUE",
+      "population": "대학생(이탈리아)",
+      "stimulus": "주의 과제 후 자연환경 사진 25장 × 15초",
+      "outcomes": [
+        "ATTENTION"
+      ],
+      "result": "주의력 연구. 호흡 결합 효과 미측정.",
+      "verification": "본문",
+      "evidence_record_ids": []
+    },
+    {
+      "paper_id": "P33",
+      "experiment_id": "P33-E1",
+      "role": "CONTEXT",
+      "design": "RANDOMIZED_EXPERIMENT",
+      "n": 58,
+      "order": "POST_STRESS",
+      "population": "대학생(영국)",
+      "stimulus": "자연·도시 사진 슬라이드쇼 또는 대기",
+      "outcomes": [
+        "RUMINATION",
+        "AFFECT"
+      ],
+      "result": "반추·부정 기분 조건 차이 비유의. 호흡 결합 효과 미측정.",
+      "verification": "본문",
+      "evidence_record_ids": []
+    }
+  ],
   "constraints": [
-    "조합 효과 미검증(인포그래픽 S2 각주)"
+    "자연 사진과 호흡의 동시 조합 효과 미검증",
+    "P16 반복 수행과 단회 차이",
+    "P03 25장과 LUMI 20장 조건 차이",
+    "A/B 실험으로만 제공"
   ],
   "safety": [
-    "PR-06과 동일"
+    "어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오기",
+    "중단 제어 제공"
   ],
   "unverified_claims": [
-    "전부(추가 효과)"
+    "자연 이미지 추가로 호흡 단독보다 효과 향상",
+    "두 자극 결합의 효과 동등성"
   ],
   "population_validated": [],
   "population_note": "한국 성인 대상 검증 없음",
@@ -167,11 +470,13 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: A/B 실험으로만 제공"
+      "P16·P03·P33은 개별 요소 참고 근거이며 조합 직접 근거가 아님; RAG·근거 카드 역할 확인",
+      "20장의 Pixabay 사진 및 키·라이선스·품질 검토",
+      "PR-06 안내 및 10초 종료음 실제 음성·플레이어 연결",
+      "20장 15초 전환과 5분 타이머·A/B 실험 연결 검증"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-22, 근거 arm 0행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

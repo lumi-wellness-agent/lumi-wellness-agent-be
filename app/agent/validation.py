@@ -18,10 +18,15 @@ judge()는 DB 없는 순수 규칙이다. validate()가 evidence_records에서 �
 validate()를 부른다.
 """
 
+import logging
 from collections.abc import Iterable, Sequence
 
+from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
+from app.protocols import get_protocol
+from app.retrieval.hybrid import to_hit
 from app.schemas.care import CareGoal
 from app.schemas.evidence import (
     STUDY_MEDIUM_FOR,
@@ -46,8 +51,29 @@ from app.schemas.retrieval import (
     MediaMatch,
 )
 
+log = logging.getLogger(__name__)
+
 _CONFLICT_EFFECTS = frozenset({Effect.NOT_SIGNIFICANT, Effect.NEGATIVE})
 _CONFLICT_TYPES = frozenset({RecordType.ARM, RecordType.SYNTHESIS})
+
+# 레코드 + 논문. 열은 hybrid.to_hit이 읽는 것이다
+_HITS_SQL = """
+select e.id, e.paper_id, e.experiment_id, e.section, e.chunk_idx, e.content, e.metadata,
+       p.title, p.authors, p.year, p.doi, p.url, p.fulltext_status
+from public.evidence_records e
+join public.papers p on p.id = e.paper_id
+"""
+RECORDS_SQL = _HITS_SQL + "where e.id = any(%(ids)s::bigint[])"
+# 상충 후보 — judge()의 상충 규칙(종류 · 매체가 겹침 · 1차 지표의 비유의·반대 결과)을
+# DB에서 먼저 건다. id 순서라 arm마다 첫 chunk가 related_record_ids에 들어간다
+CANDIDATES_SQL = (
+    _HITS_SQL
+    + """where e.metadata @> any(%(types)s::jsonb[])
+  and e.metadata @> any(%(media)s::jsonb[])
+  and e.metadata @> any(%(results)s::jsonb[])
+order by e.id
+"""
+)
 
 
 def media_match(delivered: Iterable[Medium], studied: Iterable[Medium]) -> MediaMatch:
@@ -235,6 +261,29 @@ def judge(
     )
 
 
+def resolve_orders(
+    user_order: InterventionOrder | None, protocol_id: str | None
+) -> list[InterventionOrder]:
+    """검사할 사용자 상태. user_order, 없으면 프로토콜의 허용 시점, 둘 다 없으면 [](매체만 검사)."""
+    if user_order:
+        return [user_order]
+    protocol = get_protocol(protocol_id) if protocol_id else None
+    return list(protocol.intervention_order) if protocol else []
+
+
+def conflict_params(goal: CareGoal, media: Sequence[Medium]) -> dict[str, list[dict]]:
+    """CANDIDATES_SQL 인자. 목록마다 하나라도 `metadata @>`이면 통과, 매체는 연구 매체로 바꾼다."""
+    return {
+        "types": [{"record_type": t.value} for t in sorted(_CONFLICT_TYPES)],
+        "media": [{"media": [m.value]} for m in dict.fromkeys(study_medium(m) for m in media)],
+        "results": [
+            {"results": [{"outcome": o.value, "effect": e.value}]}
+            for o in GOAL_OUTCOMES[goal].primary
+            for e in sorted(_CONFLICT_EFFECTS)
+        ],
+    }
+
+
 async def validate(
     pool: AsyncConnectionPool | None,
     *,
@@ -247,6 +296,41 @@ async def validate(
     """레코드·논문·상충 후보를 DB에서 읽어 judge()를 부른다. 입력 ID 순서대로 돌려준다.
 
     orders = [user_order], 없으면 protocol_id의 허용 시점(intervention_order), 둘 다 없으면 [].
-    상충 후보 = 같은 연구 매체 + goal 1차 지표를 가진 ARM·SYNTHESIS 레코드.
+    상충 후보 = 제공 매체(연구 매체로 바꿔)와 겹치고 goal 1차 지표에 NOT_SIGNIFICANT·NEGATIVE 결과가
+    있는 ARM·SYNTHESIS 레코드. 없는 ID는 missing_verdict다. 풀이 없으면(DATABASE_URL 미설정)
+    출처를 확인할 수 없어 전부 missing_verdict다.
     """
-    raise NotImplementedError("PR-C: DB 조회를 붙인다. 규칙은 judge()에 있다")
+    ids = list(evidence_record_ids)
+    if not ids:
+        return []
+    if pool is None:
+        log.warning("DB 풀이 없어(DATABASE_URL 미설정) 근거를 검증하지 못했다: %s", ids)
+        return [missing_verdict(i) for i in ids]
+    orders = resolve_orders(user_order, protocol_id)
+    filters = {
+        name: [Jsonb(value) for value in values]
+        for name, values in conflict_params(goal, media).items()
+    }
+    async with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(RECORDS_SQL, {"ids": ids})
+        hits = {row["id"]: to_hit(row) for row in await cur.fetchall()}
+        await cur.execute(CANDIDATES_SQL, filters)
+        candidates = [to_hit(row) for row in await cur.fetchall()]
+    verdicts = [
+        judge(hits[i], goal=goal, media=media, orders=orders, candidates=candidates)
+        if i in hits
+        else missing_verdict(i)
+        for i in ids
+    ]
+    log.info(
+        "근거 검증 %s media=%s orders=%s → %s",
+        goal.value,
+        [m.value for m in media],
+        [o.value for o in orders],
+        [
+            f"{v.evidence_record_id} {'usable' if v.usable else 'blocked'}"
+            f"{[f.value for f in v.flags]}"
+            for v in verdicts
+        ],
+    )
+    return verdicts

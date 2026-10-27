@@ -9,14 +9,14 @@
 
     intake        LLM 호출 1회(구조화 출력), 에이전트 아님      nodes/intake.py
     measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
-  ① plan          Adaptive Care Planning Agent (Tool 루프)       nodes/planner.py
+  ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
   ② prepare       콘텐츠 준비                                     nodes/executor.py
      run_session  FE 실행 대기 ⏸                                  nodes/executor.py
-     measure_post 코드 ⏸ SAM                                     nodes/measure.py
+     measure_post 코드 ⏸ SAM (+ S3는 MFVAS)                      nodes/measure.py
   ③ evaluate      Outcome Evaluator                               nodes/evaluator.py
   ④ replan        Replanning 규칙                                 nodes/replanner.py
      confirm      사용자 선택·동의 대기 ⏸                         nodes/replanner.py
-     measure_final 코드 ⏸ 목표 척도(S3 없음)                      nodes/measure.py
+     measure_final 코드 ⏸ STAI-6 · BSRI(라운드마다 잰 S3는 없음)  nodes/measure.py
 
 ⏸는 interrupt다. 그래프가 멈추고 상태를 체크포인터에 남긴다. 같은 thread_id로
 `Command(resume=값)`을 보내면 그 자리부터 이어서 돈다. 세션 하나가 thread 하나다.
@@ -34,7 +34,7 @@ from app.agent.nodes.intake import Intaker, make_intake_node, route_after_intake
 from app.agent.nodes.measure import measure_final, measure_post, measure_pre
 from app.agent.nodes.planner import Planner, make_plan_node
 from app.agent.nodes.replanner import confirm, replan, route_after_confirm
-from app.agent.state import CarePlan, CareState, IntakeResult
+from app.agent.state import CareState, IntakeResult
 from app.schemas.care import CareRequest
 
 
@@ -67,10 +67,12 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-async def _unconfigured_planner(
-    state: CareState, context: AgentContext, problems: list[str]
-) -> CarePlan:
-    raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+class _UnconfiguredPlanner:
+    async def choose(self, *args):
+        raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+
+    async def explain(self, *args):
+        raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
 
 
 async def _unconfigured_intaker(request: CareRequest) -> IntakeResult:
@@ -79,4 +81,4 @@ async def _unconfigured_intaker(request: CareRequest) -> IntakeResult:
 
 if __name__ == "__main__":
     # make graph: 문서·발표용 Mermaid. 그리기만 하므로 LLM을 부르지 않는다
-    print(build_graph(_unconfigured_planner, _unconfigured_intaker).get_graph().draw_mermaid())
+    print(build_graph(_UnconfiguredPlanner(), _unconfigured_intaker).get_graph().draw_mermaid())

@@ -4,7 +4,7 @@
   "protocol_id": "PR-02",
   "name": "자연 영상 + 자연음 감상(스트레스 후)",
   "name_en": null,
-  "summary": "자연 영상 + 자연음 감상. 약 10분. 매체 VIDEO, NATURE_SOUND. 허용 사용자 상태 POST_STRESS.",
+  "summary": "스트레스 이후 자연 영상과 자연음을 함께 약 10분간 감상한다. 영상과 소리는 검수된 한 쌍으로 제공하며 플래너가 다른 자극을 임의로 조합하지 않는다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -30,10 +30,13 @@
     ],
     "place": "ANY",
     "quiet_required": true,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "화면 움직임에 민감하거나 멀미가 있는 경우 → PR-04 자연음을 대안으로",
+      "소리를 재생할 수 없는 상황 → 영상 단독으로 축소하지 않고 다른 프로토콜 선택"
+    ]
   },
   "guide": {
-    "intro_text": "지금부터 자연 영상 + 자연음 감상을 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 자연 영상과 자연음을 약 10분 동안 함께 감상합니다. 화면과 소리를 편안한 수준으로 맞추고, 어지럽거나 불편하면 언제든 멈춰 주세요.",
     "intro_text_ref": "guide/pr02_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -42,19 +45,20 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "NONE",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "고정 시작 안내. 활동 중에는 별도 안내 음성을 섞지 않는다"
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "영상 10분",
+      "label": "자연 영상과 자연음 감상",
       "minutes": 10.0,
       "slots": [
         "VISUAL_VIDEO",
         "SOUNDSCAPE"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "검수된 영상·자연음 한 쌍을 10분간 재생한다"
     }
   ],
   "measures": {
@@ -84,10 +88,54 @@
         "evidence_stimulus": "P26-E1: 스트레스 영화 → 소리 포함 10분 영상; P25-E1: 10분 스트레스 영화 → 10분 환경 영상(숲/개울/보행자/교통); N17-E1: 사무실 소음 작업 → 강 영상+소리 / 강 소리 / 정적 / 소음; N18-E1: VR TSST → 회복 조건; P37-E1: 교정 과제로 부하 → Posner 과제 → 영상 → Posner 과제",
         "source_policy": {
           "curated": "ALLOWED",
-          "generated": "ALLOWED_WITH_FLAG",
+          "generated": "FORBIDDEN",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "PIXABAY",
+          "endpoint": "VIDEO_SEARCH",
+          "min_source_duration_seconds": 30,
+          "query_tags": [
+            "forest",
+            "stream",
+            "calm nature",
+            "green landscape"
+          ],
+          "filters": {
+            "category": "nature",
+            "video_type": "film",
+            "safesearch": true,
+            "min_width": 1280,
+            "min_height": 720
+          },
+          "exclude_tags": [
+            "사람 중심",
+            "도시·교통",
+            "위협 동물",
+            "급격한 카메라 이동",
+            "문자·로고"
+          ],
+          "quality_gate": "출처 페이지·기여자·Pixabay Content License를 기록하고 10분 자극으로 검수한 영상만"
+        },
+        "render": {
+          "duration_seconds": 600,
+          "autoplay": false,
+          "controls": [
+            "STOP",
+            "VOLUME"
+          ],
+          "reduce_motion": "느린 고정 숏 우선",
+          "note": "Pixabay 검색 결과는 24시간 캐시하고 선택한 영상은 서버 저장소 사용 권장"
+        },
+        "personalization": {
+          "scenery": "CareRequest.preferred_scenery",
+          "avoid": "CareRequest.constraints와 멀미·광과민 설정",
+          "fallback": "조건 일치 영상이 없으면 PR-04를 후보로 반환"
+        },
+        "generation": {
+          "enabled": false,
+          "reason": "검증된 다중매체 프로토콜에 AI 영상을 대체 삽입하지 않음"
+        }
       },
       {
         "slot": "SOUNDSCAPE",
@@ -95,10 +143,56 @@
         "evidence_stimulus": "P26-E1: 스트레스 영화 → 소리 포함 10분 영상; P25-E1: 10분 스트레스 영화 → 10분 환경 영상(숲/개울/보행자/교통); N17-E1: 사무실 소음 작업 → 강 영상+소리 / 강 소리 / 정적 / 소음; N18-E1: VR TSST → 회복 조건; P37-E1: 교정 과제로 부하 → Posner 과제 → 영상 → Posner 과제",
         "source_policy": {
           "curated": "ALLOWED",
-          "generated": "ALLOWED_WITH_FLAG",
+          "generated": "FORBIDDEN",
           "user_upload": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "selection": {
+          "provider": "FREESOUND",
+          "api_version": "v2",
+          "query_tags": [
+            "forest ambience",
+            "gentle stream",
+            "birds quiet"
+          ],
+          "license_allowlist": [
+            "CC0",
+            "CC BY"
+          ],
+          "exclude_query_terms": [
+            "footstep",
+            "walking",
+            "voice",
+            "speech",
+            "music",
+            "thunder",
+            "waterfall",
+            "traffic",
+            "car"
+          ],
+          "exclude_tags": [
+            "급류",
+            "천둥",
+            "경보음",
+            "사람 목소리",
+            "음악"
+          ],
+          "quality_gate": "영상 장면과 일치하고 반복 경계·클리핑·돌발 고음이 없는 검수 음원만"
+        },
+        "render": {
+          "duration_seconds": 600,
+          "loop": "검수된 무봉제 루프만 허용",
+          "fade_in_seconds": 2,
+          "fade_out_seconds": 2,
+          "volume": "사용자 조절, 안전 상한 적용"
+        },
+        "personalization": {
+          "soundscape": "선택한 영상의 장면과 CareRequest 선호 풍경에 맞춤",
+          "avoid": "청각 과민·이명·사용자 기피 소리"
+        },
+        "generation": {
+          "enabled": false,
+          "reason": "근거 자극에 없는 생성 음향을 검증된 조합에 삽입하지 않음"
+        }
       }
     ]
   },
@@ -277,13 +371,13 @@
   "user_facing_flags": {
     "default": null,
     "by_goal": {},
-    "when_generated_assets": "AI_IMAGE_UNVERIFIED"
+    "when_generated_assets": null
   },
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: S2의 1순위 시각 프로토콜"
+      "Pixabay 영상과 Freesound 자연음을 실제 자산으로 고정한 뒤 자극 쌍 검수 필요",
+      "S2의 1순위 시각 프로토콜로 제공하기 전 라이선스·출처 표시 형식 검수 필요"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-02, 근거 arm 6행",
     "reviewed_by": null,

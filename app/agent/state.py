@@ -9,7 +9,7 @@ state에 새 타입을 넣으면 checkpoint.py의 STATE_TYPES에도 등록한다
 
 import operator
 from enum import StrEnum
-from typing import Annotated, NotRequired, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -53,10 +53,12 @@ class IntakeResult(BaseModel):
 class PlannedActivity(BaseModel):
     """계획에 넣은 활동 하나. 실행 절차는 검수된 Care Protocol(data/protocols)에서 온다."""
 
-    protocol_id: str = Field(description="검수된 Care Protocol의 ID (get_care_protocols 결과)")
+    protocol_id: str = Field(description="검수된 Care Protocol의 ID (후보 목록에서 고른다)")
     minutes: int = Field(gt=0, description="활동 시간(분). 프로토콜의 duration_minutes 범위 안")
     evidence_record_ids: list[int] = Field(
-        default_factory=list, description="validate_evidence를 통과한 근거의 Evidence Record ID"
+        default_factory=list,
+        description="검증을 통과한(usable) 근거의 Evidence Record ID. 목표를 지지하는 것이 앞. "
+        "코드가 채운다",
     )
 
 
@@ -64,7 +66,10 @@ class CarePlan(BaseModel):
     """① Planner의 출력. 라운드당 활동 노드 1개 — 검증된 다중매체 프로토콜도 노드 1개로 센다."""
 
     activity: PlannedActivity
-    rationale: str = Field(description="활동 선택 이유. Reference 카드의 바탕이 된다")
+    rationale: str = Field(
+        description="추천 이유 2~3문장 — 사용자 상태, 고른 이유, 근거(저자·연도·지표)와 한계. "
+        "사용자에게 보인다. Reference 카드의 사실(출처·플래그)은 evidence_record_ids에서 만든다"
+    )
 
 
 class ContentStep(BaseModel):
@@ -75,12 +80,29 @@ class ContentStep(BaseModel):
     optional: bool = False
 
 
+class ActivityAsset(BaseModel):
+    """prepare가 공급자별 응답을 정규화한 콘텐츠 자산 하나."""
+
+    slot: str  # VISUAL_STILL · VISUAL_VIDEO · SOUNDSCAPE · MUSIC · GUIDE_AUDIO · ARTWORK
+    url: str
+    provider: str
+    title: str | None = None
+    creator: str | None = None
+    source_url: str | None = None
+    license: str | None = None
+    generated: bool = False
+    verification: str = "VERIFIED"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class ActivityContent(BaseModel):
     """② prepare가 준비한 콘텐츠. FE 플레이어가 그대로 쓴다."""
 
     protocol_id: str
     name: str
     steps: list[ContentStep] = []
+    assets: list[ActivityAsset] = []
+    asset_warnings: list[str] = []
     image_urls: list[str] = []
     guide_text: str = ""
     notice_prompt: str | None = None
@@ -100,8 +122,9 @@ class OutcomeEvaluation(BaseModel):
 
     goal: CareGoal
     round: int
-    deltas: dict[str, float]  # SAM: valence · arousal
-    improved: bool | None  # None = 세션 내 판정 기준 없음(S3 목표 지표 '—')
+    # 도구별 scores 키를 합친다 — SAM valence·arousal, S3는 MFVAS fatigue·concentration·energy도
+    deltas: dict[str, float]
+    improved: bool | None  # None = 세션 내 판정 기준 없음(evaluator.IMPROVEMENT_RULE)
     completed: bool
 
 
@@ -129,8 +152,8 @@ class Round(BaseModel):
 
     plan: CarePlan
     report: SessionReport
-    pre: Measurement  # 이 라운드가 비교한 앵커(SAM)
-    post: Measurement
+    pre: list[Measurement]  # 이 라운드가 비교한 측정 — SAM, S3는 MFVAS도
+    post: list[Measurement]
     evaluation: OutcomeEvaluation
     next_step: NextStep
 
@@ -151,13 +174,14 @@ class CareState(TypedDict):
     intake: NotRequired[IntakeResult]  # 목표 · 순서 조건 · 슬롯
     ended: NotRequired[SessionEnd]
     pre: NotRequired[list[Measurement]]  # 세션 시작 측정(SAM + 목표 척도)
-    round_pre: NotRequired[Measurement]  # 이번 라운드가 비교할 SAM. 첫 라운드는 pre의 SAM
+    # 이번 라운드가 비교할 측정(SAM, S3는 + MFVAS). 첫 라운드는 pre에서 고른다
+    round_pre: NotRequired[list[Measurement]]
     plan: NotRequired[CarePlan]
     content: NotRequired[ActivityContent]
     report: NotRequired[SessionReport]
-    post: NotRequired[Measurement]  # 이번 라운드 사후 SAM
+    post: NotRequired[list[Measurement]]  # 이번 라운드 사후 측정(SAM, S3는 + MFVAS)
     evaluation: NotRequired[OutcomeEvaluation]
     proposal: NotRequired[ReplanProposal]
     next_step: NotRequired[NextStep]
-    final: NotRequired[Measurement]  # 세션 끝 목표 척도(S3는 없다)
+    final: NotRequired[Measurement]  # 세션 끝 목표 척도(STAI-6 · BSRI). 라운드마다 잰 S3는 없다
     rounds: NotRequired[Annotated[list[Round], operator.add]]  # 끝난 라운드. 뒤에 쌓인다
