@@ -2,7 +2,7 @@
 
 measure_pre · measure_post · measure_final(app/agent/nodes/measure.py)이 present()로 interrupt에
 문항을 싣고, FE 응답을 score()로 채점해 Measurement(app/schemas/measure.py)로 남긴다.
-문항 원문(text)이 비어 있는 도구(status TODO)는 measure 담당이 저작권·한국어판을 확인한 뒤 채운다.
+문항 원문(text)이 비어 있는 도구(status TODO)는 문항을 채울 때까지 비활성 자리표시자로만 전달한다.
 LLM 번역 금지 — 척도는 번역·타당화된 문항만 쓴다. PROVISIONAL은 팀이 쓴 임시 문항(번역 아님)으로
 제시는 하되 타당화가 없다 — Reference 카드에 '미검증'을 적는다(INS-MFVAS).
 """
@@ -93,11 +93,13 @@ def get_instrument(instrument_id: InstrumentId) -> Instrument:
     return load_instruments()[instrument_id]
 
 
-def present(instrument: Instrument) -> dict:
-    """interrupt에 싣는 제시용 payload. FE가 그대로 렌더링한다."""
+def present(instrument: Instrument, *, enabled: bool = True) -> dict:
+    """FE 제시용 payload. enabled=False인 도구는 표시만 하고 응답을 받지 않는다."""
     return {
         "instrument_id": instrument.instrument_id.value,
         "name": instrument.name,
+        "status": instrument.status,
+        "enabled": enabled,
         "instruction": instrument.instruction,
         "scale": instrument.scale.model_dump(),
         "items": [
