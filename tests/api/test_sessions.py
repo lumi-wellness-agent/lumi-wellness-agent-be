@@ -19,7 +19,7 @@ from app.api import internal, me, sessions
 from app.auth import User, current_user
 from app.config import Settings
 from app.main import add_cors
-from app.records import MemoryStore
+from app.records import NO_CONTENT, MemoryStore
 from app.schemas.care import CareGoal, Setting
 from app.schemas.evidence import InterventionOrder
 from tests.agent.test_graph import (
@@ -40,6 +40,9 @@ SSE = {"Accept": "text/event-stream"}
 PRE_S2 = {**sam(3, 7), "INS-STAI6": STAI6}
 ALICE = User(id=uuid.UUID("00000000-0000-4000-8000-00000000a11c"), provider="kakao")
 BOB = User(id=uuid.UUID("00000000-0000-4000-8000-000000000b0b"), provider="google")
+GUEST = User(
+    id=uuid.UUID("00000000-0000-4000-8000-0000000000e5"), provider="anonymous", anonymous=True
+)
 
 
 def client_for(
@@ -578,6 +581,7 @@ def test_cleanup_drops_idle_and_orphan_checkpoints_and_expired_texts():
     auth = {"Authorization": "Bearer s3cret"}
     assert client.get("/internal/cleanup", headers=auth).json() == {
         "texts": 0,
+        "guests": 0,  # 메모리 저장소에는 auth.users가 없다 — tests/api/test_records_db.py
         "threads": 2,
         "expired_sessions": 1,
     }
@@ -612,6 +616,28 @@ def test_account_deletion_removes_the_user_their_records_and_checkpoints():
         assert client.get(f"/sessions/{sid}").status_code == 404
     # 운영에서는 로그인 세션도 지워져 같은 토큰이 401(SESSION_REVOKED)이다 — tests/test_auth.py
     assert client.get("/me/consent").json()["agreed"] is False
+
+
+def test_a_guest_tries_a_session_without_consent_and_leaves_no_content():
+    client = client_for(consent=False)
+    login(client.app, GUEST)  # 비로그인 — FE의 signInAnonymously
+    store = store_of(client)
+    waiting = start(client)  # 동의 없이 시작한다
+    assert {key: store.sessions[waiting][key] for key in NO_CONTENT} == NO_CONTENT
+
+    sid = run_s2_to_end(client, notice_words=["편안"])
+    row = store.sessions[sid]
+    assert row["user_id"] == GUEST.id
+    assert {key: row[key] for key in NO_CONTENT} == NO_CONTENT  # 분류 값 · 칩 · 측정값 없음
+    assert (row["step"], row["end_reason"]) == ("END", "DONE")
+    assert store.rounds == {} and store.texts == {}
+    assert not has_checkpoint(client, sid)
+    # 끝 화면은 새로고침해도 보인다 — 게스트를 지울 때(GUEST_RETENTION_DAYS) 함께 사라진다
+    assert client.get(f"/sessions/{sid}").json()["payload"]["reason"] == "DONE"
+
+    res = client.put("/me/consent", json={"records": True, "raw_text": True})
+    assert (res.status_code, res.json()["detail"]["code"]) == (403, "MEMBERS_ONLY")
+    assert ALICE.id not in store.consents and GUEST.id not in store.consents
 
 
 def test_cleanup_is_closed_without_a_cron_secret():

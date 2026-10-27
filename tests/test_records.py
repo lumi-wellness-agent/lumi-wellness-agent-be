@@ -74,6 +74,25 @@ def test_a_safety_end_keeps_only_the_fact():
     }
 
 
+def test_a_guest_session_keeps_only_its_progress():
+    values = {
+        "request": CareRequest(
+            text="발표 앞두고 긴장돼요", setting=Setting.HOME, minutes_available=10
+        ),
+        "intake": IntakeResult(goal=CareGoal.S2, summary="발표 전 긴장"),
+    }
+    view = {"step": "MEASURE", "node": "measure_pre", "payload": {"measure": "PRE"}}
+    columns = records.session_columns(values, view, guest=True)
+    assert columns == {
+        "step": "MEASURE",
+        "node": "measure_pre",
+        "end_reason": None,
+        "end_summary": None,
+        "ended": False,
+        **records.NO_CONTENT,
+    }
+
+
 def test_intake_records_carry_definition_papers_not_sentences():
     intake = IntakeResult.model_validate(
         {

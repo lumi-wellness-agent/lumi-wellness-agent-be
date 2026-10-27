@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # 원문(처음 입력 · 직접 쓴 답 · 활동 메모) 보관 기한(일). 원문 동의를 한 사용자만 저장하고,
     # 기한이 지나면 정리 작업이 지운다(app/records.py)
     text_retention_days: int = Field(default=90, gt=0)
+    # 게스트(익명 로그인 체험)를 이만큼(일) 쓰지 않으면 정리 작업이 사용자째 지운다. 체험 내용은
+    # 기록하지 않고, 주인 · 진행만 담은 세션 행과 남은 체크포인트가 이때까지 남는다
+    guest_retention_days: int = Field(default=1, gt=0)
     # 이만큼 요청이 없던 미완료 세션은 정리 작업이 체크포인트(원문이 들어 있다)를 지우고 만료로
     # 남긴다
     session_idle_hours: int = Field(default=24, gt=0)

@@ -11,6 +11,9 @@ supabase/migrations/20261027000000_care_records.sql.
   두고 남긴다. IntakeResult에 칸이 생기면 INTAKE_FIELDS나 INTAKE_TEXT_FIELDS 한쪽에 넣는다
   (tests/test_records.py).
 - SAFETY로 끝난 세션은 끝난 사실만 남긴다 — 칩 · 분류 값 · 원문을 지운다.
+- 게스트(익명 로그인)는 1회성 체험이다. 동의를 받지 않고 내용(분류 값 · 칩 · 측정값 · 라운드 ·
+  원문)을 기록하지 않는다 — 세션 행에는 주인과 진행(step · 끝 · END payload)만 둔다.
+  guest_retention_days 동안 쓰지 않은 게스트는 정리 작업이 auth.users 행째 지운다(세션 행 cascade).
 - 끝난 세션의 체크포인트에도 원문이 있어 세션 API가 끝난 즉시 지운다. 끝나지 않고 쉬는 세션과 기록이
   없는 체크포인트, 기한이 지난 원문은 정리 작업(cleanup, Vercel Cron)이 지운다.
 - 행은 모두 auth.users를 따라 지워진다. 탈퇴(delete_user, DELETE /me)는 auth.users 행을 지워 기록 ·
@@ -83,6 +86,7 @@ class SessionRecord:
     user_id: UUID
     end_summary: dict | None = None  # 끝났으면 END payload
     expired: bool = False  # 쉬다가 정리 작업이 체크포인트를 지웠다
+    guest: bool = False  # 게스트 체험 — 내용을 기록하지 않는다. 요청한 사용자의 토큰으로 정한다
 
 
 # ── 상태 → 행 ─────────────────────────────────────────────────────────────────────────────
@@ -112,8 +116,12 @@ def safety_ended(values: dict) -> bool:
     return values.get("ended") == SessionEnd.SAFETY
 
 
-def session_columns(values: dict, view: dict) -> dict:
-    """care_sessions의 갱신 값. SAFETY로 끝났으면 끝난 사실(step · end_reason)만."""
+# 내용 칸을 비운 값 — 게스트 세션과 SAFETY로 끝난 세션
+NO_CONTENT = {"goal": None, "request": {}, "intake": None, "turns": [], "pre": None, "final": None}
+
+
+def session_columns(values: dict, view: dict, *, guest: bool = False) -> dict:
+    """care_sessions의 갱신 값. 게스트 세션과 SAFETY로 끝난 세션은 내용 없이 진행(step · 끝)만."""
     ended = view["step"] == "END"
     columns = {
         "step": view["step"],
@@ -122,16 +130,8 @@ def session_columns(values: dict, view: dict) -> dict:
         "end_summary": view["payload"] if ended else None,
         "ended": ended,
     }
-    if safety_ended(values):
-        return {
-            **columns,
-            "goal": None,
-            "request": {},
-            "intake": None,
-            "turns": [],
-            "pre": None,
-            "final": None,
-        }
+    if guest or safety_ended(values):
+        return {**columns, **NO_CONTENT}
     intake: IntakeResult | None = values.get("intake")
     final = values.get("final")
     return {
@@ -200,7 +200,8 @@ def text_row(values: dict) -> dict:
 
 
 class SessionStore(Protocol):
-    retention_days: int
+    retention_days: int  # 원문 보관 기한(일)
+    guest_retention_days: int  # 쓰지 않은 게스트를 지우기까지(일)
 
     async def consent(self, user_id: UUID) -> Consent | None: ...
 
@@ -208,18 +209,26 @@ class SessionStore(Protocol):
         """지금 버전의 필수 동의와 원문 동의(raw_text)를 남긴다. 거두면 원문도 지운다."""
         ...
 
-    async def create(self, session_id: str, user_id: UUID, request: CareRequest) -> None: ...
+    async def create(
+        self, session_id: str, user_id: UUID, request: CareRequest, guest: bool = False
+    ) -> None: ...
 
     async def session(self, session_id: str) -> SessionRecord | None: ...
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         """그래프가 멈춘 뒤의 상태(values)와 응답(view)으로 행을 다시 쓴다. 원문은 쓰는 순간에
-        원문 동의가 있을 때만 — 요청이 도는 사이 동의를 거둬도 다시 쓰지 않는다."""
+        원문 동의가 있을 때만 — 요청이 도는 사이 동의를 거둬도 다시 쓰지 않는다. 게스트 세션은
+        진행만 쓰고 라운드 · 원문을 남기지 않는다."""
         ...
 
     # 정리 작업의 시각은 저장소가 정한다 — Postgres는 DB의 now()라 서버 시계와 어긋나지 않는다
 
     async def delete_expired_texts(self) -> int: ...
+
+    async def delete_inactive_guests(self) -> int:
+        """guest_retention_days 넘게 쓰지 않은 게스트를 지운다. 기록은 cascade, 체크포인트는
+        이어지는 stale_threads가 주인 없는 것으로 지운다."""
+        ...
 
     async def stale_threads(self, idle: timedelta, checkpointer: BaseCheckpointSaver) -> list[str]:
         """지울 체크포인트의 thread — 기록 없음 · 끝남 · 만료, idle보다 오래 쉰 세션."""
@@ -237,11 +246,12 @@ async def cleanup(
 ) -> dict[str, int]:
     """기한이 지난 원문과 쉬거나 주인이 없는 체크포인트를 지운다. 쉬던 세션은 만료로 남긴다."""
     texts = await store.delete_expired_texts()
+    guests = await store.delete_inactive_guests()  # 체크포인트를 찾기 전에 — 남은 것은 주인이 없다
     threads = await store.stale_threads(idle, checkpointer)
     for thread_id in threads:
         await checkpointer.adelete_thread(thread_id)
     expired = await store.mark_expired(threads)
-    return {"texts": texts, "threads": len(threads), "expired_sessions": expired}
+    return {"texts": texts, "guests": guests, "threads": len(threads), "expired_sessions": expired}
 
 
 def _uuids(ids: Iterable[str]) -> list[UUID]:
@@ -257,8 +267,14 @@ def _uuids(ids: Iterable[str]) -> list[UUID]:
 class MemoryStore:
     """프로세스 메모리 — 테스트와 DB 없이 띄운 서버. 행 모양은 PostgresStore와 같다."""
 
-    def __init__(self, retention_days: int = 90, clock=lambda: datetime.now(UTC)):
+    def __init__(
+        self,
+        retention_days: int = 90,
+        guest_retention_days: int = 1,
+        clock=lambda: datetime.now(UTC),
+    ):
         self.retention_days = retention_days
+        self.guest_retention_days = guest_retention_days
         self.clock = clock
         self.consents: dict[UUID, Consent] = {}
         self.sessions: dict[str, dict] = {}
@@ -277,7 +293,9 @@ class MemoryStore:
                 del self.texts[sid]
         return self.consents[user_id]
 
-    async def create(self, session_id: str, user_id: UUID, request: CareRequest) -> None:
+    async def create(
+        self, session_id: str, user_id: UUID, request: CareRequest, guest: bool = False
+    ) -> None:
         now = self.clock()
         self.sessions[session_id] = {
             "user_id": user_id,
@@ -286,7 +304,7 @@ class MemoryStore:
             "step": None,
             "node": None,
             "goal": None,
-            "request": request_row(request),
+            "request": {} if guest else request_row(request),
             "intake": None,
             "turns": [],
             "pre": None,
@@ -310,11 +328,13 @@ class MemoryStore:
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         now, row = self.clock(), self.sessions[record.id]
-        columns = session_columns(values, view)
+        columns = session_columns(values, view, guest=record.guest)
         ended = columns.pop("ended")
         row.update(columns, updated_at=now)
         if ended and row["ended_at"] is None:
             row["ended_at"] = now
+        if record.guest:
+            return
         for r in round_rows(values):
             self.rounds.setdefault((record.id, r["round"]), r)
         consent = self.consents.get(record.user_id)
@@ -328,6 +348,9 @@ class MemoryStore:
                 "user_id": record.user_id,
                 "expires_at": expires,
             }
+
+    async def delete_inactive_guests(self) -> int:
+        return 0  # 메모리에는 auth.users가 없다 — 게스트 정리는 PostgresStore만
 
     async def delete_expired_texts(self) -> int:
         now = self.clock()
@@ -429,12 +452,34 @@ order by c.thread_id
 """
 
 
+# 쓰지 않은 게스트 — 만든 지, 로그인 세션을 쓰거나 갱신한 지(refreshed_at은 시간대 없는 UTC), 세션
+# 기록을 쓴 지 모두 days일이 지난 익명 사용자. 소셜 계정을 연결하면 is_anonymous가 false가 된다
+GUESTS_SQL = """
+delete from auth.users u
+where u.is_anonymous
+  and u.created_at < now() - make_interval(days => %(days)s)
+  and not exists (
+    select 1 from auth.sessions s
+    where s.user_id = u.id
+      and greatest(s.created_at, s.updated_at, s.refreshed_at at time zone 'UTC')
+        >= now() - make_interval(days => %(days)s)
+  )
+  and not exists (
+    select 1 from public.care_sessions c
+    where c.user_id = u.id and c.updated_at >= now() - make_interval(days => %(days)s)
+  )
+"""
+
+
 class PostgresStore:
     """Supabase Postgres. app/db.py의 풀로 쓴다. 체크포인트 목록은 langgraph 스키마에서 읽는다."""
 
-    def __init__(self, pool: AsyncConnectionPool, retention_days: int = 90):
+    def __init__(
+        self, pool: AsyncConnectionPool, retention_days: int = 90, guest_retention_days: int = 1
+    ):
         self.pool = pool
         self.retention_days = retention_days
+        self.guest_retention_days = guest_retention_days
 
     async def consent(self, user_id: UUID) -> Consent | None:
         async with self.pool.connection() as conn:
@@ -454,11 +499,13 @@ class PostgresStore:
                 await conn.execute("delete from public.care_texts where user_id = %s", (user_id,))
         return Consent(*row)
 
-    async def create(self, session_id: str, user_id: UUID, request: CareRequest) -> None:
+    async def create(
+        self, session_id: str, user_id: UUID, request: CareRequest, guest: bool = False
+    ) -> None:
         async with self.pool.connection() as conn:
             await conn.execute(
                 "insert into public.care_sessions (id, user_id, request) values (%s, %s, %s)",
-                (UUID(session_id), user_id, Jsonb(request_row(request))),
+                (UUID(session_id), user_id, Jsonb({} if guest else request_row(request))),
             )
 
     async def session(self, session_id: str) -> SessionRecord | None:
@@ -471,7 +518,7 @@ class PostgresStore:
         return SessionRecord(session_id, user_id, end_summary, expired)
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
-        columns = session_columns(values, view)
+        columns = session_columns(values, view, guest=record.guest)
         params = {
             **columns,
             "id": UUID(record.id),
@@ -486,7 +533,7 @@ class PostgresStore:
                 "session_id": UUID(record.id),
                 **{key: Jsonb(r[key]) for key in ("pre", "post", "deltas")},
             }
-            for r in round_rows(values)
+            for r in ([] if record.guest else round_rows(values))
         ]
         async with self.pool.connection() as conn, conn.transaction():
             await conn.execute(UPDATE_SQL, params)
@@ -497,7 +544,7 @@ class PostgresStore:
                 await conn.execute(
                     "delete from public.care_texts where session_id = %s", (UUID(record.id),)
                 )
-            else:
+            elif not record.guest:
                 text = text_row(values)
                 await conn.execute(
                     TEXT_SQL,
@@ -513,6 +560,11 @@ class PostgresStore:
     async def delete_expired_texts(self) -> int:
         async with self.pool.connection() as conn:
             cur = await conn.execute("delete from public.care_texts where expires_at < now()")
+            return cur.rowcount
+
+    async def delete_inactive_guests(self) -> int:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(GUESTS_SQL, {"days": self.guest_retention_days})
             return cur.rowcount
 
     async def stale_threads(self, idle: timedelta, checkpointer: BaseCheckpointSaver) -> list[str]:

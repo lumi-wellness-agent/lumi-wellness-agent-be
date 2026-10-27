@@ -49,13 +49,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.db_pool = db_pool
         app.state.checkpoint_pool = checkpoint_pool
         app.state.checkpointer = postgres_checkpointer(checkpoint_pool)
-        app.state.session_store = PostgresStore(db_pool, settings.text_retention_days)
+        app.state.session_store = PostgresStore(
+            db_pool, settings.text_retention_days, settings.guest_retention_days
+        )
         app.state.auth_sessions = AuthSessions(db_pool)  # 로그아웃 · 탈퇴한 토큰을 바로 거절한다
     else:
         app.state.db_pool = None
         app.state.checkpoint_pool = None
         app.state.checkpointer = memory_checkpointer()
-        app.state.session_store = MemoryStore(settings.text_retention_days)
+        app.state.session_store = MemoryStore(
+            settings.text_retention_days, settings.guest_retention_days
+        )
         app.state.auth_sessions = None
     app.state.auth = SupabaseVerifier(settings.supabase_url) if settings.supabase_url else None
     if app.state.auth is None:
