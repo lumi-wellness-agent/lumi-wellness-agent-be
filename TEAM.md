@@ -57,7 +57,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
 | 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
 | 수 | `app/agent/reference_card.py` | Reference 카드 — 계획의 근거 ID · 검증 플래그(ADAPTED_STIMULUS · CONFLICTING_EVIDENCE) · 프로토콜 composition(EXPERIMENTAL)에서 만든다. rationale 문장에 기대지 않는다 |
-| 수 | `app/api/routes.py` | 세션 API 네 개(`sessions` · `measure` · `report` · `decision`, README 「세션 API」) + FE |
+| 수 | `app/api/sessions.py` | 세션 API — `sessions` · `answer` · `measure` · `report` · `decision` · `retry` · `GET`, SSE · JSON, CORS(README 「세션 API」)는 됐다. 남은 것: 인증(Supabase Auth — Google · Kakao) · 세션 기록 + FE |
 | 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
 
 ### 활동 노드 담당 (JSON 21개 — 셋이 7개씩, 월·화)

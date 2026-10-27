@@ -101,7 +101,15 @@ class Planner(Protocol):
 
 
 class PlanRejected(Exception):
-    """후보가 없거나, 선택이 후검증을 두 번 통과하지 못했다."""
+    """후보가 없거나, 선택이 후검증을 두 번 통과하지 못했다.
+
+    retryable — 같은 state로 plan을 다시 돌리면 달라질 수 있는가. 후보가 없으면 규칙이라 아니고,
+    LLM 선택이 두 번 어긋났으면 다시 고를 수 있다(세션 API의 retry).
+    """
+
+    def __init__(self, message: str, *, retryable: bool = False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 def check_plan(
@@ -293,6 +301,8 @@ class LlmPlanner:
 
 def make_plan_node(planner: Planner):
     async def plan(state: CareState, runtime: Runtime[AgentContext]) -> dict:
+        # 단계마다 세션 API의 SSE progress(custom)를 낸다. 스트리밍이 아니면 아무 일도 하지 않는다
+        progress = runtime.stream_writer
         session = planner_context(runtime.context, state)
         if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
             raise PlanRejected("목표가 없어 계획할 수 없다")
@@ -308,6 +318,7 @@ def make_plan_node(planner: Planner):
         by_id = {p.protocol_id: p for p in found}
         candidates = [protocols.compact(p) for p in found]
 
+        progress({"node": "plan", "step": "choose_activity"})
         problems: list[str] = []
         for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
             choice = await planner.choose(state, candidates, problems)
@@ -326,7 +337,7 @@ def make_plan_node(planner: Planner):
             if not problems:
                 break
         else:
-            raise PlanRejected("; ".join(problems))
+            raise PlanRejected("; ".join(problems), retryable=True)
         log.info(
             "계획 선택 %s %d분 (%s) — 질의 %r",
             activity.protocol_id,
@@ -335,7 +346,9 @@ def make_plan_node(planner: Planner):
             choice.search_query,
         )
 
+        progress({"node": "plan", "step": "search_evidence"})
         hits = await find_evidence(session, protocol, choice.search_query)
+        progress({"node": "plan", "step": "verify_evidence"})
         evidence = await verify_evidence(session, protocol, hits)
         log.info(
             "계획 근거 %s: 검색 %s → 인용 %s",
@@ -346,6 +359,7 @@ def make_plan_node(planner: Planner):
                 for c in evidence
             ],
         )
+        progress({"node": "plan", "step": "write_rationale"})
         rationale = await planner.explain(state, choice, protocol, evidence)
         activity = activity.model_copy(
             update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
