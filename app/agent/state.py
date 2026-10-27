@@ -153,7 +153,7 @@ class OutcomeEvaluation(BaseModel):
 
     goal: CareGoal
     round: int
-    # 도구별 scores 키를 합친다 — SAM valence·arousal, S3는 MFVAS fatigue·concentration·energy도
+    # 현재 MVP는 SAM valence·arousal 변화만 기록한다. 목표 지표의 직접 측정은 아님
     deltas: dict[str, float]
     improved: bool | None  # None = 세션 내 판정 기준 없음(evaluator.IMPROVEMENT_RULE)
     completed: bool
@@ -186,7 +186,7 @@ class Round(BaseModel):
 
     plan: CarePlan
     report: SessionReport
-    pre: list[Measurement]  # 이 라운드가 비교한 측정 — SAM, S3는 MFVAS도
+    pre: list[Measurement]  # 이 라운드의 사전값 — 현재 MVP는 SAM만
     post: list[Measurement]
     evaluation: OutcomeEvaluation
     next_step: NextStep
@@ -201,15 +201,15 @@ class CareState(TypedDict):
     intake_turns: NotRequired[Annotated[list[IntakeTurn], operator.add]]
     pending_question: NotRequired[IntakeQuestion | None]
     ended: NotRequired[SessionEnd]
-    pre: NotRequired[list[Measurement]]  # 세션 시작 측정(SAM + 목표 척도)
-    # 이번 라운드가 비교할 측정(SAM, S3는 + MFVAS). 첫 라운드는 pre에서 고른다
+    pre: NotRequired[list[Measurement]]  # 세션 시작 측정 — 현재 MVP는 SAM만
+    # 이번 라운드의 사전값. 첫 라운드는 pre에서 고르고 이후는 직전 사후값을 쓴다
     round_pre: NotRequired[list[Measurement]]
     plan: NotRequired[CarePlan]
     content: NotRequired[ActivityContent]
     report: NotRequired[SessionReport]
-    post: NotRequired[list[Measurement]]  # 이번 라운드 사후 측정(SAM, S3는 + MFVAS)
+    post: NotRequired[list[Measurement]]  # 이번 라운드 사후 측정 — 현재 MVP는 SAM만
     evaluation: NotRequired[OutcomeEvaluation]
     proposal: NotRequired[ReplanProposal]
     next_step: NotRequired[NextStep]
-    final: NotRequired[Measurement]  # 세션 끝 목표 척도(STAI-6 · BSRI). 라운드마다 잰 S3는 없다
+    final: NotRequired[Measurement]  # 세션 끝 SAM 측정 — 현재 MVP는 모든 목표에서 수행
     rounds: NotRequired[Annotated[list[Round], operator.add]]  # 끝난 라운드. 뒤에 쌓인다
