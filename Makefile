@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -45,6 +45,14 @@ seed-evidence:
 #     make plan-trial ARGS="S1 S2 --queries queries.jsonl --database-url postgresql://postgres:postgres@localhost:54329/postgres"
 plan-trial:
 	$(PY) scripts/plan_trial.py $(ARGS)
+
+# 근거 검색 평가(README 「근거 검색 평가」). 근거 DB는 읽기만 하고, 없으면 .env의 DATABASE_URL. 질의 임베딩에
+# OPENAI_API_KEY가 든다. content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다
+# 예: make rag-eval ARGS="build"
+#     make rag-eval ARGS="run --misses --out before.json --database-url postgresql://postgres:postgres@localhost:54329/postgres"
+#     make rag-eval ARGS="compare before.json after.json"
+rag-eval:
+	$(PY) scripts/rag_eval.py $(ARGS)
 
 # 세션 그래프(app/agent/graph.py)를 Mermaid로 출력한다. README·발표용
 graph:
