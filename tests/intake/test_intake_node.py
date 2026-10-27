@@ -16,6 +16,12 @@ from app.schemas.intake import IntakeTurn, QuestionSlot
 def test_read_input_carries_previous_turns_and_asks_to_reread_free_text():
     request = CareRequest(text="요즘 너무 지치고 짜증나요")
     assert build_read_input(request, []) == "## 사용자 입력\n요즘 너무 지치고 짜증나요"
+    restated = [
+        IntakeTurn(
+            question_id="r1", slot=QuestionSlot.RESTATE, text="오늘 하루는요?", free_text="피곤해"
+        )
+    ]
+    assert "relevance를 다시 판단" in build_read_input(request, restated)
     turns = [
         IntakeTurn(
             question_id="q1",
@@ -58,7 +64,9 @@ def test_llm_output_schemas_are_what_the_prompts_describe():
         "setting",
         "earphones",
         "minutes",
+        "safety",
+        "relevance",
+        "restate_text",
     } <= set(reading)
-    assert "safety" not in reading  # 안전 검사는 LLM이 아니라 코드가 자유 입력 답에 한다
     goal = GoalInference.model_json_schema()["properties"]
     assert set(goal) == {"has_cues", "goal", "secondary_goal", "reason"}

@@ -1,4 +1,4 @@
-"""intake 규칙 — 질문 검증 · 답 병합 · 무엇을 물을지 · 목표 정하기 · 안전 검사 · 끝.
+"""intake 규칙 — 질문 검증 · 답 병합 · 입구 되묻기 · 무엇을 물을지 · 목표 정하기 · 끝.
 
 LLM · LangGraph 없이 본다. 계약은 app/schemas/intake.py 모듈 docstring.
 """
@@ -23,10 +23,12 @@ from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import (
     MAX_OPTIONS,
     MIN_OPTIONS,
+    SKIP_LABEL,
     UNKNOWN_LABEL,
     GoalSource,
     IntakeAnswer,
     IntakeEndReason,
+    IntakeQuestion,
     IntakeTurn,
     QuestionSlot,
     StateOptionDraft,
@@ -46,6 +48,9 @@ ASK_TIMING = StateQuestionDraft(
 
 def reading(**update) -> StateReading:
     base = {
+        "safety": False,
+        "relevance": "RELEVANT",
+        "restate_text": None,
         "order_condition": None,
         "event": None,
         "rumination_cue": False,
@@ -208,13 +213,54 @@ def test_both_state_unknown():
     assert not rules.both_state_unknown(one_known)
 
 
-def test_safety_check_on_free_text():
-    assert rules.safety_hit("다 그만두고 죽고 싶어요")
-    assert rules.safety_hit("자해하고 싶은 생각이 들어요")
-    assert rules.safety_hit("그냥 사라지고 싶다")
-    assert not rules.safety_hit("피곤해 죽겠어요")  # 과장 표현
-    assert not rules.safety_hit("배고파 죽겠네")
-    assert not rules.safety_hit("발표 때문에 긴장돼요")
+def test_off_topic_first_input_gets_an_unbounded_restate_outside_the_budget():
+    off = reading(relevance="OFF_TOPIC", restate_text="점심 고민 중이시군요! 오늘 하루는 어땠어요?")
+    q = rules.restate_question(off, [])
+    assert q.slot is QuestionSlot.RESTATE and q.question_id == "r1" and q.turn == 0
+    assert q.groups == [] and q.allow_free_text and q.skip_label == SKIP_LABEL
+    assert q.text.startswith("점심 고민")
+    # 또 관계없으면 계속 되묻는다 — 몇 번이든. 문장이 비면 고정 문장
+    again = [
+        IntakeTurn(question_id=f"r{n}", slot=QuestionSlot.RESTATE, text="-", free_text="ㅋㅋ")
+        for n in (1, 2, 3, 4)
+    ]
+    q5 = rules.restate_question(off.model_copy(update={"restate_text": " "}), again)
+    assert q5.question_id == "r5" and q5.text == rules.RESTATE_FIXED
+    assert rules.counted(again) == []  # 예산에 세지 않는다
+    # 관련 있는 답이 오면 시점 질문이 q1부터
+    state_q = rules.state_question(reading(question=ASK_TIMING), again)
+    assert state_q.question_id == "q1" and state_q.turn == 1
+    # 관련 있음 · 예산 질문을 시작한 뒤에는 되묻지 않는다
+    assert rules.restate_question(reading(), []) is None
+    assert rules.restate_question(off, [turn(QuestionSlot.STATE, 1, text="몰라요")]) is None
+
+
+def test_restate_skip_starts_with_default_goal():
+    q = rules.restate_question(reading(relevance="OFF_TOPIC"), [])
+    values, recorded = rules.apply_answer(q, IntakeAnswer(question_id="r1", skip=True))
+    assert values == {} and recorded.skipped and rules.entry_skipped([recorded])
+    out = rules.apply_goal(
+        IntakeResult(),
+        rules.GoalInference(has_cues=True, goal=CareGoal.S1, secondary_goal=None, reason="-"),
+        CareRequest(text="ㅋㅋ"),
+        [recorded],
+    )
+    assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    # 되묻기가 아닌 질문은 건너뛸 수 없고, 답은 하나만
+    state_q = rules.fixed_question(QuestionSlot.STATE, 1)
+    with pytest.raises(ValueError):
+        rules.apply_answer(state_q, IntakeAnswer(question_id="q1", skip=True))
+    with pytest.raises(ValidationError):
+        IntakeAnswer(question_id="r1", skip=True, text="그냥")
+    with pytest.raises(ValidationError):  # 되묻기는 보기 없이 turn 0
+        IntakeQuestion(
+            question_id="r1", slot=QuestionSlot.RESTATE, turn=1, text="?", allow_free_text=True
+        )
+
+
+def test_safety_is_read_by_the_llm_not_a_word_list():
+    assert not hasattr(rules, "safety_hit") and not hasattr(rules, "SAFETY_PATTERNS")
+    assert "safety" in StateReading.model_json_schema()["required"]
 
 
 # ── ④ 환경 질문 ─────────────────────────────────────────────────────────────────────────────

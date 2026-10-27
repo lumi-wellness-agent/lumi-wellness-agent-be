@@ -1,26 +1,29 @@
 """intake — State(대화) → Goal(추론) → Context(환경 칩). 규칙은 app/agent/intake_rules.py.
 
-    intake_read ─(시점 질문)→ intake_ask ⏸ ─(글 답)→ intake_read
+    intake_read ─(안전 신호)→ END (ended = SAFETY)
+        ├─(관계없는 답 · 되묻기 / 시점 질문)→ intake_ask ⏸ ─(글 답)→ intake_read
         │                       ├─(잘 모르겠어요)→ intake_ask ⏸ (고정 재질문)
-        │                       ├─(칩 답)→ intake_goal
-        │                       └─(자유 입력이 안전 검사에 걸림)→ END (ended = SAFETY)
+        │                       └─(칩 답 · 그냥 시작할게요)→ intake_goal
         └→ intake_goal → intake_context ─(환경 질문)→ intake_ask ⏸ → intake_finish
                               └→ intake_finish → measure_pre
 
-- ① intake_read (LLM): 문장(과 앞선 질문·답)에서 사용자 상태 · 사건 · 반복 사고 단서 · 문장에 나온
-  여건을 읽고, 개념 정의 검색어와 시점 질문 초안을 낸다. 초안은 코드가 검증해 질문으로 만든다.
+- ① intake_read (LLM): 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태 · 사건 · 반복
+  사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 질문 초안을 낸다. 안전 신호면 세션을
+  끝낸다. 처음 입력이 관계없으면 사용자 말에 맞춘 되묻기(restate)를 낸다 — 관련 있는 답이 올
+  때까지 제한 없이 돌고 질문 3회 예산에 세지 않는다. 초안은 코드가 검증해 질문으로 만든다.
 - ③ intake_goal (LLM): 단서표(data/intake_cues.json)와 상황 단서로 목표 S1 · S2 · S3와 부목표를
-  정한다. State 두 질문이 모두 '잘 모르겠어요'면 LLM 없이 S2 DEFAULT. ② 개념 정의 검색은 팀원이
+  정한다. State 두 질문이 모두 '잘 모르겠어요'거나 되묻기에서 '그냥 시작할게요'면 LLM 없이 S2
+  DEFAULT. ② 개념 정의 검색은 팀원이
   JSON을 주면 이 노드 앞에 붙인다(그전까지 goal_evidence는 빈다).
 - ④ intake_context (코드): setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만
   묻는다.
 - intake_ask ⏸: 질문 interrupt(이 노드 하나). payload는 IntakeQuestion, resume은 IntakeAnswer
-  (app/schemas/intake.py). 자유 입력 답은 안전 검사를 거쳐 걸리면 세션을 끝낸다. interrupt가 있는
+  (app/schemas/intake.py). 글 답은 intake_read로 돌아가 안전까지 다시 읽는다. interrupt가 있는
   노드는 재개될 때 처음부터 다시 돌므로 LLM 호출을 두지 않는다(그래서 노드를 나눴다).
 - intake_finish (코드): 빈 칸을 기본값으로, 환경 조건과 Place, 끝난 이유를 정한다.
 
-질문은 합계 3회(State 최대 2회). LLM은 질문 수와 상관없이 2회(①·③)이고, 시점 질문에 글로 답할
-때만 ①이 한 번 더 돈다.
+질문은 합계 3회(State 최대 2회, 되묻기 제외). LLM은 질문 수와 상관없이 2회(①·③)이고, 글로
+답할 때마다(되묻기 · 시점 질문) ①이 한 번 더 돈다.
 
 운영은 LlmIntaker(구조화 출력, 재시도·폴백), 테스트는 Intaker 대역을 넣는다.
 """
@@ -106,9 +109,16 @@ def make_intake_nodes(intaker: Intaker) -> dict:
         request, turns = state["request"], state.get("intake_turns") or []
         reading = await intaker.read(request, turns)
         intake = rules.compose(request, reading, turns, previous=state.get("intake"))
+        if reading.safety:
+            return {
+                "intake": rules.end_for_safety(intake),
+                "pending_question": None,
+                "ended": SessionEnd.SAFETY,
+            }
+        question = rules.restate_question(reading, turns) or rules.state_question(reading, turns)
         return {
             "intake": intake,
-            "pending_question": rules.state_question(reading, turns),
+            "pending_question": question,
             "search_query": reading.search_query,
         }
 
@@ -118,13 +128,6 @@ def make_intake_nodes(intaker: Intaker) -> dict:
         answer = IntakeAnswer.model_validate(raw)
         values, turn = rules.apply_answer(question, answer)
         intake = rules.merge_values(state["intake"], values)
-        if turn.free_text is not None and rules.safety_hit(turn.free_text):
-            return {
-                "intake": rules.end_for_safety(intake),
-                "intake_turns": [turn],
-                "pending_question": None,
-                "ended": SessionEnd.SAFETY,
-            }
         turns = [*(state.get("intake_turns") or []), turn]
         return {
             "intake": intake,
@@ -136,17 +139,22 @@ def make_intake_nodes(intaker: Intaker) -> dict:
     async def intake_goal(state: CareState) -> dict:
         request, intake = state["request"], state["intake"]
         turns = state.get("intake_turns") or []
-        if request.goal is not None or rules.both_state_unknown(turns):
+        if (
+            request.goal is not None
+            or rules.entry_skipped(turns)
+            or rules.both_state_unknown(turns)
+        ):
             return {"intake": rules.apply_goal(intake, None, request, turns)}
         inference = await intaker.infer_goal(request, intake)
         return {"intake": rules.apply_goal(intake, inference, request, turns)}
 
     def intake_context(state: CareState) -> dict:
         turns = state.get("intake_turns") or []
-        if len(turns) >= MAX_TURNS or any(t.slot is QuestionSlot.CONTEXT for t in turns):
+        used = len(rules.counted(turns))
+        if used >= MAX_TURNS or any(t.slot is QuestionSlot.CONTEXT for t in turns):
             return {"pending_question": None}
         groups = rules.context_groups(state["intake"])
-        return {"pending_question": rules.context_question(groups, len(turns) + 1)}
+        return {"pending_question": rules.context_question(groups, used + 1)}
 
     def intake_finish(state: CareState) -> dict:
         turns = state.get("intake_turns") or []
@@ -161,17 +169,18 @@ def make_intake_nodes(intaker: Intaker) -> dict:
     }
 
 
-def route_after_read(state: CareState) -> Literal["intake_ask", "intake_goal"]:
+def route_after_read(state: CareState) -> Literal["intake_ask", "intake_goal", "__end__"]:
+    """안전 신호면 끝. 되묻기나 시점 질문이 있으면 묻고, 없으면 목표로."""
+    if state.get("ended"):
+        return END
     return "intake_ask" if state.get("pending_question") else "intake_goal"
 
 
 def route_after_ask(
     state: CareState,
-) -> Literal["intake_ask", "intake_read", "intake_goal", "intake_finish", "__end__"]:
-    """안전 검사에 걸리면 끝. 다음 질문(고정 재질문)이 있으면 다시 묻는다. State 질문의 글 답은
-    다시 읽고, 칩 답은 목표로. 환경 질문 뒤에는 끝."""
-    if state.get("ended"):
-        return END
+) -> Literal["intake_ask", "intake_read", "intake_goal", "intake_finish"]:
+    """다음 질문(고정 재질문)이 있으면 다시 묻는다. 글 답(되묻기 · State 질문)은 다시 읽고(안전도
+    여기서 본다), 칩 답과 '그냥 시작할게요'는 목표로. 환경 질문 뒤에는 끝."""
     if state.get("pending_question"):
         return "intake_ask"
     last = state["intake_turns"][-1]
@@ -191,8 +200,12 @@ async def intake_once(intaker: Intaker, request: CareRequest) -> tuple[IntakeRes
     """
     reading = await intaker.read(request, [])
     intake = rules.compose(request, reading, [])
+    if reading.safety:
+        return rules.end_for_safety(intake), ["safety"]
     would_ask = []
-    if question := rules.state_question(reading, []):
+    if rules.restate_question(reading, []):
+        would_ask.append("restate")
+    elif question := rules.state_question(reading, []):
         would_ask.append(question.slot.value)
     inference = None if request.goal is not None else await intaker.infer_goal(request, intake)
     intake = rules.apply_goal(intake, inference, request)

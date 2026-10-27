@@ -2,18 +2,22 @@
 
 노드(app/agent/nodes/intake.py)는 이 모듈의 함수만 부른다.
 
-    ① 상황 읽기(LLM) → compose()로 State · Context 채움 → state_question()으로 시점 질문 여부
+    ① 상황 읽기(LLM) → safety면 end_for_safety() · OFF_TOPIC이면 restate_question()(입구 되묻기)
+       → compose()로 State · Context 채움 → state_question()으로 시점 질문 여부
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
     ③ 목표 추론(LLM, 단서표) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
     ④ context_groups()로 추천을 바꾸는 환경 칸만 → context_question()
-    답 → safety_hit()(자유 입력) · apply_answer() · merge_values()     끝 → finish()
+    답 → apply_answer() · merge_values()     끝 → finish()
 
 우선순위: 요청 칩 > 질문 답(칩) > 문장에서 읽은 값 > 기본값. 질문은 합계 MAX_TURNS회, State는
-MAX_STATE_TURNS회. 무엇을 물을지는 "그 칸이 1순위 활동을 바꾸는가"로 정한다.
+MAX_STATE_TURNS회 — 입구 되묻기(restate)는 세지 않는다(counted). 무엇을 물을지는 "그 칸이 1순위
+활동을 바꾸는가"로 정한다.
+
+안전 판단은 ①의 safety 칸 하나다(정규식 목록 없음). 글 답은 모두 ①을 다시 지난다.
 """
 
-import re
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -36,6 +40,7 @@ from app.schemas.intake import (
     MAX_TURNS,
     MIN_OPTIONS,
     MINUTES_CHOICES,
+    SKIP_LABEL,
     UNKNOWN_LABEL,
     GoalSource,
     IntakeAnswer,
@@ -53,11 +58,38 @@ from app.schemas.retrieval import GOAL_OUTCOMES
 DEFAULT_MINUTES = 10
 STATE_SLOTS = (QuestionSlot.STATE, QuestionSlot.STATE_FOLLOWUP)
 
+
+def counted(turns: Sequence[IntakeTurn]) -> list[IntakeTurn]:
+    """질문 예산(MAX_TURNS)에 세는 질문·답 — 입구 되묻기는 뺀다."""
+    return [t for t in turns if t.slot is not QuestionSlot.RESTATE]
+
+
 # ── LLM 구조화 출력. 필드 설명이 LLM에 보인다 ──────────────────────────────────────────────
 
 
+class Relevance(StrEnum):
+    RELEVANT = "RELEVANT"  # 지금 상태·상황·하루에 대해 무엇이든 말했다(짧고 막연해도)
+    OFF_TOPIC = "OFF_TOPIC"  # 상태·상황 이야기가 전혀 없다 → 입구 되묻기
+
+
 class StateReading(BaseModel):
-    """① 상황 읽기 — 문장(과 앞선 질문·답)에서 State와 여건을 읽고, 검색어와 질문 초안을 낸다."""
+    """① 상황 읽기 — 문장(과 앞선 질문·답)에서 안전 · 관련성 · State · 여건을 읽고, 검색어와 질문
+    초안을 낸다."""
+
+    safety: bool = Field(
+        description="처음 입력이나 어느 답에든 자해·자살 의도, 스스로를 해치거나 삶을 끝내고 "
+        "싶다는 뜻이 직접·간접으로 드러나면 true. '피곤해 죽겠다' 같은 과장 표현은 false"
+    )
+    relevance: Relevance = Field(
+        description="가장 최근 사용자 글(처음 입력, 되묻기에 답했으면 그 답)이 지금 상태·상황·"
+        "하루에 대해 아무것도 말하지 않으면 OFF_TOPIC(점심 메뉴 추천해줘 · 코드 짜줘 · ㅋㅋ · "
+        "asdf). '그냥 그래요' · '피곤해' · '별로'처럼 짧아도 상태를 말하면 RELEVANT"
+    )
+    restate_text: str | None = Field(
+        description="OFF_TOPIC일 때만 — 사용자 말을 가볍게 받아 주고, 오늘 상황이나 하루를 한두 "
+        "마디로 들려 달라는 한국어 1~2문장(예시 한 구절 포함, 80자 이내). 감정을 자세히 캐묻지 "
+        "않고, 다른 요청(메뉴 · 코드 …)은 들어주지 않는다. RELEVANT면 null"
+    )
 
     order_condition: InterventionOrder | None = Field(
         description="PRE_STRESS 앞으로 있을 구체적 사건(발표·면접·시험 직전) · "
@@ -101,32 +133,6 @@ class GoalInference(BaseModel):
         description="함께 보인 다른 목표(S1·S2 혼합 등). goal과 같으면 안 된다. 없으면 null"
     )
     reason: str = Field(description="판단 이유 한 문장(한국어) — 어떤 표현이 어느 단서에 맞았나")
-
-
-# ── 자유 입력 안전 검사 ──────────────────────────────────────────────────────────────────
-
-# 자해·자살 의도가 드러나는 표현만. "피곤해 죽겠어"처럼 형용사 뒤 과장 표현은 걸지 않는다
-SAFETY_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(p)
-    for p in (
-        r"자살",
-        r"자해",
-        r"죽고\s*싶",
-        r"죽어\s*버리고\s*싶",
-        r"죽을\s*(거|생각)",
-        r"목숨을\s*끊",
-        r"살고\s*싶지\s*않",
-        r"뛰어\s*내리고\s*싶",
-        r"손목을?\s*긋",
-        r"사라지고\s*싶",
-    )
-)
-
-
-def safety_hit(text: str) -> bool:
-    """자유 입력 답이 안전 검사에 걸리는가. 걸리면 세션을 끝낸다(end_reason = SAFETY)."""
-    compact = re.sub(r"\s+", " ", text)
-    return any(p.search(compact) for p in SAFETY_PATTERNS)
 
 
 # ── ① 합치기 ──────────────────────────────────────────────────────────────────────────────
@@ -222,7 +228,7 @@ def state_slot(reading: StateReading, turns: Sequence[IntakeTurn]) -> QuestionSl
     - 재질문(LLM 초안): 시점 질문에 글로 답했는데 아직도 스트레스와 피로가 갈릴 때.
       ('잘 모르겠어요'로 답했을 때의 재질문은 읽기 없이 followup_after_unknown이 만든다)
     """
-    if reading.question is None or len(turns) >= MAX_TURNS:
+    if reading.question is None or len(counted(turns)) >= MAX_TURNS:
         return None
     asked = _state_turns(turns)
     if len(asked) >= MAX_STATE_TURNS:
@@ -283,7 +289,7 @@ def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Intake
     slot = state_slot(reading, turns)
     if slot is None:
         return None
-    turn = len(turns) + 1
+    turn = len(counted(turns)) + 1
     options = _draft_options(reading.question, slot)
     text = reading.question.text.strip()
     if len(options) < MIN_OPTIONS or not text:
@@ -301,12 +307,43 @@ def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Intake
 def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
     """시점 질문에 '잘 모르겠어요'로 답했으면 원인을 묻는 고정 재질문(읽기 없이). 예산 안에서만."""
     asked = _state_turns(turns)
-    if len(turns) >= MAX_TURNS or len(asked) != 1:
+    if len(counted(turns)) >= MAX_TURNS or len(asked) != 1:
         return None
     last = asked[0]
     if last.slot is QuestionSlot.STATE and last.answer == {}:
-        return fixed_question(QuestionSlot.STATE_FOLLOWUP, len(turns) + 1)
+        return fixed_question(QuestionSlot.STATE_FOLLOWUP, len(counted(turns)) + 1)
     return None
+
+
+# ── 입구 되묻기 ──────────────────────────────────────────────────────────────────────────
+
+RESTATE_FIXED = (
+    "오늘 하루는 어떠셨어요? 지금 상황을 한두 마디로 들려주세요. 예: 발표 끝나고 계속 생각나요"
+)
+
+
+def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+    """처음 입력(또는 앞선 되묻기 답)이 관계없으면 되묻기. 예산 질문을 시작하기 전에만, 제한 없이.
+
+    문장은 LLM이 사용자 말에 맞춰 만들고, 비었으면 고정 문장을 쓴다.
+    """
+    if reading.relevance is not Relevance.OFF_TOPIC or counted(turns):
+        return None
+    n = len(turns) + 1  # 앞선 것은 모두 되묻기다
+    text = (reading.restate_text or "").strip() or RESTATE_FIXED
+    return IntakeQuestion(
+        question_id=f"r{n}",
+        slot=QuestionSlot.RESTATE,
+        turn=0,
+        text=text,
+        allow_free_text=True,
+        skip_label=SKIP_LABEL,
+    )
+
+
+def entry_skipped(turns: Sequence[IntakeTurn]) -> bool:
+    """되묻기에서 '그냥 시작할게요'를 눌렀나 → 추론 없이 S2 DEFAULT."""
+    return any(t.skipped for t in turns)
 
 
 def both_state_unknown(turns: Sequence[IntakeTurn]) -> bool:
@@ -406,10 +443,17 @@ def apply_answer(
 ) -> tuple[dict[str, Any], IntakeTurn]:
     """답 → (intake에 덮을 값, 대화 기록). 칩 답은 parse_set으로 검증한다.
 
-    자유 입력의 안전 검사는 노드가 따로 한다(safety_hit) — 여기서는 기록만 만든다.
+    글 답의 안전 판단은 ① 상황 읽기가 다시 읽으며 한다 — 여기서는 기록만 만든다.
     """
     if answer.question_id != question.question_id:
         raise ValueError(f"{question.question_id}의 답이 아니다({answer.question_id})")
+    if answer.skip:
+        if question.skip_label is None:
+            raise ValueError(f"{question.slot.value} 질문은 건너뛸 수 없다")
+        turn = IntakeTurn(
+            question_id=question.question_id, slot=question.slot, text=question.text, skipped=True
+        )
+        return {}, turn
     if answer.text is not None and answer.text.strip():
         if not question.allow_free_text:
             raise ValueError(f"{question.slot.value} 질문은 직접 입력을 받지 않는다")
@@ -439,10 +483,17 @@ def apply_goal(
     request: CareRequest,
     turns: Sequence[IntakeTurn] = (),
 ) -> IntakeResult:
-    """목표 칸 채우기. 요청 칩 > State 두 질문 모두 모름(S2 DEFAULT) > 추론 > 재질문 목표 단서 >
-    기본값(S2, 화면에 밝힌다). 개념 정의 JSON(②)이 오기 전에는 goal_evidence가 빈다."""
+    """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(S2 DEFAULT) > 추론 >
+    재질문 목표 단서 > 기본값(S2, 화면에 밝힌다). 개념 정의 JSON(②)이 오기 전에는 goal_evidence가
+    빈다."""
     if request.goal is not None:
         update: dict[str, Any] = {"goal": request.goal, "goal_source": GoalSource.CHIP}
+    elif entry_skipped(turns):
+        update = {
+            "goal": DEFAULT_GOAL,
+            "goal_source": GoalSource.DEFAULT,
+            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골랐다",
+        }
     elif both_state_unknown(turns):
         update = {
             "goal": DEFAULT_GOAL,
@@ -488,7 +539,8 @@ def finish(intake: IntakeResult, turns: Sequence[IntakeTurn] = ()) -> IntakeResu
     else:
         environment = environment_for(intake.setting, intake.earphones)
     goal = intake.goal or DEFAULT_GOAL
-    ended = IntakeEndReason.MAX_TURNS if len(turns) >= MAX_TURNS else IntakeEndReason.SUFFICIENT
+    used = len(counted(turns))
+    ended = IntakeEndReason.MAX_TURNS if used >= MAX_TURNS else IntakeEndReason.SUFFICIENT
     return intake.model_copy(
         update={
             "goal": goal,

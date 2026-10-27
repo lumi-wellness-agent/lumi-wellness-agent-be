@@ -62,6 +62,9 @@ S2_INTAKE = IntakeResult(
 
 def reading(**update) -> StateReading:
     base = {
+        "safety": False,
+        "relevance": "RELEVANT",
+        "restate_text": None,
         "order_condition": None,
         "event": None,
         "rumination_cue": False,
@@ -399,14 +402,60 @@ def test_two_unknown_answers_start_with_default_goal_without_inference():
     assert intaker.goal_calls == 0  # 추론을 부르지 않는다
 
 
-def test_free_text_answer_failing_safety_check_ends_session():
-    intaker = FakeIntaker(reading(question=ASK_TIMING), goal=inference(CareGoal.S2))
+def test_safety_signal_in_first_input_or_free_text_ends_session():
+    # 처음 입력에서
+    intaker = FakeIntaker(reading(safety=True), goal=inference(CareGoal.S2))
     graph = graph_with(FakePlanner(), intaker)
-    run(graph, {"request": CareRequest(text="요즘 너무 힘들어요")})
-    out = run(graph, Command(resume={"question_id": "q1", "text": "다 그만두고 죽고 싶어요"}))
+    out = run(graph, {"request": CareRequest(text="다 끝내고 싶어요")})
     assert "__interrupt__" not in out and out["ended"] is SessionEnd.SAFETY
     assert out["intake"].end_reason is IntakeEndReason.SAFETY
-    assert "pre" not in out and intaker.read_turns == [0] and intaker.goal_calls == 0
+    assert "pre" not in out and intaker.goal_calls == 0
+
+    # 시점 질문의 글 답에서 — 다시 읽을 때 ①이 본다
+    intaker = FakeIntaker(
+        reading(question=ASK_TIMING), reading(safety=True), goal=inference(CareGoal.S2)
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    run(graph, {"request": CareRequest(text="요즘 너무 힘들어요")})
+    out = run(graph, Command(resume={"question_id": "q1", "text": "살 이유를 모르겠어요"}))
+    assert "__interrupt__" not in out and out["ended"] is SessionEnd.SAFETY
+    assert intaker.read_turns == [0, 1] and intaker.goal_calls == 0
+
+
+def test_off_topic_input_loops_restate_then_starts_budget():
+    off = reading(relevance="OFF_TOPIC", restate_text="점심 고민 중이시군요! 오늘 하루는 어땠어요?")
+    intaker = FakeIntaker(
+        off,
+        off,
+        reading(question=ASK_TIMING),
+        goal=inference(CareGoal.S2),
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    out = run(graph, {"request": CareRequest(text="점심 뭐 먹지")})
+    r1 = out["__interrupt__"][0].value
+    assert r1["slot"] == "restate" and r1["question_id"] == "r1" and r1["turn"] == 0
+    assert r1["groups"] == [] and r1["skip_label"] == "그냥 시작할게요"
+
+    out = run(graph, Command(resume={"question_id": "r1", "text": "ㅋㅋㅋ"}))
+    assert out["__interrupt__"][0].value["question_id"] == "r2"  # 또 되묻는다
+
+    out = run(graph, Command(resume={"question_id": "r2", "text": "회의 끝나고 좀 지쳤어요"}))
+    q1 = out["__interrupt__"][0].value
+    assert q1["slot"] == "state" and q1["question_id"] == "q1" and q1["turn"] == 1
+    assert intaker.read_turns == [0, 1, 2]
+
+
+def test_restate_skip_starts_with_default_goal_without_inference():
+    off = reading(relevance="OFF_TOPIC", restate_text="오늘 하루는 어땠어요?")
+    intaker = FakeIntaker(off, goal=inference(CareGoal.S1))
+    graph = graph_with(FakePlanner(), intaker)
+    run(graph, {"request": CareRequest(text="asdf", setting=Setting.HOME, minutes_available=5)})
+    out = run(graph, Command(resume={"question_id": "r1", "skip": True}))
+    assert out["__interrupt__"][0].value["measure"] == "PRE"
+    intake = out["intake"]
+    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intaker.goal_calls == 0 and intaker.read_turns == [0]
+    assert out["intake_turns"][0].skipped
 
 
 def test_no_cues_starts_with_default_goal_and_bad_answers_are_rejected():
@@ -560,6 +609,7 @@ def test_routes():
     )
     assert route_after_read({"pending_question": question}) == "intake_ask"
     assert route_after_read({"pending_question": None}) == "intake_goal"
+    assert route_after_read({"pending_question": None, "ended": SessionEnd.SAFETY}) == END
     state_chip = IntakeTurn(question_id="q1", slot=QuestionSlot.STATE, text="?", answer={})
     state_text = state_chip.model_copy(update={"answer": None, "free_text": "몰라요"})
     context = IntakeTurn(question_id="q2", slot=QuestionSlot.CONTEXT, text="?", answer={})
@@ -569,7 +619,10 @@ def test_routes():
     assert route_after_ask({"intake_turns": [state_chip], "pending_question": question}) == (
         "intake_ask"
     )  # 잘 모르겠어요 뒤 고정 재질문
-    assert route_after_ask({"intake_turns": [state_text], "ended": SessionEnd.SAFETY}) == END
+    skipped = IntakeTurn(question_id="r1", slot=QuestionSlot.RESTATE, text="?", skipped=True)
+    restated = skipped.model_copy(update={"skipped": False, "free_text": "피곤해요"})
+    assert route_after_ask({"intake_turns": [skipped]}) == "intake_goal"
+    assert route_after_ask({"intake_turns": [restated]}) == "intake_read"
     assert route_after_context({"pending_question": question}) == "intake_ask"
     assert route_after_context({}) == "intake_finish"
     s2 = {"intake": S2_INTAKE}
