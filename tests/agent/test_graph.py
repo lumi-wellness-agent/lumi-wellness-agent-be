@@ -191,20 +191,20 @@ def test_session_loops_until_user_ends(caplog):
     planner = FakePlanner(BREATHING, GROUNDING)
     graph = graph_with(planner, FakeIntaker(S2_READING, goal=inference(CareGoal.S2)))
 
-    # intake → measure_pre에서 멈춘다. S2라 SAM + STAI-6를 묻는다
+    # intake → measure_pre에서 멈춘다. MVP는 목표와 관계없이 SAM만 묻는다
     out = run(graph, {"request": CareRequest(text="발표 앞두고 긴장돼요")})
     pre = out["__interrupt__"][0].value
     assert pre["measure"] == "PRE" and pre["round"] == 0
-    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM"]
+    assert pre["required_instrument_ids"] == ["INS-SAM"]
     assert pre["instruments"][0]["items"][0]["id"] == "valence"
 
     # 사전 측정 → ① 계획 → ② 콘텐츠 준비 → FE 실행을 기다린다
-    out = run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
+    out = run(graph, Command(resume=sam(3, 7)))
     session = out["__interrupt__"][0].value
     assert session["plan"]["activity"]["protocol_id"] == "PR-06"
     assert session["content"]["name"] == "주기적 한숨 호흡 5분"
     assert session["content"]["steps"][0]["minutes"] == 5  # 계획한 시간으로 맞춘다
-    assert out["pre"][1].scores == {"total": 56.67}  # 역채점 후 (3,3,2,3,3,3) 합 17 × 20/6
 
     # 활동 끝 → measure_post(SAM만)
     out = run(graph, Command(resume={"completed": True, "notice_word": "차분"}))
@@ -228,14 +228,14 @@ def test_session_loops_until_user_ends(caplog):
     out = run(graph, Command(resume=sam(4, 6)))
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "CHANGE_ACTIVITY"
 
-    # 종료 → S2라 목표 척도(STAI-6)를 한 번 더 묻고 끝난다
+    # 종료 → SAM을 한 번 더 묻고 끝난다
     out = run(graph, Command(resume={"next_step": "END"}))
     final = out["__interrupt__"][0].value
     assert final["measure"] == "FINAL" and final["round"] == 2
-    assert [i["instrument_id"] for i in final["instruments"]] == ["INS-STAI6"]
-    out = run(graph, Command(resume={"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}))
+    assert [i["instrument_id"] for i in final["instruments"]] == ["INS-SAM"]
+    out = run(graph, Command(resume=sam(5, 5)))
     assert "__interrupt__" not in out
-    assert out["final"].scores == {"total": 43.33}  # 합 13 × 20/6
+    assert out["final"].scores == {"valence": 5.0, "arousal": 5.0}
     assert [r.next_step for r in out["rounds"]] == [NextStep.ADDITIONAL_SESSION, NextStep.END]
     assert [r.evaluation.improved for r in out["rounds"]] == [True, False]
     assert planner.calls == [(0, []), (1, [])]
@@ -260,7 +260,7 @@ def test_session_loops_until_user_ends(caplog):
     assert isinstance(values["final"], Measurement)
 
 
-def test_s3_measures_fatigue_every_round_and_ends_without_final():
+def test_s3_uses_sam_and_gets_a_final_measurement():
     outdoors = reading(
         order_condition=InterventionOrder.POST_FATIGUE, setting=Setting.OUTDOOR, minutes=30
     )
@@ -268,34 +268,30 @@ def test_s3_measures_fatigue_every_round_and_ends_without_final():
         FakePlanner(plan("PR-11", 20)), FakeIntaker(outdoors, goal=inference(CareGoal.S3))
     )
 
-    # 사전: SAM + 정신 피로 VAS(임시 도구). 둘 다 라운드마다 다시 재므로 round_pre에 같이 들어간다
+    # 사전 측정은 SAM만 받는다. S3의 직접 피로 지표는 이번 MVP에서 측정하지 않는다
     out = run(graph, {"request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요")})
     pre = out["__interrupt__"][0].value
-    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM", "INS-MFVAS"]
-    assert pre["instruments"][1]["scale"]["max"] == 100
-    out = run(graph, Command(resume={**sam(4, 5), **mfvas(80, 70, 20)}))
-    assert [m.instrument_id for m in out["round_pre"]] == [InstrumentId.SAM, InstrumentId.MFVAS]
+    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM"]
+    out = run(graph, Command(resume=sam(4, 5)))
+    assert [m.instrument_id for m in out["round_pre"]] == [InstrumentId.SAM]
 
-    # 사후: 같은 두 도구. 피로 80 → 45로 줄어 개선 → 종료 제안
+    # 사후도 SAM만 측정한다. fatigue가 없으므로 S3 개선 판정은 보류한다
     out = run(graph, Command(resume={"completed": True}))
     post = out["__interrupt__"][0].value
     assert post["measure"] == "POST" and post["round"] == 1
-    assert [i["instrument_id"] for i in post["instruments"]] == ["INS-SAM", "INS-MFVAS"]
-    out = run(graph, Command(resume={**sam(6, 5), **mfvas(45, 40, 55)}))
-    assert out["evaluation"].deltas == {
-        "valence": 2.0,
-        "arousal": 0.0,
-        "fatigue": -35.0,
-        "concentration": -30.0,
-        "energy": 35.0,
-    }
-    assert out["evaluation"].improved is True
+    assert [i["instrument_id"] for i in post["instruments"]] == ["INS-SAM"]
+    out = run(graph, Command(resume=sam(6, 5)))
+    assert out["evaluation"].deltas == {"valence": 2.0, "arousal": 0.0}
+    assert out["evaluation"].improved is None
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "END"
 
-    # 종료: MFVAS는 라운드마다 쟀으니 measure_final 없이 끝난다. 마지막 사후값이 종료값이다
+    # 종료 시점에도 SAM을 측정해 사전·종료 기분 변화를 기록한다.
     out = run(graph, Command(resume={"next_step": "END"}))
-    assert "__interrupt__" not in out and "final" not in out
-    assert out["rounds"][-1].post[1].scores["fatigue"] == 45.0
+    final = out["__interrupt__"][0].value
+    assert final["measure"] == "FINAL"
+    assert [i["instrument_id"] for i in final["instruments"]] == ["INS-SAM"]
+    out = run(graph, Command(resume=sam(6, 5)))
+    assert out["final"].scores == {"valence": 6.0, "arousal": 5.0}
 
 
 def answer(question_id: str, **values) -> Command:
@@ -330,7 +326,7 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     out = run(graph, answer("q2", setting="OFFICE_CAFE", earphones=False))
     pre = out["__interrupt__"][0].value
     assert pre["measure"] == "PRE"
-    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM", "INS-BSRI"]
+    assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM"]
     intake = out["intake"]
     assert (intake.goal, intake.secondary_goal, intake.goal_source) == (
         CareGoal.S1,
@@ -631,6 +627,6 @@ def test_routes():
     assert route_after_confirm({**s2, "next_step": NextStep.ADDITIONAL_SESSION}) == "plan"
     s1 = {"intake": IntakeResult(goal=CareGoal.S1), "next_step": NextStep.END}
     assert route_after_confirm(s1) == "measure_final"
-    # S3의 MFVAS는 라운드마다 재므로 종료에 다시 묻지 않는다
+    # MVP는 모든 목표에서 SAM 종료 측정을 한다.
     s3 = {"intake": IntakeResult(goal=CareGoal.S3), "next_step": NextStep.END}
-    assert route_after_confirm(s3) == END
+    assert route_after_confirm(s3) == "measure_final"
