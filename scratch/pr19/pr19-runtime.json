@@ -1,0 +1,14 @@
+{
+  "protocol_id": "PR-19",
+  "source_protocol": "data/protocols/PR-19.json",
+  "review_status": "PROPOSED",
+  "challenge": {"duration_days": 7, "one_entry_per_day": true, "max_good_things": 3, "min_good_things": 1},
+  "state_flow": ["DAILY_OVERVIEW", "DAY_ENTRY", "EDITING", "DAY_COMPLETED", "WEEK_OVERVIEW"],
+  "entry": {"fields": ["content"], "prompt": "오늘 어떤 좋은 일이 있었나요? 그 일이 왜 좋았는지도 함께 적어 보세요.", "max_items": 3, "min_items_for_completion": 1, "ignore_blank_or_whitespace_only": true, "allow_edit": true, "allow_delete": true},
+  "date": {"source": "submitted_at", "timezone_source": "browser", "entry_date_format": "YYYY-MM-DD", "allow_past_edit": true},
+  "timer": {"recommended_seconds": 300, "display_mode": "HIDDEN_INTERNAL", "record_started_at": true, "record_submitted_at": true, "record_elapsed_seconds": true, "required_for_completion": false},
+  "completion": {"daily_requires_minimum_entries": true, "challenge_completion_requires_all_days": false, "self_report_only": true},
+  "persistence": {"storage": "localStorage", "key": "lumi.pr19.journal.v1"},
+  "privacy": {"server_text_storage": false, "allow_export": true, "allow_delete": true},
+  "research": {"evidence_status": "MIXED_NEEDS_REVIEW", "no_guaranteed_effect_claim": true}
+}

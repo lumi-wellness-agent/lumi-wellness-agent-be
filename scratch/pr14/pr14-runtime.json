@@ -1,0 +1,10 @@
+{
+  "runtime_schema_version": "1.0",
+  "protocol_id": "PR-14",
+  "asset_policy": {"input_format": "SVG_ONLY", "png_to_svg_runtime_conversion": false, "required_region_attribute": "data-region-id", "outline_id": "outline", "source_directory": "assets/processed-images"},
+  "timer": {"planned_seconds": 1200, "minimum_completion_seconds": 960, "display_mode": "PROGRESS_ELAPSED", "auto_stop_on_target": false, "allow_pause": false, "resume_on_valid_region_click": true},
+  "palette": [{"name": "Deep Teal", "hex": "#397D78"}, {"name": "Soft Blue", "hex": "#759BC3"}, {"name": "Muted Purple", "hex": "#8873A6"}, {"name": "Dusty Rose", "hex": "#B86F87"}, {"name": "Terracotta", "hex": "#C48760"}, {"name": "Soft Gold", "hex": "#D4B85F"}, {"name": "Olive Green", "hex": "#89964E"}, {"name": "Light Sand", "hex": "#DFD1B5"}],
+  "designs": [{"id": "mandala-1", "name": "만다라 도안 1", "svg": "assets/processed-images/mandala-1.svg"}, {"id": "mandala-2", "name": "만다라 도안 2", "svg": "assets/processed-images/mandala-2.svg"}, {"id": "mandala-3", "name": "만다라 도안 3", "svg": "assets/processed-images/mandala-3.svg"}, {"id": "mandala-4", "name": "만다라 도안 4", "svg": "assets/processed-images/mandala-4.svg"}, {"id": "mandala-5", "name": "만다라 도안 5", "svg": "assets/processed-images/mandala-5.svg"}, {"id": "mandala-6", "name": "만다라 도안 6", "svg": "assets/processed-images/mandala-6.svg"}],
+  "state": {"region_states": ["UNCOLORED", "COLORED"], "refresh": "pause_timer_keep_coloring_state", "reset": "all_regions_uncolored", "undo": "restore_previous_fill"},
+  "storage": {"mode": "browser_local_storage", "key": "lumi.pr14.coloring.v1", "official_server_record": false}
+}

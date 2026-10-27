@@ -1,0 +1,39 @@
+{
+  "protocol_id": "PR-16",
+  "source_protocol": "data/protocols/PR-16.json",
+  "review_status": "PROPOSED",
+  "state_flow": ["HOST_ACTIVITY_RUNNING", "PR16_POPUP_READY", "PR16_INPUTTING", "PR16_COMPLETED", "SKIPPED", "STOPPED"],
+  "popup": {
+    "enabled": true,
+    "start_text": "감정이나 분위기를 1~3개의 짧은 단어로 입력해 주세요. 이 활동에는 정답이 있지 않습니다.",
+    "actions": ["SKIP", "CONTINUE"],
+    "close_button": false,
+    "outside_click_closes": false
+  },
+  "input": {
+    "mode": "three_slots",
+    "slot_count": 3,
+    "minimum_valid_slots": 1,
+    "allow_free_text": true,
+    "per_slot_min_words": 1,
+    "per_slot_max_words": 3,
+    "per_slot_max_characters": 20,
+    "allow_blank_slots": true,
+    "blank_policy": "block_confirmation",
+    "sentence_input": false,
+    "normalize_whitespace": true,
+    "reject_line_breaks": true
+  },
+  "completion": {
+    "normal": "at_least_one_valid_phrase_and_user_confirm",
+    "allowed_statuses": ["COMPLETED", "SKIPPED", "STOPPED"],
+    "skip_returns_to_host": true,
+    "stop_returns_to_host": false,
+    "self_report_only": true
+  },
+  "timer": {"enabled": false, "host_activity_owns_timing": true},
+  "host_integration": {"host_protocol_id": null, "return_target": "HOST_ACTIVITY", "selection_status": "DEFERRED_TO_INTEGRATION"},
+  "persistence": {"storage": "localStorage", "key": "lumi.pr16.notice.v1", "refresh_policy": "mark_host_and_pr16_stopped", "duplicate_completion_block": true},
+  "privacy": {"server_text_storage": false, "separate_record": true, "allow_export": true, "allow_delete": true},
+  "constraints": {"no_diagnosis": true, "no_score": true, "no_therapy_claim": true}
+}
