@@ -45,11 +45,11 @@ def replan(state: CareState) -> dict:
     elif rounds_done >= MAX_ROUNDS:
         recommended, reason = NextStep.END, f"라운드 {MAX_ROUNDS}회를 채웠다"
     elif evaluation.improved:
-        recommended, reason = NextStep.END, "사전보다 나아졌다"
+        recommended, reason = NextStep.END, "SAM 기분 지표가 개선 방향으로 변했다(탐색 지표)"
     elif evaluation.improved is None:
         recommended, reason = NextStep.END, "이 목표는 세션 내 판정 기준이 없다(목표 지표 —)"
     else:
-        recommended, reason = NextStep.CHANGE_ACTIVITY, "사전보다 나아지지 않았다"
+        recommended, reason = NextStep.CHANGE_ACTIVITY, "SAM 기분 지표가 개선 방향을 보이지 않았다(탐색 지표)"
     if recommended not in options:
         limit = (
             f"라운드 {MAX_ROUNDS}회를 채웠다"
