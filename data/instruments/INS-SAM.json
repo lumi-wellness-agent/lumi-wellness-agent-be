@@ -21,7 +21,7 @@
   ],
   "scale": {"min": 1, "max": 9, "step": 1, "kind": "PICTORIAL"},
   "scoring": {"kind": "PER_ITEM", "range": [1, 9]},
-  "license_note": "Bradley & Lang 1994. 연구용 무료. 상업 사용은 출처 표기·확인",
+  "license_note": "Bradley & Lang 1994. 논문은 SAM 사용 정보를 저자에게 문의하도록 안내한다. 연구·상업 재사용 조건은 별도 확인 필요",
   "status": "READY",
-  "note": "지배(dominance) 차원은 생략(측정도구 시트). 그림 척도라 지시문·축 라벨만 한국어. 1=불쾌·차분, 9=유쾌·흥분. FE는 그림 5~9개로 렌더링한다"
+  "note": "지배(dominance) 차원은 생략(측정도구 시트). 원 논문은 valence·arousal·dominance 3축을 사용하며, 현재는 valence·arousal 2축만 쓰는 MVP 단순화다. 한국어 문구와 현재 기분 평가의 본 사용 맥락은 원 논문에서 직접 검증한 것이 아니므로 효과·임상 기준으로 해석하지 않는다. 원 논문 9점 척도는 5개 그림과 그 사이 선택을 포함한다. FE 시각 자산의 사용 권한은 별도 확인한다"
 }
