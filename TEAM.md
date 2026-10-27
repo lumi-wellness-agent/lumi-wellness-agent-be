@@ -26,17 +26,17 @@ POST /sessions …(API는 통합 담당이 붙인다)
 intake          ① 상황 읽기(LLM) → State (시점이 불명확하면 질문 ⏸, 최대 2회)
   ↓             ③ 목표 추론(LLM, ② 개념 정의 원문 + 단서표) → Goal S1·S2·S3 + 정의 근거
   ↓             ④ 추천을 바꾸는 환경 칸만 칩 질문 ⏸ → 기본값 · 환경 조건 (질문 합계 3회)
-measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
+measure_pre ⏸   SAM만(MVP). STAI-6 · BSRI는 TODO로 데이터에 보류
   ↓
 plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
   ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
 prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
-measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
-evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로↓)
+measure_post ⏸  SAM만(MVP)
+evaluate        SAM 쾌·각성 변화. S1 · S2는 탐색적 proxy, S3 직접 개선 판정은 보류
 replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외)
 confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
-measure_final ⏸ 종료 경로에서 STAI-6 · BSRI 1회 (라운드마다 잰 S3는 건너뜀)
+measure_final ⏸ 종료 경로에서 SAM 1회(모든 목표). API는 시작·종료 SAM 변화량을 반환
 ```
 
 `app/agent/state.py`가 노드 사이 계약이고, `app/agent/graph.py`만 노드를 배선한다. ⏸는 interrupt —
@@ -78,7 +78,7 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 | --- | --- |
 | `data/instruments/INS-STAI6.json` `INS-BSRI.json` | 문항 원문 `text`와 `instruction`을 채우고 `status`를 `READY`로. STAI는 Mind Garden 허가·한국어판, BSRI는 한국어판 출처 확인. **LLM 번역 금지** |
 | `app/instruments.py` | 채점은 되어 있다(STAI-6 역채점 후 합 × 20/6, BSRI 평균, SAM 문항별). 제시 형식(`present`)에 FE가 필요한 값을 더한다 |
-| `app/agent/nodes/measure.py` | interrupt payload·resume 모양을 FE와 맞춘다. 사전은 SAM + 목표 척도, 라운드 사이는 SAM(S3는 + MFVAS), 종료는 STAI-6 · BSRI만 |
+| `app/agent/nodes/measure.py` | MVP는 사전·라운드 사후·종료에서 SAM만 FE에 제시하고 응답·채점·저장한다. STAI-6 · BSRI는 TODO로 보류하며 FE에 보내지 않는다 |
 | `tests/measure/` | `make test-measure` |
 
 ### intake 담당 (먼저 끝난 사람, 화)
@@ -107,8 +107,8 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | `CareRequest` | `text` + 환경 칩(`setting` `earphones` `minutes_available`) + `profile`. `Place`는 코드가 setting에서 정한다 | `app/schemas/care.py` |
 | `IntakeResult` | Goal(goal · secondary_goal · goal_source · target_outcomes · goal_evidence[paper_id, sentence]) · State(order_condition · 사건 · 반복 단서) · Context(setting · place · earphones · minutes · environment) · end_reason | `app/agent/state.py` |
 | intake 질문 interrupt | `IntakeQuestion{type, question_id, slot, turn, max_turns, text, groups[{key, select, options[{label, set}]}], allow_free_text}` ↔ `IntakeAnswer{question_id, answer \| text}` | `app/schemas/intake.py` |
-| `Measurement` · `GOAL_SCALE` | 도구 × 시점 × 라운드, `answers` · `scores` | `app/schemas/measure.py` |
-| 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
+| `Measurement` · `GOAL_SCALE` | Measurement는 도구 × 시점 × 라운드. GOAL_SCALE은 TODO 해소 뒤 연결할 후보 매핑이며 현재 노드는 SAM만 사용 | `app/schemas/measure.py` |
+| 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...], "required_instrument_ids": ["INS-SAM"]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}}` — 현재 MVP는 SAM만 | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
 | 후보 프로토콜 | `protocols.plan_candidates()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
