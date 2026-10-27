@@ -69,6 +69,18 @@ def test_instrument_papers_exist():
         assert doc["paper_id"] in IDS, f"{path.name}: {doc['paper_id']}"
 
 
+def test_intake_papers_exist_and_are_state_analysis_papers():
+    """intake 단서표 · 개념 정의가 인용한 논문은 매니페스트에 있고 R1(상태 분석) 역할이다."""
+    by_id = {row["rc_id"]: row for row in ROWS}
+    cues = json.loads((ROOT / "data" / "intake_cues.json").read_text(encoding="utf-8"))
+    definitions = json.loads((ROOT / "data" / "goal_definitions.json").read_text(encoding="utf-8"))
+    cited = {pid for goal in cues["goals"].values() for pid in goal["sources"]}
+    cited |= {pid for hint in cues["state_hints"] for pid in hint["sources"]}
+    cited |= {d["paper_id"] for defs in definitions["goals"].values() for d in defs}
+    assert cited - IDS == set()
+    assert {pid for pid in cited if "R1" not in by_id[pid]["r_codes"].split(";")} == set()
+
+
 def test_evidence_hits_fixture_papers_exist():
     hits = json.loads((FIXTURES / "evidence_hits.json").read_text(encoding="utf-8"))
     by_id = {row["rc_id"]: row for row in ROWS}

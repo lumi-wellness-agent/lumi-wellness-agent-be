@@ -1,4 +1,5 @@
-"""intake 단서표 — ③ 목표 추론(S1 · S2 · S3)의 판단 기준. data/intake_cues.json을 읽는다.
+"""intake 단서표와 개념 정의 — ③ 목표 추론(S1 · S2 · S3)의 판단 기준. data/intake_cues.json ·
+data/goal_definitions.json을 읽는다.
 
 목표마다 사용자 표현 단서(cues)와 헷갈리는 목표와의 경계(boundary), 그리고 사용자 상태가 목표를 어느
 쪽으로 기울이는지(state_hints)다. 팀이 R1(상태 분석) 논문을 읽고 요약한 것이고 원문 인용이 아니다.
@@ -7,8 +8,9 @@ state_hints는 규칙이 아니라 단서다 — 피로 후 → S3(P06 이론 + 
 S1·S2(반복 사고 단서로 가른다, P33), 스트레스 전 → S2(근거 arm 1건이라 약하게), 계기 없음 →
 기울이지 않음.
 
-개념 정의 JSON(② — 근거 paper_id와 원문 문장)은 팀원이 따로 준다. 그전까지 ③은 이 단서표만으로 돌고
-IntakeResult.goal_evidence는 빈 목록이다.
+개념 정의(②)는 목표마다 R1 논문의 원문 문장이다 — 단서표가 팀 요약이라면 정의는 인용이다. ③ 입력에
+통째로 넣고(definitions_json), 추론한 목표(와 부목표)의 정의가 IntakeResult.goal_evidence가 되어
+Reference 카드에 실린다(intake_rules.apply_goal). 문장이 열 개 남짓이라 검색(RAG)하지 않는다.
 """
 
 import json
@@ -22,6 +24,7 @@ from app.schemas.care import CareGoal
 from app.schemas.evidence import InterventionOrder
 
 CUES_PATH = Path(__file__).resolve().parents[1] / "data" / "intake_cues.json"
+DEFINITIONS_PATH = CUES_PATH.with_name("goal_definitions.json")
 
 
 class GoalCues(BaseModel):
@@ -72,5 +75,38 @@ def cues_json() -> str:
             }
             for h in table.state_hints
         ],
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+class GoalDefinition(BaseModel):
+    """개념 정의 한 문장 — 원문 그대로(줄바꿈 · 하이픈 · 쪽 넘김만 정리)."""
+
+    paper_id: str
+    concept: str  # 정의하는 개념 — rumination · state anxiety · mental fatigue …
+    page: str  # PDF 쪽 번호. 쪽을 넘기는 문장은 "1–2"
+    sentence: str
+
+
+class DefinitionTable(BaseModel):
+    goals: dict[CareGoal, list[GoalDefinition]]
+
+
+@lru_cache
+def load_definitions() -> DefinitionTable:
+    return DefinitionTable.model_validate_json(DEFINITIONS_PATH.read_text(encoding="utf-8"))
+
+
+def definitions_for(goal: CareGoal) -> list[GoalDefinition]:
+    return load_definitions().goals.get(goal, [])
+
+
+def definitions_json() -> str:
+    """LLM 입력용 — 목표마다 개념과 원문 정의(출처 ID)."""
+    payload = {
+        goal.value: [
+            {"paper_id": d.paper_id, "concept": d.concept, "sentence": d.sentence} for d in defs
+        ]
+        for goal, defs in load_definitions().goals.items()
     }
     return json.dumps(payload, ensure_ascii=False)

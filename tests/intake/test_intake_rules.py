@@ -60,7 +60,6 @@ def reading(**update) -> StateReading:
         "setting": None,
         "earphones": None,
         "minutes": None,
-        "search_query": "state anxiety",
         "summary": "-",
         "question": None,
     }
@@ -333,7 +332,9 @@ def test_goal_from_inference_with_target_outcomes():
         GoalSource.INFERRED,
     )
     assert out.target_outcomes == [Outcome.RUMINATION]
-    assert out.goal_evidence == []  # 개념 정의 JSON(②) 전에는 빈다
+    # 추론한 목표 · 부목표 순으로 그 개념 정의(원문)를 붙인다
+    assert [e.paper_id for e in out.goal_evidence] == ["P12", "N26", "N25", "N04", "N07", "N01"]
+    assert out.goal_evidence[0].sentence.startswith("Repetitive negative thinking (RNT)")
     same = rules.apply_goal(
         IntakeResult(), inference(secondary_goal=CareGoal.S1), CareRequest(text="…")
     )
@@ -357,10 +358,21 @@ def test_goal_defaults_and_priorities():
         CareGoal.S2,
         GoalSource.INFERRED,
     )
+    assert [e.paper_id for e in out.goal_evidence] == [
+        "P06",
+        "P06",
+        "N27",
+        "N27",
+        "N04",
+        "N07",
+        "N01",
+    ]
     out = rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"))
     assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    assert out.goal_evidence == []  # 정의로 판단한 것이 아니다
     out = rules.apply_goal(IntakeResult(), inference(), CareRequest(text="…", goal=CareGoal.S3))
     assert out.goal is CareGoal.S3 and out.goal_source is GoalSource.CHIP
+    assert out.goal_evidence == []
 
 
 def test_finish_fills_defaults_environment_place_and_end_reason():
@@ -392,3 +404,13 @@ def test_cue_table_covers_every_goal_and_state():
     hint = intake_cues.state_hint(InterventionOrder.POST_FATIGUE)
     assert hint.lean == [CareGoal.S3] and hint.strength == "STRONG"
     assert intake_cues.state_hint(None) is None
+
+
+def test_goal_definitions_quote_the_papers_the_cue_table_cites():
+    """개념 정의는 목표마다 둘 이상이고, 그 목표의 단서표가 인용한 R1 논문에서만 온다."""
+    cues, definitions = intake_cues.load_cues(), intake_cues.load_definitions()
+    assert set(definitions.goals) == set(CareGoal)
+    for goal, defs in definitions.goals.items():
+        assert len(defs) >= 2
+        assert {d.paper_id for d in defs} <= set(cues.goals[goal].sources)
+        assert all(d.concept and d.page and d.sentence.endswith(".") for d in defs)

@@ -41,7 +41,7 @@ def test_read_input_carries_previous_turns_and_asks_to_reread_free_text():
     assert "재질문" not in build_read_input(request, chip)
 
 
-def test_goal_input_has_state_and_cue_table():
+def test_goal_input_has_state_definitions_and_cue_table():
     intake = IntakeResult(
         order_condition=InterventionOrder.POST_STRESS,
         event="발표",
@@ -51,6 +51,8 @@ def test_goal_input_has_state_and_cue_table():
     text = build_goal_input(CareRequest(text="발표 끝났는데 계속 생각나요"), intake)
     assert "- 사용자 상태: POST_STRESS" in text and "- 반복 사고 단서: 있음" in text
     assert "## 단서표(팀 요약)" in text and '"state_hints"' in text and "계속 생각나요" in text
+    assert "## 개념 정의(원문)" in text and "any prolonged mental effort leads" in text
+    assert text.index("## 개념 정의(원문)") < text.index("## 단서표(팀 요약)")
 
 
 def test_llm_output_schemas_are_what_the_prompts_describe():
@@ -59,7 +61,6 @@ def test_llm_output_schemas_are_what_the_prompts_describe():
         "order_condition",
         "rumination_cue",
         "stress_fatigue_ambiguous",
-        "search_query",
         "question",
         "setting",
         "earphones",

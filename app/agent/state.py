@@ -36,7 +36,7 @@ class IntakeResult(BaseModel):
     """intake의 결과 — Goal · State · Context. 코드가 단계마다 채우고, 점수는 추정하지 않는다.
 
     - Goal: 이번 세션에서 개선할 결과 지표(S1 반추 · S2 긴장·스트레스 · S3 주의·피로). 사용자가
-      고르는 니즈가 아니라 단서표(개념 정의 JSON이 오면 그 근거까지)와 상황 단서로 추론한다. 측정
+      고르는 니즈가 아니라 개념 정의(원문) · 단서표와 상황 단서로 추론한다. 측정
       척도 · 후보 · 평가를 정한다.
     - State: 지금 상황(사건 전·후 · 오래 집중한 뒤 · 계기 없음). 대화로 정하고 Goal 추론의 단서가
       된다.
@@ -48,7 +48,7 @@ class IntakeResult(BaseModel):
     secondary_goal: CareGoal | None = None  # 함께 보인 다른 목표(S1·S2 혼합 등). 측정은 goal만
     goal_source: GoalSource | None = None
     target_outcomes: list[Outcome] = []  # 개선할 지표 — retrieval.GOAL_OUTCOMES[goal].primary
-    goal_evidence: list[GoalEvidence] = []  # 근거 paper_id와 문장. 개념 정의 JSON(②) 전에는 []
+    goal_evidence: list[GoalEvidence] = []  # 추론한 목표 · 부목표의 개념 정의(원문). 칩·기본값 []
     goal_reason: str | None = None  # 판단 이유 한 줄(Reference 카드 · 평가용)
     # State
     order_condition: InterventionOrder | None = None
@@ -197,10 +197,9 @@ class CareState(TypedDict):
 
     request: CareRequest  # 사용자 자유 입력 + 환경 칩 + 프로필
     intake: NotRequired[IntakeResult]  # Goal · State · Context. intake 단계마다 갱신된다
-    # intake 진행 — 질문과 답(쌓인다), 대기 중인 질문, 개념 정의 검색어
+    # intake 진행 — 질문과 답(쌓인다), 대기 중인 질문
     intake_turns: NotRequired[Annotated[list[IntakeTurn], operator.add]]
     pending_question: NotRequired[IntakeQuestion | None]
-    search_query: NotRequired[str]  # ② 개념 정의 검색어(JSON이 오면 쓴다)
     ended: NotRequired[SessionEnd]
     pre: NotRequired[list[Measurement]]  # 세션 시작 측정(SAM + 목표 척도)
     # 이번 라운드가 비교할 측정(SAM, S3는 + MFVAS). 첫 라운드는 pre에서 고른다

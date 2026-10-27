@@ -23,8 +23,8 @@
 ```text
 POST /sessions …(API는 통합 담당이 붙인다)
   ↓
-intake          ① 상황 읽기(LLM) → State · 검색어 (시점이 불명확하면 질문 ⏸, 최대 2회)
-  ↓             ③ 목표 추론(LLM, 단서표) → Goal S1·S2·S3 (② 개념 정의 근거는 JSON을 받으면)
+intake          ① 상황 읽기(LLM) → State (시점이 불명확하면 질문 ⏸, 최대 2회)
+  ↓             ③ 목표 추론(LLM, ② 개념 정의 원문 + 단서표) → Goal S1·S2·S3 + 정의 근거
   ↓             ④ 추천을 바꾸는 환경 칸만 칩 질문 ⏸ → 기본값 · 환경 조건 (질문 합계 3회)
 measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
   ↓
@@ -87,7 +87,8 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 | --- | --- |
 | `app/agent/prompts.py` `READ_SYSTEM_PROMPT` `GOAL_SYSTEM_PROMPT` | 상황 읽기 · 목표 추론 규칙. 점수 추정 금지, 사건을 자세히 묻지 않는다 |
 | `app/agent/intake_rules.py` | 질문 여부(State 2회 · 합계 3회) · 보기 검증 · 답 병합(요청 칩 > 칩 답 > 문장) · 환경 질문 판정 · 목표 · 기본값. `StateReading` · `GoalInference` 필드 설명이 LLM이 읽는 설명이다 |
-| `data/intake_cues.json` | 단서표(표현 단서 · 경계 · 요약 출처)와 상태 단서. ③이 이것만으로 돈다(② 개념 정의 JSON 전까지) |
+| `data/intake_cues.json` | 단서표(표현 단서 · 경계 · 요약 출처)와 상태 단서. ③의 판단 기준(팀 요약) |
+| `data/goal_definitions.json` | ② 개념 정의 — 목표마다 R1 논문 원문 문장(paper_id · 쪽). ③ 입력에 통째로 넣고, 추론한 목표의 정의가 `goal_evidence`가 된다. 근거 담당이 원문과 대조해 고친다 |
 | `app/schemas/intake.py` | FE와 주고받는 질문·답 JSON. 키를 바꾸면 FE와 먼저 맞춘다 |
 | `tests/intake/` | `make test-intake`. 실제 호출 결과는 `tests/intake/`에 녹화본(JSON)으로 남긴다 |
 

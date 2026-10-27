@@ -5,7 +5,8 @@
     ① 상황 읽기(LLM) → safety면 end_for_safety() · OFF_TOPIC이면 restate_question()(입구 되묻기)
        → compose()로 State · Context 채움 → state_question()으로 시점 질문 여부
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
-    ③ 목표 추론(LLM, 단서표) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
+    ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
+       입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
     ④ context_groups()로 추천을 바꾸는 환경 칸만 → context_question()
     답 → apply_answer() · merge_values()     끝 → finish()
 
@@ -22,8 +23,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app import protocols
-from app.agent.state import IntakeResult, default_environment
+from app import intake_cues, protocols
+from app.agent.state import GoalEvidence, IntakeResult, default_environment
 from app.schemas.care import (
     CareGoal,
     CareRequest,
@@ -114,10 +115,6 @@ class StateReading(BaseModel):
         description="이어폰이 있다/없다고 말했으면 true/false, 아니면 null"
     )
     minutes: int | None = Field(description="쓸 수 있는 시간(분)을 말했으면 그 숫자, 아니면 null")
-    search_query: str = Field(
-        description="개념 정의를 찾을 영어 검색어 4~8단어 — 사용자 상태를 심리학 용어로. "
-        "예: repetitive negative thinking after presentation · state anxiety tense nervous"
-    )
     summary: str = Field(description="사용자 상황 한 줄(한국어, 40자 이내, 진단 용어 금지)")
     question: StateQuestionDraft | None = Field(
         description="order_condition을 정하지 못했을 때만 시점 질문 초안. 정했으면 null"
@@ -484,8 +481,9 @@ def apply_goal(
     turns: Sequence[IntakeTurn] = (),
 ) -> IntakeResult:
     """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(S2 DEFAULT) > 추론 >
-    재질문 목표 단서 > 기본값(S2, 화면에 밝힌다). 개념 정의 JSON(②)이 오기 전에는 goal_evidence가
-    빈다."""
+    재질문 목표 단서 > 기본값(S2, 화면에 밝힌다). 추론한 목표(INFERRED)면 그 목표와 부목표의 개념
+    정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 · 기본값은 정의로 판단한 것이
+    아니라 비운다."""
     if request.goal is not None:
         update: dict[str, Any] = {"goal": request.goal, "goal_source": GoalSource.CHIP}
     elif entry_skipped(turns):
@@ -523,7 +521,20 @@ def apply_goal(
             "goal_reason": "목표를 가를 단서가 없어 가볍게 긴장을 푸는 활동부터 시작한다",
         }
     update["target_outcomes"] = list(GOAL_OUTCOMES[update["goal"]].primary)
+    update["goal_evidence"] = (
+        goal_evidence(update) if update["goal_source"] is GoalSource.INFERRED else []
+    )
     return intake.model_copy(update=update)
+
+
+def goal_evidence(update: dict[str, Any]) -> list[GoalEvidence]:
+    """목표 · 부목표 순으로 그 개념 정의(원문 문장)."""
+    goals = [g for g in (update["goal"], update.get("secondary_goal")) if g is not None]
+    return [
+        GoalEvidence(paper_id=d.paper_id, sentence=d.sentence)
+        for goal in goals
+        for d in intake_cues.definitions_for(goal)
+    ]
 
 
 def finish(intake: IntakeResult, turns: Sequence[IntakeTurn] = ()) -> IntakeResult:

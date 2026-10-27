@@ -8,13 +8,13 @@
                               └→ intake_finish → measure_pre
 
 - ① intake_read (LLM): 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태 · 사건 · 반복
-  사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 질문 초안을 낸다. 안전 신호면 세션을
+  사고 단서 · 문장에 나온 여건을 읽고, 질문 초안을 낸다. 안전 신호면 세션을
   끝낸다. 처음 입력이 관계없으면 사용자 말에 맞춘 되묻기(restate)를 낸다 — 관련 있는 답이 올
   때까지 제한 없이 돌고 질문 3회 예산에 세지 않는다. 초안은 코드가 검증해 질문으로 만든다.
-- ③ intake_goal (LLM): 단서표(data/intake_cues.json)와 상황 단서로 목표 S1 · S2 · S3와 부목표를
-  정한다. State 두 질문이 모두 '잘 모르겠어요'거나 되묻기에서 '그냥 시작할게요'면 LLM 없이 S2
-  DEFAULT. ② 개념 정의 검색은 팀원이
-  JSON을 주면 이 노드 앞에 붙인다(그전까지 goal_evidence는 빈다).
+- ③ intake_goal (LLM): 개념 정의(data/goal_definitions.json, 원문) · 단서표(data/intake_cues.json,
+  팀 요약)와 상황 단서로 목표 S1 · S2 · S3와 부목표를 정한다. State 두 질문이 모두 '잘
+  모르겠어요'거나 되묻기에서 '그냥 시작할게요'면 LLM 없이 S2 DEFAULT. ② 개념 정의는 검색하지 않고
+  ③ 입력에 통째로 넣으며, 추론한 목표의 정의가 goal_evidence가 된다.
 - ④ intake_context (코드): setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만
   묻는다.
 - intake_ask ⏸: 질문 interrupt(이 노드 하나). payload는 IntakeQuestion, resume은 IntakeAnswer
@@ -116,11 +116,7 @@ def make_intake_nodes(intaker: Intaker) -> dict:
                 "ended": SessionEnd.SAFETY,
             }
         question = rules.restate_question(reading, turns) or rules.state_question(reading, turns)
-        return {
-            "intake": intake,
-            "pending_question": question,
-            "search_query": reading.search_query,
-        }
+        return {"intake": intake, "pending_question": question}
 
     def intake_ask(state: CareState) -> dict:
         question = state["pending_question"]
