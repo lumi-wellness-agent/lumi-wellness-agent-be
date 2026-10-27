@@ -40,8 +40,8 @@ def test_compositions_follow_the_sheet():
     by_composition = {}
     for p in LOADED.values():
         by_composition.setdefault(p.composition, []).append(p.protocol_id)
-    assert by_composition[Composition.VALIDATED_MULTIMODAL] == ["PR-02", "PR-10", "PR-12"]
-    assert by_composition[Composition.EXPERIMENTAL] == ["PR-15", "PR-21", "PR-22"]
+    assert by_composition[Composition.VALIDATED_MULTIMODAL] == ["PR-02", "PR-12"]
+    assert by_composition[Composition.EXPERIMENTAL] == ["PR-10", "PR-15", "PR-21", "PR-22"]
     assert by_composition[Composition.STAGE_MODULE] == ["PR-16"]
     assert len(by_composition[Composition.SINGLE]) == 14
 
@@ -92,7 +92,7 @@ def test_candidates_filter_by_order_and_minutes():
 def test_compact_is_what_the_planner_reads():
     compact = protocols.compact(LOADED["PR-06"])
     assert compact["protocol_id"] == "PR-06" and compact["goal"] == "S2"
-    assert compact["duration_minutes"] == {"default": 5.0, "min": 5.0, "max": 20.0}
+    assert compact["duration_minutes"] == {"default": 5.0, "min": 5.0, "max": 5.0}
     assert compact["grades"]["SUBJECTIVE_STRESS"] == "A"
     assert "evidence" not in compact and "content_spec" not in compact
 
