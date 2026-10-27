@@ -116,7 +116,7 @@ def _view(session_id: str, step: Step, node: str | None, payload: Any) -> dict:
 
 
 def end_payload(values: dict) -> dict:
-    """끝난 세션 요약. intake가 끝냈으면 그 이유만, 아니면 라운드와 목표 척도의 세션 변화."""
+    """끝난 세션 요약. intake가 끝냈으면 이유만, 아니면 라운드와 SAM의 시작·종료 변화."""
     if ended := values.get("ended"):
         return {"reason": ended.value}
     return {
