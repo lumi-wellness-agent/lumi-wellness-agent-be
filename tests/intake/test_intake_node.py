@@ -5,10 +5,10 @@
 실제 호출 결과(녹화본)는 make plan-trial로 본다. 여기서는 프롬프트 입력과 구조화 출력 스키마만 본다.
 """
 
-from app.agent.intake_rules import DefinitionHit, GoalInference, StateReading
+from app.agent.intake_rules import GoalInference, StateReading
 from app.agent.prompts import build_goal_input, build_read_input
 from app.agent.state import IntakeResult
-from app.schemas.care import CareGoal, CareRequest
+from app.schemas.care import CareRequest
 from app.schemas.evidence import InterventionOrder
 from app.schemas.intake import IntakeTurn, QuestionSlot
 
@@ -35,20 +35,16 @@ def test_read_input_carries_previous_turns_and_asks_to_reread_free_text():
     assert "재질문" not in build_read_input(request, chip)
 
 
-def test_goal_input_has_state_cards_and_numbered_evidence():
+def test_goal_input_has_state_and_cue_table():
     intake = IntakeResult(
         order_condition=InterventionOrder.POST_STRESS,
         event="발표",
         rumination_cue=True,
         cues=["계속 생각나요"],
     )
-    hits = [DefinitionHit(11, "P12", CareGoal.S1, "Stenzel", 2025, "RNT is …")]
-    text = build_goal_input(CareRequest(text="발표 끝났는데 계속 생각나요"), intake, hits)
+    text = build_goal_input(CareRequest(text="발표 끝났는데 계속 생각나요"), intake)
     assert "- 사용자 상태: POST_STRESS" in text and "- 반복 사고 단서: 있음" in text
-    assert "[11] P12 Stenzel (2025) · S1 정의" in text
-    assert '"state_hints"' in text and "반복적 부정 사고" in text  # 개념 카드
-    empty = build_goal_input(CareRequest(text="…"), IntakeResult(), [])
-    assert "evidence_ids는 []" in empty
+    assert "## 단서표(팀 요약)" in text and '"state_hints"' in text and "계속 생각나요" in text
 
 
 def test_llm_output_schemas_are_what_the_prompts_describe():
@@ -59,10 +55,10 @@ def test_llm_output_schemas_are_what_the_prompts_describe():
         "stress_fatigue_ambiguous",
         "search_query",
         "question",
-        "location",
+        "setting",
         "earphones",
         "minutes",
     } <= set(reading)
-    assert "safety" not in reading  # 위기 감지는 서비스 범위 밖이다(시작 화면에서 범위를 밝힌다)
+    assert "safety" not in reading  # 안전 검사는 LLM이 아니라 코드가 자유 입력 답에 한다
     goal = GoalInference.model_json_schema()["properties"]
-    assert set(goal) == {"has_cues", "goal", "secondary_goal", "evidence_ids", "reason"}
+    assert set(goal) == {"has_cues", "goal", "secondary_goal", "reason"}

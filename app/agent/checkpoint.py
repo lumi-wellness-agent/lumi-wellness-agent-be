@@ -32,12 +32,14 @@ from app.agent.state import (
     ActivityContent,
     CarePlan,
     ContentStep,
+    GoalEvidence,
     IntakeResult,
     NextStep,
     OutcomeEvaluation,
     PlannedActivity,
     ReplanProposal,
     Round,
+    SessionEnd,
     SessionReport,
 )
 from app.config import get_settings
@@ -46,13 +48,14 @@ from app.schemas.care import (
     CareRequest,
     ContentType,
     Environment,
-    Location,
     Place,
+    Setting,
     UserProfile,
 )
-from app.schemas.evidence import InterventionOrder
+from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import (
     GoalSource,
+    IntakeEndReason,
     IntakeQuestion,
     IntakeTurn,
     QuestionGroup,
@@ -72,9 +75,13 @@ STATE_TYPES = (
     CareGoal,
     ContentType,
     Place,
-    Location,
+    Setting,
     Environment,
     IntakeResult,
+    GoalEvidence,
+    SessionEnd,
+    IntakeEndReason,
+    Outcome,
     InterventionOrder,
     GoalSource,
     IntakeQuestion,

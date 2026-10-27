@@ -7,7 +7,7 @@
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
 
 - 발표 리허설과 RAG 평가셋 질의 수집용이다. intake는 질문 없이 한 번에 돈다(nodes/intake.intake_once
-  — 상황 읽기 → 개념 정의 검색 → 목표 추론 → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
+  — 상황 읽기 → 목표 추론(단서표) → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
   plan 노드는 그대로 부르므로 후보 → 선택(LLM) → 검색 → 검증 → 설명(LLM) 절차, check_plan 재질의,
   공급자 폴백까지 운영과 같다. 측정·실행 interrupt는 거치지 않는다.
 - LLM(.env의 OPENAI_API_KEY · ANTHROPIC_API_KEY)을 실제로 불러 비용이 든다. 근거 DB는 읽기만 한다.
@@ -144,16 +144,16 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
         model.callbacks = [usage]
     planner = LlmPlanner(models)
     intaker = LlmIntaker(models)
-    intake, would_ask = await intake_once(intaker, request, pool)
+    intake, would_ask = await intake_once(intaker, request)
     state: dict = {"request": request, "intake": intake}
     print(f"\n== {name} {request.text!r} ({request.profile.content_type.value})")
     defaulted = f" · 기본값 {intake.missing_slots}" if intake.missing_slots else ""
     secondary = f"(+{_value(intake.secondary_goal)})" if intake.secondary_goal else ""
     print(
-        f"intake  {_value(intake.goal)}{secondary} [{_value(intake.goal_source)}"
-        f" 근거 {intake.goal_evidence_ids}] · {_value(intake.order_condition)} · "
+        f"intake  {_value(intake.goal)}{secondary} [{_value(intake.goal_source)}]"
+        f" · {_value(intake.order_condition)} · "
         f"{intake.minutes}분 · "
-        f"{_value(intake.location) or _value(intake.place)}{defaulted}"
+        f"{_value(intake.setting) or _value(intake.place)}{defaulted}"
     )
     print(f"        {intake.goal_reason or '-'}")
     if would_ask:

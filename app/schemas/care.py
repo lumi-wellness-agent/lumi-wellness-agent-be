@@ -3,7 +3,7 @@
 에이전트 아키텍처 v2: 스트레스 0~10 수치 입력은 받지 않는다. 상태는 intake가 자유 텍스트에서
 분류하고(목표·순서 조건·슬롯), 점수는 measure_pre가 척도로 잰다. 선호(색·풍경·접근성)는 프로필이다.
 
-- FE 칩은 환경 조건(location · earphones · minutes_available)만 받는다. 칩 값은 intake가 문장에서
+- FE 칩은 환경 조건(setting · earphones · minutes_available)만 받는다. 칩 값은 intake가 문장에서
   읽은 값보다 우선한다. 목표(Goal)와 상태(State)는 intake가 추론하고, 부족하면 질문한다
   (app/agent/nodes/intake.py · app/schemas/intake.py).
 - 색상 값의 형식(색 이름·HEX)은 정하지 않았다.
@@ -29,16 +29,17 @@ class ContentType(StrEnum):
 
 
 class Place(StrEnum):
-    """실내 · 실외. intake가 장소 칩(Location)에서 정하고 플래너 입력에 쓴다."""
+    """실내 · 실외. intake가 setting에서 정하고(place_for) 플래너 입력에 쓴다."""
 
     INDOOR = "INDOOR"
     OUTDOOR = "OUTDOOR"
 
 
-class Location(StrEnum):
-    """장소 칩 — 사용자는 소리·화면 같은 조건이 아니라 장소로 답한다.
+class Setting(StrEnum):
+    """지금 있는 곳(환경 칩). 사용자는 소리·화면 같은 조건이 아니라 장소로 답한다.
 
-    조건은 environment_for가 정한다.
+    Place(INDOOR · OUTDOOR)는 그대로 두고, 코드가 setting에서 Place(place_for)와 환경 조건
+    (environment_for)을 정한다.
     """
 
     HOME = "HOME"  # 집이나 혼자 있는 방
@@ -48,10 +49,7 @@ class Location(StrEnum):
 
 
 class Environment(BaseModel):
-    """활동 노드의 eligibility(needs · quiet_required · place)와 맞대는 환경 조건. None = 모름.
-
-    protocols.candidates()가 None인 조건으로는 거르지 않는다.
-    """
+    """활동 노드의 eligibility(needs · quiet_required · place)와 맞대는 환경 조건. None = 모름."""
 
     audio: bool | None = None  # 소리를 들을 수 있다 — needs AUDIO
     quiet: bool | None = None  # 조용한 곳이다 — quiet_required
@@ -59,20 +57,27 @@ class Environment(BaseModel):
     outdoor: bool | None = None  # 밖에 나갈 수 있다 — needs OUTDOORS · place OUTDOOR
 
 
-def environment_for(location: Location | None, earphones: bool | None) -> Environment:
-    """장소 칩 + 이어폰 → 환경 조건. FE와 BE가 어긋나지 않게 이 표 하나만 둔다.
+def place_for(setting: Setting | None) -> Place | None:
+    """setting → Place. 밖이면 OUTDOOR, 그 밖의 장소는 INDOOR, 모르면 None."""
+    if setting is None:
+        return None
+    return Place.OUTDOOR if setting is Setting.OUTDOOR else Place.INDOOR
+
+
+def environment_for(setting: Setting | None, earphones: bool | None) -> Environment:
+    """setting + 이어폰 → 환경 조건. FE와 BE가 어긋나지 않게 이 표 하나만 둔다.
 
     사무실·카페에서 이어폰이 있으면 소리 활동을 할 수 있다고 본다(소리가 남에게 새지 않고 주변
     소음을 막는다). 지하철·버스는 이어폰이 있어도 조용한 곳으로 보지 않는다(안내 방송 · 이동).
     장소를 모르면 전부 None이다 — intake_finish가 기본값을 정한다.
     """
-    if location is None:
+    if setting is None:
         return Environment()
-    if location is Location.HOME:
+    if setting is Setting.HOME:
         return Environment(audio=True, quiet=True, screen=True, outdoor=False)
-    if location is Location.OFFICE_CAFE:
+    if setting is Setting.OFFICE_CAFE:
         return Environment(audio=bool(earphones), quiet=bool(earphones), screen=True, outdoor=False)
-    if location is Location.TRANSIT:
+    if setting is Setting.TRANSIT:
         return Environment(audio=bool(earphones), quiet=False, screen=True, outdoor=False)
     return Environment(audio=True, quiet=True, screen=True, outdoor=True)  # OUTDOOR
 
@@ -92,14 +97,14 @@ class UserProfile(BaseModel):
 class CareRequest(BaseModel):
     """세션 시작 요청. text만 필수다.
 
-    FE 칩은 환경 조건만이다 — 장소(location) · 이어폰 · 시간. 목표와 상태는 intake가 문장과
-    대화로 추론한다. goal · place는 리허설(scripts/plan_trial.py)과 옛 FE 호환용으로 남겼다.
+    FE 칩은 환경 조건만이다 — setting · 이어폰 · 시간. 목표와 상태는 intake가 문장과 대화로
+    추론한다. goal · place는 리허설(scripts/plan_trial.py)과 옛 FE 호환용으로 남겼다.
     """
 
     text: str = Field(min_length=1, description="사용자 자연어 입력. 예: 발표 앞두고 긴장돼요")
-    location: Location | None = None  # FE 환경 칩
+    setting: Setting | None = None  # FE 환경 칩. 코드가 Place로 바꾼다(place_for)
     earphones: bool | None = None  # FE 환경 칩(토글)
     minutes_available: int | None = Field(default=None, gt=0)  # FE 환경 칩
     goal: CareGoal | None = None  # 리허설용. 있으면 목표 추론을 건너뛴다(goal_source = CHIP)
-    place: Place | None = None  # 옛 칩. location이 있으면 location이 우선
+    place: Place | None = None  # 옛 칩. setting이 있으면 setting이 우선
     profile: UserProfile = UserProfile()

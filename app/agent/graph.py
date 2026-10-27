@@ -8,9 +8,9 @@
     confirm에서 활동 변경·추가 세션을 고르면 plan으로 돌아간다(라운드 2–3회).
 
     intake_read   ① LLM — State(사용자 상태 · 사건 · 반복 단서) + 검색어   nodes/intake.py
-    intake_goal   ② 개념 정의 검색 + ③ LLM 목표 추론(S1·S2·S3)            nodes/intake.py
+    intake_goal   ③ LLM 목표 추론(S1·S2·S3, 단서표)                       nodes/intake.py
     intake_context ④ 코드 — 추천을 바꾸는 환경 칸만 묻는다                 nodes/intake.py
-    intake_ask    ⏸ 질문(시점 · 재질문 · 환경 칩)                           nodes/intake.py
+    intake_ask    ⏸ 질문(시점 · 재질문 · 환경 칩). 자유 입력이 안전 검사에 걸리면 END
     intake_finish 코드 — 기본값 · 환경 조건                                 nodes/intake.py
     measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
   ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
@@ -32,11 +32,9 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agent.context import AgentContext
-from app.agent.definitions import find_definitions
 from app.agent.nodes.evaluator import evaluate
 from app.agent.nodes.executor import prepare_session, run_session
 from app.agent.nodes.intake import (
-    DefinitionFinder,
     Intaker,
     make_intake_nodes,
     route_after_ask,
@@ -53,14 +51,10 @@ def build_graph(
     planner: Planner,
     intaker: Intaker,
     checkpointer: BaseCheckpointSaver | None = None,
-    find: DefinitionFinder = find_definitions,
 ) -> CompiledStateGraph:
-    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py).
-
-    find는 개념 정의 검색(테스트는 대역을 넣는다 — DB 풀이 없으면 원래도 빈 목록이다).
-    """
+    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py)."""
     builder = StateGraph(CareState, context_schema=AgentContext)
-    for name, node in make_intake_nodes(intaker, find).items():
+    for name, node in make_intake_nodes(intaker).items():
         builder.add_node(name, node)
     builder.add_node("measure_pre", measure_pre)
     builder.add_node("plan", make_plan_node(planner))
@@ -74,7 +68,9 @@ def build_graph(
     builder.add_edge(START, "intake_read")
     builder.add_conditional_edges("intake_read", route_after_read, ["intake_ask", "intake_goal"])
     builder.add_conditional_edges(
-        "intake_ask", route_after_ask, ["intake_read", "intake_goal", "intake_finish"]
+        "intake_ask",
+        route_after_ask,
+        ["intake_ask", "intake_read", "intake_goal", "intake_finish", END],
     )
     builder.add_edge("intake_goal", "intake_context")
     builder.add_conditional_edges(

@@ -14,7 +14,7 @@ from langgraph.types import Command
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
-from app.agent.intake_rules import DefinitionHit, GoalInference, StateReading
+from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
 from app.agent.nodes.planner import ActivityChoice, PlanRejected, check_plan
 from app.agent.nodes.replanner import route_after_confirm
@@ -27,12 +27,14 @@ from app.agent.state import (
     PlannedActivity,
     ReplanProposal,
     Round,
+    SessionEnd,
     SessionReport,
 )
-from app.schemas.care import CareGoal, CareRequest, Location, Place
-from app.schemas.evidence import InterventionOrder
+from app.schemas.care import CareGoal, CareRequest, Place, Setting
+from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import (
     GoalSource,
+    IntakeEndReason,
     IntakeQuestion,
     IntakeTurn,
     QuestionSlot,
@@ -66,7 +68,7 @@ def reading(**update) -> StateReading:
         "stress_fatigue_ambiguous": False,
         "cues": [],
         "constraints": [],
-        "location": None,
+        "setting": None,
         "earphones": None,
         "minutes": None,
         "search_query": "state anxiety tense",
@@ -81,7 +83,6 @@ def inference(goal: CareGoal, secondary: CareGoal | None = None, **update) -> Go
         "has_cues": True,
         "goal": goal,
         "secondary_goal": secondary,
-        "evidence_ids": [1],
         "reason": "-",
     }
     return GoalInference(**(base | update))
@@ -114,7 +115,7 @@ ASK_CAUSE = StateQuestionDraft(
 # 발표 앞 · 집 · 15분이 문장에 다 있어 질문 없이 측정으로 간다
 S2_READING = reading(
     order_condition=InterventionOrder.PRE_STRESS,
-    location=Location.HOME,
+    setting=Setting.HOME,
     minutes=15,
     cues=["긴장돼요"],
 )
@@ -130,23 +131,19 @@ class FakeIntaker:
         self.readings = list(readings)
         self.goal = goal
         self.read_turns: list[int] = []  # read 호출마다 넘어온 질문·답 수
-        self.goal_hits: list[list[int]] = []
+        self.goal_calls = 0
 
     async def read(self, request, turns):
         self.read_turns.append(len(turns))
         return self.readings.pop(0) if len(self.readings) > 1 else self.readings[0]
 
-    async def infer_goal(self, request, intake, hits):
-        self.goal_hits.append([h.evidence_record_id for h in hits])
+    async def infer_goal(self, request, intake):
+        self.goal_calls += 1
         return self.goal
 
 
-async def fake_find(pool, query):
-    return [DefinitionHit(1, "P12", CareGoal.S1, "Stenzel", 2025, "…")]
-
-
 def graph_with(planner, intaker):
-    return build_graph(planner, intaker, memory_checkpointer(), find=fake_find)
+    return build_graph(planner, intaker, memory_checkpointer())
 
 
 class FakePlanner:
@@ -263,7 +260,7 @@ def test_session_loops_until_user_ends(caplog):
 
 def test_s3_measures_fatigue_every_round_and_ends_without_final():
     outdoors = reading(
-        order_condition=InterventionOrder.POST_FATIGUE, location=Location.OUTDOOR, minutes=30
+        order_condition=InterventionOrder.POST_FATIGUE, setting=Setting.OUTDOOR, minutes=30
     )
     graph = graph_with(
         FakePlanner(plan("PR-11", 20)), FakeIntaker(outdoors, goal=inference(CareGoal.S3))
@@ -307,7 +304,7 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     # 발표 뒤 반복 사고 · 장소 모름 → 시점 질문 → 목표 추론(S1 + S2) → 환경 질문 → 측정
     intaker = FakeIntaker(
         reading(question=ASK_TIMING, rumination_cue=True, cues=["계속 생각나요"]),
-        goal=inference(CareGoal.S1, CareGoal.S2, evidence_ids=[1, 42]),
+        goal=inference(CareGoal.S1, CareGoal.S2),
     )
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="발표 끝났는데 계속 생각나요")})
@@ -319,14 +316,16 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     out = run(graph, answer("q1", order_condition="POST_STRESS"))
     q2 = out["__interrupt__"][0].value
     assert q2["slot"] == "context" and q2["question_id"] == "q2" and not q2["allow_free_text"]
-    assert [g["key"] for g in q2["groups"]] == [
-        "location",
-        "earphones",
-    ]  # S1은 시간이 1순위를 안 바꾼다
+    # S1은 시간이 1순위를 안 바꾼다. 이어폰은 있어요/없어요 single
+    assert [g["key"] for g in q2["groups"]] == ["setting", "earphones"]
+    assert [o["set"] for o in q2["groups"][1]["options"]] == [
+        {"earphones": True},
+        {"earphones": False},
+    ]
     assert intaker.read_turns == [0]  # 칩 답은 다시 읽지 않는다
-    assert intaker.goal_hits == [[1]]
+    assert intaker.goal_calls == 1
 
-    out = run(graph, answer("q2", location="OFFICE_CAFE", earphones=True))
+    out = run(graph, answer("q2", setting="OFFICE_CAFE", earphones=False))
     pre = out["__interrupt__"][0].value
     assert pre["measure"] == "PRE"
     assert [i["instrument_id"] for i in pre["instruments"]] == ["INS-SAM", "INS-BSRI"]
@@ -336,9 +335,12 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
         CareGoal.S2,
         GoalSource.INFERRED,
     )
-    assert intake.goal_evidence_ids == [1]  # 검색 결과에 없던 42는 버린다
+    assert intake.target_outcomes == [Outcome.RUMINATION] and intake.goal_evidence == []
     assert intake.order_condition is InterventionOrder.POST_STRESS
-    assert intake.environment.audio is True and intake.missing_slots == ["minutes"]
+    assert intake.setting is Setting.OFFICE_CAFE and intake.place is Place.INDOOR
+    assert intake.earphones is False and intake.environment.audio is False
+    assert intake.missing_slots == ["minutes"]
+    assert intake.end_reason is IntakeEndReason.SUFFICIENT
     assert [t.question_id for t in out["intake_turns"]] == ["q1", "q2"]
 
     assert not [r for r in caplog.records if "Blocked deserialization" in r.getMessage()]
@@ -346,14 +348,15 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     assert isinstance(values["intake"], IntakeResult)
     assert all(isinstance(t, IntakeTurn) for t in values["intake_turns"])
     assert values["intake_turns"][0].slot is QuestionSlot.STATE
-    assert values["intake"].location is Location.OFFICE_CAFE
+    assert values["intake"].setting is Setting.OFFICE_CAFE
+    assert values["intake"].end_reason is IntakeEndReason.SUFFICIENT
 
 
 def test_free_text_rereads_then_followup_then_goal_hint():
     intaker = FakeIntaker(
         reading(question=ASK_TIMING),
         reading(
-            question=ASK_CAUSE, stress_fatigue_ambiguous=True, location=Location.HOME, minutes=10
+            question=ASK_CAUSE, stress_fatigue_ambiguous=True, setting=Setting.HOME, minutes=10
         ),
         goal=inference(CareGoal.S2, has_cues=False),
     )
@@ -376,9 +379,39 @@ def test_free_text_rereads_then_followup_then_goal_hint():
     assert intake.order_condition is InterventionOrder.POST_FATIGUE
 
 
+def test_two_unknown_answers_start_with_default_goal_without_inference():
+    intaker = FakeIntaker(
+        reading(question=ASK_TIMING, setting=Setting.HOME, minutes=5),
+        goal=inference(CareGoal.S1),
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    run(graph, {"request": CareRequest(text="그냥 그래요")})
+    out = run(graph, answer("q1"))  # 잘 모르겠어요 → 읽기 없이 고정 재질문
+    q2 = out["__interrupt__"][0].value
+    assert q2["slot"] == "state_followup" and q2["text"] == FOLLOWUP_TEXT
+    assert q2["groups"][0]["options"][-1]["label"] == "잘 모르겠어요"
+    assert intaker.read_turns == [0]
+
+    out = run(graph, answer("q2"))  # 또 잘 모르겠어요
+    assert out["__interrupt__"][0].value["measure"] == "PRE"
+    intake = out["intake"]
+    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intaker.goal_calls == 0  # 추론을 부르지 않는다
+
+
+def test_free_text_answer_failing_safety_check_ends_session():
+    intaker = FakeIntaker(reading(question=ASK_TIMING), goal=inference(CareGoal.S2))
+    graph = graph_with(FakePlanner(), intaker)
+    run(graph, {"request": CareRequest(text="요즘 너무 힘들어요")})
+    out = run(graph, Command(resume={"question_id": "q1", "text": "다 그만두고 죽고 싶어요"}))
+    assert "__interrupt__" not in out and out["ended"] is SessionEnd.SAFETY
+    assert out["intake"].end_reason is IntakeEndReason.SAFETY
+    assert "pre" not in out and intaker.read_turns == [0] and intaker.goal_calls == 0
+
+
 def test_no_cues_starts_with_default_goal_and_bad_answers_are_rejected():
     intaker = FakeIntaker(
-        reading(location=Location.HOME, minutes=5), goal=inference(CareGoal.S1, has_cues=False)
+        reading(setting=Setting.HOME, minutes=5), goal=inference(CareGoal.S1, has_cues=False)
     )
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="그냥 그래요")})
@@ -398,7 +431,7 @@ def test_request_goal_chip_skips_inference():
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="…", goal=CareGoal.S3, minutes_available=10)})
     assert out["intake"].goal is CareGoal.S3 and out["intake"].goal_source is GoalSource.CHIP
-    assert intaker.goal_hits == []  # 추론을 부르지 않는다
+    assert intaker.goal_calls == 0  # 추론을 부르지 않는다
     assert out["intake"].minutes == 10  # 요청 칩 > 문장
 
 
@@ -464,6 +497,10 @@ def test_routes():
     assert route_after_ask({"intake_turns": [state_chip]}) == "intake_goal"
     assert route_after_ask({"intake_turns": [state_text]}) == "intake_read"
     assert route_after_ask({"intake_turns": [state_chip, context]}) == "intake_finish"
+    assert route_after_ask({"intake_turns": [state_chip], "pending_question": question}) == (
+        "intake_ask"
+    )  # 잘 모르겠어요 뒤 고정 재질문
+    assert route_after_ask({"intake_turns": [state_text], "ended": SessionEnd.SAFETY}) == END
     assert route_after_context({"pending_question": question}) == "intake_ask"
     assert route_after_context({}) == "intake_finish"
     s2 = {"intake": S2_INTAKE}

@@ -11,7 +11,7 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 재계획 → plan 순환(graph.py)에서 온다.
 
 LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
-순서 · 환경 · 시간 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
+순서 · 시간 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
 묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
 evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
 
@@ -103,9 +103,8 @@ class PlanRejected(Exception):
 def check_plan(activity: PlannedActivity, state: CareState) -> list[str]:
     """활동 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
 
-    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 환경 · 시간 범위 · 활동 변경 시 같은 프로토콜
-    금지. 후보 조회(protocols.candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을 고를 수 있어
-    따로
+    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 활동 변경 시 같은 프로토콜 금지.
+    후보 조회(protocols.candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을 고를 수 있어 따로
     둔다.
     """
     intake = state["intake"]
@@ -120,8 +119,6 @@ def check_plan(activity: PlannedActivity, state: CareState) -> list[str]:
     if not protocol.allows_order(intake.order_condition):
         allowed = [o.value for o in protocol.intervention_order]
         problems.append(f"사용자 상태 {intake.order_condition}는 허용 상태 {allowed}에 맞지 않는다")
-    if not protocol.fits_environment(intake.environment):
-        problems.append(f"{activity.protocol_id}는 지금 환경({intake.environment})에서 할 수 없다")
     duration = protocol.duration_minutes
     if duration.min is not None and activity.minutes < duration.min:
         problems.append(f"활동 시간 {activity.minutes}분이 최소 {duration.min}분보다 짧다")
@@ -158,7 +155,6 @@ def planner_context(context: AgentContext | None, state: CareState) -> PlannerCo
         goal=intake.goal,
         user_order=intake.order_condition,
         minutes_available=intake.minutes,
-        environment=intake.environment,
         content_type=state["request"].profile.content_type,
         excluded_protocol_ids=excluded_protocols(state),
     )
@@ -275,14 +271,12 @@ def make_plan_node(planner: Planner):
             session.goal,
             order=session.user_order,
             minutes=session.minutes_available,
-            environment=session.environment,
             exclude=session.excluded_protocol_ids,
         )
         if not found:
             raise PlanRejected(
                 f"{session.goal.value} 목표 · 사용자 상태 {session.user_order} · "
-                f"{session.minutes_available}분 · 환경 {session.environment}에 맞는 "
-                "검수 프로토콜이 없다"
+                f"{session.minutes_available}분에 맞는 검수 프로토콜이 없다"
             )
         by_id = {p.protocol_id: p for p in found}
         candidates = [protocols.compact(p) for p in found]

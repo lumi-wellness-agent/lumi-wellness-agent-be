@@ -13,17 +13,31 @@ from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
-from app.schemas.care import CareGoal, CareRequest, Environment, Location, Place
-from app.schemas.evidence import InterventionOrder
-from app.schemas.intake import GoalSource, IntakeQuestion, IntakeTurn
+from app.schemas.care import CareGoal, CareRequest, Environment, Place, Setting
+from app.schemas.evidence import InterventionOrder, Outcome
+from app.schemas.intake import GoalSource, IntakeEndReason, IntakeQuestion, IntakeTurn
 from app.schemas.measure import Measurement
+
+
+class GoalEvidence(BaseModel):
+    """목표 판단의 근거 하나 — 논문과 원문 문장."""
+
+    paper_id: str
+    sentence: str
+
+
+class SessionEnd(StrEnum):
+    """측정·활동 전에 세션을 끝낸 이유."""
+
+    SAFETY = "SAFETY"  # 자유 입력 답이 안전 검사에 걸렸다 → 활동 대신 도움 안내
 
 
 class IntakeResult(BaseModel):
     """intake의 결과 — Goal · State · Context. 코드가 단계마다 채우고, 점수는 추정하지 않는다.
 
     - Goal: 이번 세션에서 개선할 결과 지표(S1 반추 · S2 긴장·스트레스 · S3 주의·피로). 사용자가
-      고르는 니즈가 아니라 개념 정의 근거와 상황 단서로 추론한다. 측정 척도 · 후보 · 평가를 정한다.
+      고르는 니즈가 아니라 단서표(개념 정의 JSON이 오면 그 근거까지)와 상황 단서로 추론한다. 측정
+      척도 · 후보 · 평가를 정한다.
     - State: 지금 상황(사건 전·후 · 오래 집중한 뒤 · 계기 없음). 대화로 정하고 Goal 추론의 단서가
       된다.
     - Context: 여건(장소 · 이어폰 · 시간). 칩으로 받고, 후보 활동을 거른다(environment).
@@ -33,8 +47,9 @@ class IntakeResult(BaseModel):
     goal: CareGoal | None = None
     secondary_goal: CareGoal | None = None  # 함께 보인 다른 목표(S1·S2 혼합 등). 측정은 goal만
     goal_source: GoalSource | None = None
-    goal_evidence_ids: list[int] = []  # 판단에 쓴 개념 정의 레코드(evidence_records DEFINITION)
-    goal_reason: str | None = None  # 판단 근거 한 줄(Reference 카드 · 평가용)
+    target_outcomes: list[Outcome] = []  # 개선할 지표 — retrieval.GOAL_OUTCOMES[goal].primary
+    goal_evidence: list[GoalEvidence] = []  # 근거 paper_id와 문장. 개념 정의 JSON(②) 전에는 []
+    goal_reason: str | None = None  # 판단 이유 한 줄(Reference 카드 · 평가용)
     # State
     order_condition: InterventionOrder | None = None
     event: str | None = None  # 사건·계기 짧게(발표 · 시험공부 …). 자세히 묻지 않는다
@@ -42,14 +57,15 @@ class IntakeResult(BaseModel):
     goal_hint: list[CareGoal] = []  # 재질문 답이 가리킨 목표(스트레스 vs 피로)
     cues: list[str] = []  # 판단에 쓴 사용자 표현(최대 3개)
     # Context
-    location: Location | None = None
-    earphones: bool | None = None
-    environment: Environment = Environment()
+    setting: Setting | None = None  # 환경 칩(HOME · OFFICE_CAFE · TRANSIT · OUTDOOR)
+    earphones: bool | None = None  # 있어요 true · 없어요 false · 모름 None
+    environment: Environment = Environment()  # setting + earphones → 소리 · 조용함 · 화면 · 야외
     minutes: int | None = Field(default=None, gt=0)
-    place: Place | None = None  # location에서 정한다(OUTDOOR → OUTDOOR, 그 밖 → INDOOR)
+    place: Place | None = None  # setting에서(care.place_for — OUTDOOR → OUTDOOR, 그 밖 → INDOOR)
     constraints: list[str] = []  # 이명 · 멀미 · 눈 피로 … (문장에서 읽은 것)
     # 기타
     missing_slots: list[str] = []  # 기본값으로 메운 칸 — FE가 "소리가 나와요" 같은 안내를 띄운다
+    end_reason: IntakeEndReason | None = None  # 끝난 이유 — SUFFICIENT · MAX_TURNS · SAFETY
     summary: str | None = None  # 상태 한 줄 요약(플래너 · Reference 카드용)
 
 
@@ -175,7 +191,8 @@ class CareState(TypedDict):
     # intake 진행 — 질문과 답(쌓인다), 대기 중인 질문, 개념 정의 검색어
     intake_turns: NotRequired[Annotated[list[IntakeTurn], operator.add]]
     pending_question: NotRequired[IntakeQuestion | None]
-    search_query: NotRequired[str]
+    search_query: NotRequired[str]  # ② 개념 정의 검색어(JSON이 오면 쓴다)
+    ended: NotRequired[SessionEnd]
     pre: NotRequired[list[Measurement]]  # 세션 시작 측정(SAM + 목표 척도)
     # 이번 라운드가 비교할 측정(SAM, S3는 + MFVAS). 첫 라운드는 pre에서 고른다
     round_pre: NotRequired[list[Measurement]]

@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence seed-definitions plan-trial rag-eval parse-papers extract-excerpts
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval parse-papers extract-excerpts
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -38,12 +38,6 @@ protocols-scaffold:
 #     make seed-evidence XLSX=<워크북> ARGS="--database-url postgresql://postgres:postgres@localhost:54329/postgres"
 seed-evidence:
 	$(PY) scripts/seed_evidence.py "$(XLSX)" $(ARGS)
-
-# 개념 정의 카드(data/construct_definitions.json)의 원문 구간 → evidence_records(DEFINITION). intake 목표 추론 근거
-# 예: make seed-definitions ARGS=--dry-run
-#     make seed-definitions ARGS="--database-url <URL>"
-seed-definitions:
-	$(PY) scripts/seed_definitions.py $(ARGS)
 
 # 실제 모델로 intake → plan을 돌려 Planner가 고른 활동·검색 질의·근거를 본다(LLM 비용이 든다).
 # 근거 DB는 읽기만 하고, 없으면 .env의 DATABASE_URL. 리허설 · RAG 평가셋 질의 수집용
