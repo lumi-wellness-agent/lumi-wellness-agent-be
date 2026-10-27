@@ -12,7 +12,6 @@
 
 from typing import Literal
 
-from langgraph.graph import END
 from langgraph.types import interrupt
 
 from app.agent.nodes.planner import planner_context, search_candidates
