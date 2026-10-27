@@ -1,0 +1,1102 @@
+{
+ "E01-E1": {
+  "_source": "docling E01_2005_Curry_Can_Coloring_Mandalas_Reduce_Anxiety.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Eighty-four (55 female, 29 male) undergraduate students attending a small, Midwestern liberal arts college were solicited for participation through courses or during meals in the college cafeteria. Participants then went through an anxiety induction. They were asked to think about the time that they felt most fearful, then write for 4 minutes about that experience on a piece of 8.5\" x 11\" unlined paper. Immediately afterward, the State Anxiety Inventory was readministered in order to assess Time 2 (T2) anxiety before the coloring procedure began. The participants were then randomly assigned to one of three conditions; all participants during a particular testing session were assigned to the same condition to decrease the likelihood that participants would see that others were coloring something different than they were coloring. The mandala group (n = 30) was given an outline of a mandala (Figure 1) on 8.5\" x 11\" paper.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Followup t tests comparing the individual groups with each other showed that the mandala group had lower T3 anxiety scores than did the free-form group, t(55) = -5.27, p < .001. The plaid group was also lower in T3 anxiety than was the free-form group, t(52) = -3.85, p < .001. Results with this more sensitive variable again showed differences among the three groups, F(2,82) = 5.46, p = .006. Follow-up t tests revealed again that the mandala group showed larger decreases in anxiety than did the free-form group, t(55) = -3.07, p =.003. T3 scores were indeed significantly lower than T1 scores in the mandala group, t(29) = 2.95, p = .006; this effect approached significance in the plaid group, t(26) = 1.74, p = .09.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E03-E1": {
+  "_source": "docling E03_2026_Li_Digital_mandala_coloring_as_a_public_mental_health_tool_psychophysiolo.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were 60 university students (36 females and 24 males) ranging in age from 18 to 30 years (M = 25.67; [SD] = 3.87) who were recruited and received research credit as part of a course requirement. All participants were currently enrolled in bachelor's or higher degree programs, reported no physical or psychological disorders, and showed no evidence of significant mental health conditions or social functioning impairments. The session was a single continuous experimental session lasting approximately 40 min, including baseline assessment (T1), anxiety induction, pre-test assessment (T2), mandala coloring intervention, and post-test assessment (T3). Inducing anxiety of subjects through writing task is commonly employed in mandala coloring experiments. This method was introduced by Curry and Kasser (5), demonstrated that a 4-min writing exercise could induce changes in mood. Consequently, this study adopted the writing expression approach during the anxiety induction phase.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Repeated measures ANOVA showed that anxiety increased from T1 to T2 (t(56) = -9.05, p < 0.001, 95%CI [-17.556, -9.844]), and anxiety decreased from T2 to T3 (t(56) = 8.44, p < 0.001, 95%CI[-22.000, -11.800]). The effect of time was significant [F(2,56) = 70.373, p < 0.001, ηp 2 = 0.915]. An independent sample t-test was conducted on the flow state scores of the paper-based group and the digital group. Results indicated that the mean score and standard deviation (SD) for the paperbased group was 49.667 ± 8.910, while the digital group's mean score and SD was 55.667 ± 5.327. The difference in flow state scores between the two groups was statistically significant [t(28) = -2.239, p = 0.033 < 0.05], with the digital group demonstrating significantly higher flow state scores than the paper-based group.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E04": {
+  "_source": "docling E04_2022_St_re_The_Effect_of_Mandala_Coloring_on_State_Anxiety_A_Systematic_Review_and.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The study employed a meta-analysis of randomized and cluster randomized controlled trials comparing the effects of mandala coloring and free drawing on state anxiety in adults. Studies were included if they (1) were published in peer-reviewed journals, (2) involved both a mandala coloring intervention group and a free drawing control group, (3) used randomized or cluster randomized controlled trials, (4) included a measure of state anxiety, and (5) included adults (aged 18þ). The first screening narrowed the search to eleven relevant articles. The eleven full-text articles were read and considered for eligibility by both authors but only eight studies were included in the current review (Figure 2). All studies included a mandala coloring condition, where a pre-drawn mandala template and color pencils were provided, and a free drawing condition, where blank papers and color pencils were provided.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Coloring mandala designs was not found to reduce anxiety significantly more than free drawing did (Hedges' g = −0.16, 95% CI [−0.37, 0.04], p=0.12; 8 studies, 578 participants); see Figure 3. In the subgroup analyses, we first excluded the two cluster-randomized studies that were deemed to have a high risk of overall bias (Duong et al., 2018; Cross & Brown, 2019). Similar to the results for the full sample, the effect estimate was not statistically significant (Hedges' g = −0.19, 95% CI [−0.47, 0.09], p=0.18; 6 studies, 431 participants).",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 8
+  }
+ },
+ "E06-E1": {
+  "_source": "docling E06_2022_Trupp_Can_a_Brief_Interaction_With_Online_Digital_Art_Improve_Wellbeing_A_Co.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "To test the above questions, the study included a final sample of 84 participants (65 women, 17 men, 1 other, 1 unknown; Mage = 34.89, SD = 14.47, range = 21-74). Participants were further divided between two conditions of cultural engagement, with 40 individuals (31 women, Mage = 35.40, SD = 14.44, range = 22-74) exposed to an \"art\" condition (see below) and 44 (34 women, Mage = 34.43, SD = 14.64, range = 21-72) exposed to a \"non-art\" condition. The online cultural engagement conditions consisted of two interactive exhibitions, broadly argued to be generally thought of as \"art\" and \"non-art,\" counterbalanced between subjects. For the \"art\" condition (hereafter, \"Water-lilies condition\"), we used an exhibition of Monet's The Water-Lily Pond; An in-painting tour from the National Gallery, London (Google Cultural Institute, 2020).",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Participants in both conditions, on average, evaluated their online engagements positively, with Wilcoxon ranksum tests conducted for each variable independently revealing comparatively higher beautifulness and goodness appraisals in the Water-lilies condition (Z = −4.18, p < 0.001, and Z = −4.56, p > 0.001), whereas meaningful and desire to visit again did not show differences (Z = −1.81, p = 0.279 and Z = −2.06, p = 0.157, respectively; p-values adjusted with a Bonferroni correction for multiple comparisons; Non-parametric tests employed due to violation of normality of appraisals' distributions, see Supplementary Figure 4). On average, participants engaged with the online content for around one-and-a-half to two minutes (Water-lilies: M = 107 s, SD = 69 s, range = 11-274 s; Bento: M = 209 s, SD = 249 s, range = 10-1401 s). The analysis showed a main effect of Time {F(6,71) = 3.65, p = 0.003; ! 2 p = 0.24, 90% CI = [0.05; 0.31]} across both conditions.",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 4
+  }
+ },
+ "E07-E1": {
+  "_source": "docling E07_2023_Trupp_Who_benefits_from_online_art_viewing_and_how_The_role_of_pleasure_meanin.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The study involved 240 participants collected from the University of Vienna (Age M = 23.35 y, SD = 4.46 y, 150 identified as female, 82 as male, and eight as other). Participants were recruited using a university system that allows students to sign up for research studies as part of a requirement for undergraduate students to participate in and learn about research. The art stimulus (used by Trupp et al., 2022) consisted of an inter­ active online art exhibition entitled Monet's The Water-Lily Pond; An in-painting tour from the National Gallery, London, selected from Google Arts and Culture, an online repository of museum and art collections (About Google Cultural Institute, 2020). As our main well-being outcomes, we assessed self-reported state anxiety and mood, which are key assessments of experiential well-being. Both scales were assessed pre-and post-intervention.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Negative mood changed from M pre = 1.55 (SD = 0.62) to M post = 1.30 (SD = 0.47). Anxiety changed from M pre = 3.46 (SD = 0.63) to M post = 3.28 (SD = 0.54). We calculated the multivariate Wald sta­ tistic, F(3,237) = 24.04, p = <.001, which indicated that the combina­ tion of effects was significant from pre-to post-assessment, suggesting that the online art exhibition significantly impacted the psychological states of individuals (the interpretation of the result was unchanged following the pre-registered MANOVA, F(3,237) = 49.29, p =<.001). A post hoc Wilcoxon signed-rank test (Bonferroni corrected for multiple comparisons) indicated that while negative mood and anxiety signifi­ cantly changed (Z = − 10.38, p < .001 and Z = − 6.05, p < .001, respectively), positive mood did not (Z = − 0.98, p = .981). The AReA accounted for 12% and 16% of the variance in liking and meaning, respectively.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 3
+  }
+ },
+ "E08": {
+  "_source": "docling E08_2022_Adiasto_Music_listening_and_stress_recovery_in_healthy_individuals_A_systemati.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The present review was designed following the Preferred Reporting Items for Systematic Review and Meta-Analysis Protocols (PRISMA-P) guidelines [81]. The study selection process is summarized in Fig 1. In April 2021, we conducted a comprehensive literature search for experimental studies on the effect of music listening on stress recovery. Together, this first step resulted in 3124 articles. Following attempts to obtain missing information, the final sample for our review consisted of 14 studies. Studies must employ an experimental design including stress induction, with random assignment of participants to experimental and control conditions. Second, studies should compare music listening to silence or an auditory stimulus (e.g., white noise, audiobooks).",
+   "page": 5,
+   "coverage": 0.917,
+   "snapped": 4,
+   "dropped": 1,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Based on a meta-regression with RVE, the estimated overall effect of music listening on stress recovery was g = 0.15, 95% CI [-0.21, 0.52], t(13) = 0.92, p = 0.374. This estimate suggests that, taking all variations in music and outcomes into consideration, the effect of music listening on stress recovery is equivalent to silence or an auditory control. The overall effect of music listening on stress recovery with outlier removed was g = 0.18, 95% CI [-0.18, 0.54], t(13) = 1.08, p = 0.300. There was significant heterogeneity of effect sizes (T 2 = 0.71, I 2 = 89.29) from each study, which suggests that meaningful differences may exist among studies that could be further explored through moderator analyses.",
+   "page": 11,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E09-E1": {
+  "_source": "docling E09_2013_Thoma_The_Effect_of_Music_on_the_Human_Stress_Response.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were recruited by advertisement at the University of Zurich and the Swiss Federal Institute of Technology, Zurich (Figure 1). Sixty healthy female subjects participated in the study (age mean = 25.3 years, SD = 3.21 years; BMI (calculated as weight in kilograms divided by the square of height in meters) mean = 21.63, SD = 2.34; years of education mean = 15.3, SD = 2.56). The experiment used a between subject design to compare the effect of acoustic stimulation (independent variable) on cortisol, sAA, HR, RSA, mood, and anxiety (dependent variables). There were three conditions prior to a stress test (Trier Social Stress Test, TSST, see description below): a music condition (relaxing music listening prior to stress test, RM), a water sound condition (an acoustic control condition including listening to sound of rippling water, SW) and a control condition (non-acoustic control condition including resting without acoustic stimulation, R).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The stress protocol induced significant increases in salivary cortisol in all groups over time (F(2.48/133.74)=18.46; p<0.001; η 2 =0.255). With the inclusion of the control variables (BDI, ERQ, STAI-trait, TICS), cortisol concentrations differed significantly between groups, with highest values in the RM and lowest values in the SW (group-by-time interaction: F(5.05/116.13)=2.68; p=0.025; η 2 =0.104) (Figure 3). Single controlled group comparisons revealed a significant difference between the RM and SW groups (group-by-time interaction: F(2.33/67.6)=4.72; p=0.009; η 2 =0.140), but not between RM or SW when compared to R (all n.s.).",
+   "page": 6,
+   "coverage": 0.75,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 0
+  }
+ },
+ "E10-E1": {
+  "_source": "docling E10_2007_Lieberman_Putting_Feelings_Into_Words_Affect_Labeling_Disrupts_Amygdala_Activity_i.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Subjects completed two functional runs, with each block type appearing once per run in a counterbalanced order. The stimuli remained on the screen for the entire 5-s trial. Data were acquired on a Siemens Allegra 3-T head-only scanner. For each subject, a high-resolution structural T2-weighted echo-planar imaging volume (spin-echo; repetition time 5 5,000 ms; echo time 5 33 ms; matrix size 5 128 - 128; 36 axial slices 3 mm thick with a 1-mm skip between slices; field of view 5 20 cm) was acquired coplanar with the functional scans. During each functional scan, 126 volumes were collected. A region-of-interest (ROI) analysis was performed on the amygdala. The observe condition, compared with crosshair fixation, was used as a localizer to identify any clusters of voxels in the amygdala that were sensitive to passive viewing of emotionally evocative stimuli. A p value of .05 was used for ROI analyses.",
+   "page": 3,
+   "coverage": 0.889,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The ROI analysis, described in the Method section, identified a single cluster in the left amygdala that was sensitive to passive viewing of a single emotionally evocative image (MNI coordinates: −22, −8, −20; 127 voxels), t(29) 5 4.30, prep > .99, d 5 1.60. Each of the four label and match conditions produced increased activity in the amygdala ROI relative to the shape-match condition: affect-label, t(29) 5 2.48, prep 5 .96, d 5 0.92; affect-match, t(29) 5 4.0, prep > .99, d 5 1.49; genderlabel, t(29) 5 5.0, prep > .99, d 5 1.86; and gender-match, t(29) 5 3.05, prep 5 .98, d 5 1.13. As displayed in Figure 2, there was also less amygdala activity during affect labeling than in the other three conditions (contrast of affect-label condition vs. combination of affect-match, gender-match, and gender-label conditions), t(29) 5 2.34, prep 5 .95, d 5 0.87.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 3
+  }
+ },
+ "E11-E1": {
+  "_source": "docling E11_2005_Seligman_Positive_psychology_progress_empirical_validation_of_interventions.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "We recruited a convenience sample from among visitors to the Web site created for Seligman's (2002) book Authentic Happiness by creating a link called \"Happiness Exercises.\" The study was described on the site as an opportunity to help test new exercises designed to increase happiness. Over the course of approximately one month, we recruited 577 adult participants, 42% male and 58% female. Almost two thirds of the participants (64%) were between the ages of 35 and 54 years. Of the participants surveyed, 39% had a degree from a four-year college, and 27% had some graduate school education. Notably, only 4% of the participants did not have education or vocational training after high school, another limit on the generalizability of our findings. Consistent with their reported levels of education, approximately three fourths of the participants classified their income levels as \"average\" or above. The sample was largely White (77%).",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Two of the exercises-using signature strengths in a new way and three good things-increased happiness and decreased depressive symptoms for six months. Another exercise, the gratitude visit, caused large positive changes for one month. The two other exercises and the placebo control created positive but transient effects on happiness and depressive symptoms. Not surprisingly, the degree to which participants actively continued their assigned exercise on their own and beyond the prescribed one-week period mediated the long-term benefits.",
+   "page": 8,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E12-E1": {
+  "_source": "docling E12_2019_Tagalidou_The_effects_of_three_positive_psychology_interventions_using_online_di.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "In our study the participants had to actively and immediately cope every stress situation they experienced during the day with humor. To be able to do so, they received helpful instructions on techniques with coping humor and their application in daily life. In the evening, as they filled out the diary, they had to describe one of these situations of the day and explain how they used humor to feel better. The aim of the intervention is to train people to actively use humor to deal with everyday stress. Earlier studies found that humorous coping reduces negative emotions and supports the reappraisal of stress situations as less harmful (Samson et al., 2014; Samson and Gross, 2012).",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Although there have been found also group by time interactions for all interventions in happiness and the three funny things intervention in depressive symptoms, post-hoc tests with Bonferroni correction did not reveal significant differences between the experimental and control conditions - except for coping humor. For coping humor, an improvement in happiness with small effect size was found at follow-up (t=2.25, p=.028, r=0.29). Furthermore, there have been a difference in depressive symptoms with small effect size at post and a trend with small effect size at follow-up (post: t=-2.01, p=.049, r=0.25; follow-up: t=-1.80, p=.077, r=0.24).",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E14-E1": {
+  "_source": "docling E14_2004_Burton_The_health_benefits_of_writing_about_intensely_positive_experiences.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants in this study were 90 (24 men and 66 women) undergraduate students, who participated to gain experimental participation credit in an introductory psychology course. Mean age was 18.58 (SD = .95). Participants were randomly assigned to one of two conditions. Participants were asked to sign up for three 20-min writing sessions, over three consecutive days (though not necessarily at the same time each day). In the experimental condition, participants read the following instructions (based on Maslow, 1971). We chose MaslowÕs instructions in order to maximize the intensity and meaning associated with the positive experiences described. Think of the most wonderful experience or experiences in your life, happiest moments, ecstatic moments, moments of rapture, perhaps from being in love, or from listening to music, or suddenly ''being hit'' by a book or painting or from some great creative moment. Choose one such experience or moment.",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 1
+  },
+  "RESULTS": {
+   "text": "Results for the main effects of writing condition indicated that individuals in the IPE condition suffered significantly fewer illness after writing relative to the control group (F(1;83) = 3:35, p < .04). The means for illness visits before and after writing are shown in Fig. 1. This pattern of results (the control group apparently getting sicker while the experimental group remains health) is not uncommon in writing studies (cf., King &Miner, 2000). Indeed, these results may be taken to indicate that writing about IPEs had a buffering effect for illness, such that while students in general were likely to get sick, those in the IPE condition remained healthy.",
+   "page": 9,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 3
+  }
+ },
+ "E15": {
+  "_source": "docling E15_2025_Hoult_Positive_expressive_writing_interventions_subjective_health_and_wellbe.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "This systematic review was conducted according to the Preferred Reporting Items for Systematic Reviews and Meta Analyses (PRISMA) guidelines [21]. Population. Non-clinical adult population (18 + years). Intervention. Self-administered positive expressive writing intervention. Writing that aims to cultivate positive feelings, behaviours, or cognitions as opposed to writing that aims to reduce negative feelings, symptoms, problems, or disorders [4]. Comparison. Must have a control group (e.g., neutral writing control, non-writing control, active control, no-treatment control with pre- and post-measures). Outcomes. Subjective wellbeing, psychological wellbeing, psychological health, and physical health. Study design. Experimental design with random allocation of participants to two or more conditions.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "However, only a small number of positive writing studies were included in this review and the number of positive expressive writing studies have increased substantially since the review was published. Outcomes were heterogenous and included various measures of psychological and physical health and wellbeing. Fifteen potential moderators were identified. Of the remaining BPS interventions, findings on psychological outcomes showed enhanced optimism [23,30,33], happiness [24,33], flourishing [31], flow [32], psychological wellbeing [8], self-efficacy and self-satisfaction [33], as well as reductions in ruminative thinking [25], psychological distress [35] and self-criticism [26]. In terms of physical health outcomes, reductions in health centre visits were found at a 5-month follow-up [8].",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E16": {
+  "_source": "docling E16_2022_Sohal_Efficacy_of_journaling_in_the_management_of_mental_illness_a_systemati.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "A systematic review and meta-­analysis of the literature focused on journaling interventions to improve mental health outcomes was conducted. The following databases were searched: MEDLINE, EMBASE and PsycINFO (March 2020). Articles were included and excluded based on the criteria outlined in table 1. The effect measure was calculated by subtracting poststudy scores from baseline scores and then dividing this number by the total maximum score allocatable on the questionnaire used, to assess percentage change. A random effects linear meta-­regression analysis was performed on both the intervention and control groups. Meta-­regression, a form of moderator analysis, was used to determine sources of heterogeneity within the sample of studies and to test whether the relationship between two variables depends on (is moderated by) the value of a third variable.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The systematic review revealed 68% of the intervention outcomes were effective, with a significant difference between the control and intervention groups supporting the efficacy of journaling. The forest plot in figure 2 illustrates that following standardisation of the data there is a significant difference between control (-0.01, 95% CI -0.03 bto 0.00, p≤0.001) and intervention arms (-0.06, 95% CI -0.09 to -0.03, p≤0.001) between all groups. This 5% difference between groups is statistically significant and indicates that a journaling intervention resulted in a greater reduction in scores on patient health measures when compared with the control arm. In the PTSD subgroup, intervention scores showed a difference of 6%-0.06 (95% CI -0.09 to -0.03, p≤0.001) compared with control scores (95% CI -0.01 to 0.01, p=0.496).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E17-E1": {
+  "_source": "docling E17_2017_Richardson_Three_good_things_in_nature_noticing_nearby_nature_brings_sustained_increases.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The study was a 2 (group: nature, control) x 3 (time: baseline, post-intervention, follow-up) mixed design where self-reported scores were taken at three times, preintervention, post-intervention and follow up at two months, from participants randomly assigned to one of two groups. The control group were required to describe three factual things each day and the intervention group (referred to as the 'nature' group) had to write three good things in nature each day. This took place during the five days of a working week. Following an invite sent to campus and online students of the University of Derby and circulated by social media, 92 participants successfully completed both the weeklong intervention and the two-month follow-up, see Table 1 for breakdown. The sample at follow-up comprised 66 females and 26 males with an age range of 18 to 65 years, mean age of 32.61 years (SD = 10.28).",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "To investigate these differences more formally a mixed 2 (Group) x 3 (Time) ANOVA with group as the independent samples variable and time as a repeated measures variable was conducted on the CNS scores. Time had a statistically significant impact on CNS scores, F(1.87, 167.86) = 8.76, p < 0.01, etasquared = 0.09. Further one-way ANOVAs showed that participants change in CNS over the study week was greater for the nature group compared to the control group and this difference was statistically significant, F(1, 91) = 4.26, p = 0.04, d = 0.43. This difference in CNS change between the nature group and control group was maintained for two months and this difference was significant, F(1, 91) = 5.30, p = 0.02, d = 0.48. It was hypothesized that participants in the three good things in nature group would show improvements in psychological health compared to the control group.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E18-E1": {
+  "_source": "docling E18_2021_Keenan_Three_good_things_in_nature_a_nature_based_positive_psychological_inte.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Individuals living with depression and/or anxiety (n = 50; 39 having a diagnosis) were randomly allocated to 30 minutes walking in nature or urban environments for five consecutive days. The nature guided walks took place in a forest park/natural area for a total of thirty-minutes for five consecutive days. The urban walks were of identical duration and followed different routes each day through housing estates, town centres, a town park and main roads; the level of nature in the urban walks was much less than those in nature.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "An ANCOVA, with age as co-variate, showed a significant effect of time by condition on all variables: nature connectedness ηp 2 = .34; positive affect ηp 2 = .42; negative affect ηp 2 = .66; well-being ηp 2 = .29. Univariate ANCOVAs revealed time x condition interactions for all outcome measures: NCx (F(2,94) = 23.73, p < .001, ηp 2 = .34); PA (F(2,94) = 34.42, p < .001, ηp 2 = .42); NA (F(2,94) = 90.54, p < .001, ηp 2 = .66); and WEMWBS (F(2,94) = 19.46, p < .001, ηp 2 = .29).",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E19-E1": {
+  "_source": "docling E19_2022_Macaulay_Comparing_the_effect_of_mindful_and_other_engagement_interventions_in_nature.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were randomly allocated to one of four intervention groups that engaged in different ways during their outdoor experience: mindful engagement, directed engagement, mind wandering, and an unguided control group. The intervention for all participants was to spend 20 min in an outdoor environment. Participants in the experimental conditions (mindful engagement, directed engagement, and mind wandering) received short text instructions on their smart­ phone, at 5-min intervals, about how to engage during the experience. The unguided control group was instructed to set a timer and finish their break after 20 min. The final sample of participants that completed the preand post-test measures was 215 (Fig.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "There was a significant difference between intervention groups for state mindfulness experienced in nature, as reported in the post-test survey, while controlling for trait-level mindfulness, F(3, 198) = 2.90, p = .04, partial η 2 = .04. Pairwise comparisons revealed that the mindful engagement group had a higher level of experienced state mindfulness than the unguided control group (p < .01), but no significant difference compared with other groups (Fig. After the nature experience, there was no difference between inter­ vention groups for state-level connection with nature, while controlling for the trait-level connection with nature, F(3, 202) = 0.46, p = .71, partial η 2 = .01 (Fig.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "E20-E1": {
+  "_source": "docling E20_2026_Scott_Ground_yourself_Using_five_senses_technique_to_cope_with_test_anxiety.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants and Setting: The study took place at a public university in the Southeastern United States with an accredited undergraduate nursing program. The target population was first, second, and third semester Bachelor of Science in Nursing (BSN) students. These cohorts were selected because they represent the early stages of the nursing program, where research has shown that first-year nursing students often experience elevated levels of test anxiety (Kumar, 2022). The BSN program enrolls over 300 students across these three semesters. We invited all students in these cohorts to participate voluntarily. Our goal was to recruit approximately 100–150 students for the quantitative survey portion. Ultimately, 94 students consented and completed the baseline preintervention survey. Of those, 48 students (51.1%) also completed the postintervention survey and comprised the dataset for analysis.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 1
+  },
+  "RESULTS": {
+   "text": "Quantitative Analysis Results: For question 1: Is there a difference in mean anxiety scores before and after an exam in students who utilize the FST? There was an average decrease from before to after of 4.68 points (SD=5.14, median change = −5.5 points), which was statistically significant (p < 0.001). Results from sensitivity analyses after multiple imputation for missing data were similar (pooled md=−5.02, p < 0.001). Eleven of 48 (22.9%) had scores above 35 indicating unhealthy test anxiety at pretest compared to two of 48 (4.2%) post-test (p = 0.029). For question 2: Does the use of the FST effectively reduce anxiety levels prior to a nursing exam? Almost two-thirds (62.5%) reported \"yes\" with one-fourth (25.0%) reporting \"somewhat\". With question 3: How impactful was the practice of FST in alleviating test anxiety among nursing students? More than half (54.2%) reported FST practice was impactful in alleviating during the exam; with 27.1% saying \"somewhat\".",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 2
+  }
+ },
+ "E21": {
+  "_source": "docling E21_2026_Chen_Effectiveness_of_savoring_interventions_A_systematic_review_and_meta_a.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "This systematic review and meta-analysis were conducted in accordance with the Preferred Reporting Items for Systematic Reviews and Meta-Analyses (PRISMA) guidelines (Moher et al., 2009) (Table S2). Two independent reviewers (P.-H. Chen and J. Sie) conducted comprehensive electronic searches across PubMed, PsycINFO, Cochrane Library, CINAHL, MEDLINE, and Google Scholar, from inception till March 6, 2025. The following combination of keywords and Boolean operators were used: (\"savoring\" OR \"savouring\" OR \"savoring intervention\" OR \"savouring intervention\" OR \"savoring the moment\" OR \"savouring the moment\" OR \"three good thing*\" OR \"self-congratulations\" OR \"memory building\" OR \"positive emotion regulation\" OR \"positive life review\") AND (\"randomized controlled trial*\") AND (\"positive emotion*\" OR \"positive affect*\" OR \"well-being\" OR \"happiness\" OR \"spiritual well-being\" OR \"PANAS\" OR \"depression\" OR \"anxiety\").",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The overall pooled effect across all outcomes, presented in Table 2, demonstrated a medium and significant intervention efficacy (g = 0.51, 95% CI [0.26, 0.77], p < .001) (Figure 3). For descriptive purposes, the category-specific pooled estimates were g = 0.61 (95% CI [0.31, 0.91], p < .001) for negative emotional symptoms, g = 0.33 (95% CI [−0.01, 0.68], p = .056) for negative emotional states, and g = 0.50 (95% CI [0.24, 0.75], p < .001) for positive psychological states.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 1
+  }
+ },
+ "N14-E1": {
+  "_source": "docling N14_2010_Alvarsson_Stress_recovery_during_exposure_to_nature_sound_and_environmental_nois.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Forty university students participated in the experiment (24 women and 18 men, mean age = 27 years). The experiment consisted of three different parts: (1) One 5-min quiet baseline period, (2) five 2-min periods of testing (\"stressor\"), and (3) four 4-min periods of relaxation (\"recovery\") during exposure to one of four experimental sounds. The stressor was a two minute speeded mental arithmetic task (henceforth \"the stress test\"). During each of the four recovery periods, participants were exposed to either a nature sound or a noise. The sound pressure levels of the noises were higher, equal or lower than the sound pressure level of the nature sound. For SCL measurement two electrodes were fitted by the experiment leader to the hypothenar eminence of the non dominant hand. The SCL was measured as the conductance between the two electrodes.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The ANCOVA showed an interaction between presentation order and sound (F9,105 = 6.851, p = 0.001). The main effect of sound was significant (F3,105 = 2.731, p = 0.048). Pairwise comparisons (t-tests) showed that mean SCL was lower for Nature than High noise (p = 0.045); however, the differences between Nature and the other two noise conditions did not reach significance (p > 0.05). The high noise had the longest half life of 159.8 s, the half life of the other three were 121.3 s for ambient noise, low noise 111.4 s and nature sound 101.3 s.",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "N15": {
+  "_source": "docling N15_2013_Ratcliffe_Bird_sounds_and_their_contributions_to_perceived_attention_restoration_a.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "A volunteer sample of twenty adults (ten male and ten female) resident in South East England took part in individual semistructured interviews. The interviews were advertised as part of a study on how people felt about their surroundings. Participants were recruited through a combination of advertising online (nine participants), locally distributed flyers (one participant), and snowball sampling amongst academic networks (ten participants). Ages ranged from 22 to 74 (M = 49.54 years, SD = 18.12), and participants were recruited according to age quotas comprising at least three males and three females in each of the following age brackets: 18e44; 45e64; and 65 years or older. Semi-structured interviews were guided by a schedule of openended questions (see Appendix A). The schedule opened with a warm-up section that prompted participants to discuss their favourite place and why they liked it.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 2
+  },
+  "RESULTS": {
+   "text": "Content analysis revealed that bird songs and calls were the most commonly mentioned sounds, accounting for 35% of sounds mentioned, followed by water (24%), non-avian animals (18%), elements (12%), and other sounds such as interaction with nature and silence (11%). As such, birds seemed to be the most salient source of restorative sounds in natural environments discussed by participants, and thematic analysis was conducted on responses relating to bird sounds only. Three themes were identified as potential contributors to relationships between bird sounds and perceived restoration and stress recovery: affective appraisals, cognitive appraisals, and relationships with nature.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "N16-E1": {
+  "_source": "docling N16_2019_Van_Hedger_Of_cricket_chirps_and_car_horns_The_effect_of_nature_sounds_on_cogniti.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Sixty-five individuals participated in the experiment. Two were excluded due to task non-compliance (i.e., failing to perform one of the tasks as indicated by the instructions), leaving 63 analyzable participants (M = 20.9 years, SD = 3.87 years, range = 18-44 years, 35 female, 25 male, three non-binary/ prefer not to answer). Participants were recruited from the University of Chicago campus and surrounding community via the use of an online system (Sona Systems), in which participants read a short description of the experiment and then signed up for one of several pre-specified time slots posted by the experimenter. There were 31 participants who heard natural sounds and 32 participants who heard urban sounds. The experiment adopted a 2 (time: pre-intervention, postintervention) x 2 (soundscape: natural, urban) mixed factorial design, with time as the within-participant factor and soundscape as the randomly-assigned, between-participant factor.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "In this analysis, the main effect of time was significant (Full: F (1, 61) = 12.91, p < .001, d = 0.42, BF = 20.857; Naïve: F (1, 44) = 8.42, p = .006, d = 0.37, BF = 3.13), with participants displaying higher post-intervention compared to preintervention scores, i.e., a learning effect. Critically, there was a significant interaction between time and soundscape type (Full: F (1, 61) = 7.92, p = .007, d = 0.71, BF = 6.651; Naïve: F (1, 44) = 6.58, p = .014, d = 0.76, BF = 3.08), plotted in Fig. 1. This interaction was characterized by a greater improvement in the natural sound condition compared to the urban sound condition, and the effect size of the interaction can be interpreted as medium to large (Cohen, 1988).",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "N17-E1": {
+  "_source": "docling N17_2011_Jahncke_Open_plan_office_noise_Cognitive_performance_and_restoration.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The participants were 47 persons with normal hearing and vision recruited from the University of Gävle (27 female; mean age = 26). After 2 h of work in office noise the participants went through a restoration period for 7 min. There were four different restorative conditions: watching film clips of rivers while listening to corresponding river sounds, listening to the river sounds without the film clips, sitting in silence, or continuing to listen to the office noise from the high noise condition.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 1
+  },
+  "RESULTS": {
+   "text": "When comparing the SOFI scores from Postwork (before the restoration period) to Postrest (after restoration), the analysis revealed a significant between-subjects effect of restorative conditions on change in the ratings of lack of energy (exhaustion), F (3, 29) = 3.10, p < 0.05, partial s 2 = 0.24; and of lack of motivation (uninterested) F (3, 29) = 3.02, p < 0.05, partial s 2 = 0.24. The participants who saw the movie (including river sounds) rated themselves as having more energy (i.e., were less exhausted) in comparison with the participants listening to noise (p < 0.01) and those listening to river sounds (p < 0.05).",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 4
+  }
+ },
+ "N18-E1": {
+  "_source": "docling N18_2013_Annerstedt_Inducing_physiological_stress_recovery_with_sounds_of_nature_in_a_virtua.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Thirty healthy Swedish males with a mean age of 27.7 (SD = 6.7) were included. Each participant was now randomly assigned to one of three recovery settings (n = 10 in each group): Forest S+, recovery in a virtual forest with congruent sounds (songs and twittering of birds, and a slight murmuring of water); Forest S-, recovery in the virtual forest without sounds; and Control, that is, recovery in the lab with no forest or forest congruent sounds. The total recovery period lasted for 40 min.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The repeated measure ANOVA showed a significant main effect of CONDITION: F(6.162) = 12.95, p b .001, η 2 = .32, ε = .27, together with a quadratic [F(1.27) = 32.88, p b .001, η 2 = .55], and a cubic contrast [F(1.27) = 8.61, p = .007, η 2 = .24], indicating that cortisol increased during stress induction and then returned to baseline (Fig. Compared to the control group and the Forrest S- group, the Forest S+ group responded with increased HF magnitude across conditions, most notably at the two last recovery periods. Bonferroni pairwise post hoc test did not reveal any significant results between the groups.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "N19-E1": {
+  "_source": "docling N19_2020_Hicks_Restoration_of_sustained_attention_following_virtual_nature_exposure_U.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Two hundred students (mean age = 19.74, SD = 1.87) from the University of Waterloo participated in this study in exchange for partial course credit. Participants were randomly assigned to either the nature or the urban condition and were run in group sizes ranging from 1 to 4 participants. The SART (Robertson, Manly, Andrade, Baddeley, & Yiend, 1997) is a computer task in which participants are presented a series of digits (1-9) one at a time and must actively monitor for infrequent targets. Participants completed the 630 trials in the pre-exposure SART, then they viewed 25 images in their respective condition (i.e., either nature or urban), and finally they completed 630 trials in the post-exposure SART. The experiment was approximately 50 min in length.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "When examining the omission errors, there was a significant main effect of SART Block, F(1, 169) = 25.53, p < .001, η 2 = 0.13, such that participants made more omission errors in the post-exposure SART than pre-exposure SART. In addition, there was a significant main effect of Image Type, F(1, 169) =5.99, p = .015, η 2 =0.03, whereby participants in the Urban condition made more omission errors than those in the Nature condition.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "N20-E1": {
+  "_source": "docling N20_2015_Bratman_Nature_experience_reduces_rumination_and_subgenual_prefrontal_cortex_a.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants. Thirty-eight participants (18 female, total mean age = 26.6 y) with no current or past diagnosis of neurologic or psychiatric disorder were invited to participate in a study that measured affective and cognitive functioning before and after a walk. Each participant was randomly assigned to either a nature walk (19 participants; 8 females, mean age = 25.9 y) or an urban walk (19 participants; 10 females, mean age = 27.2 y), and each underwent our scanning procedure before and after the walk. The nature walk took place in a greenspace near Stanford University spanning an area ∼60 m northwest of Junipero Serra Boulevard and extending away from the street in a 5.3-km loop, including a significant stretch that is far (>1 km) from the sounds and sights of the surrounding residential area. The urban walk took place on the busiest thoroughfare in nearby Palo Alto (El Camino Real), a street with three to four lanes in each direction and a steady stream of traffic.",
+   "page": null,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "To analyze the impact of nature experience on self-reported rumination, we conducted a two-way ANOVA, with time as a within-subjects factor (before vs. after the walk) and environment as a between-subjects factor (nature walk vs. urban walk). This analysis revealed an interaction between time and environment [F(1,35) = 3.51, P = 0.07, η 2 p = 0.09]. There was an effect of time for the nature group [t(15) = -6.89, P < 0.0001, d = 1.01] with decreases from pre- to postwalk in the nature group, but there was no effect of time for the urban group (Fig.",
+   "page": 2,
+   "coverage": 0.6,
+   "snapped": 1,
+   "dropped": 2,
+   "repaired": 0
+  }
+ },
+ "N24": {
+  "_source": "docling N24_2024_Fan_The_effects_of_digital_nature_and_actual_nature_on_stress_reduction_A.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The inclusion criteria followed was PICOS framework format (Morgan et al., 2018). The scope of this meta-analysis was not limited to a specific location, so adults in various settings were included. Participants were included who were exposed to at least one form of digital nature exposure, such as static images, videos, 360◦ pictures, and 360◦ videos. Various subjective Perceived Stress Scale or objective physiological measures of stress, such as heart rate (Payne and Rick, 1986; Santhanagopalan et al., 2018), heart rate variability (HRV) (Aeschbacher et al., 2017; Choi et al., 2005; Lischke et al., 2018), and blood pressure (Fernandes et al., 2014) were involved while the inclu­ sion did not depend on the presence of a baseline (or blank) group. The studies within- or between-subjects design conducted in either a ran­ domized controlled trial or a quasi-experimental were included.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The effect sizes comparing the intervention group (Digital Nature) to the control group (actual Nature) for the 10 studies are shown in Fig. 2. SMD = − 0.13, (95% CI = − 0.48, 0.21), z = 0.77, and p = 0.443 > 0.05, indicating that there was no statistically significant difference between the intervention group (Digital Nature) and the control group (actual Nature). In other words, the effect of digital nature and actual nature on stress was consistent. After the heterogeneity test, it was found that I 2 = 82.7% ≥ 60% (high heterogeneity) and p = 0.000 < 0.05 for the Q-test, the results showed a substantial heterogeneity among the literature selected for this study.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 2
+  }
+ },
+ "N26-E1": {
+  "_source": "docling N26_2025_Bolzenk_tter_Impact_of_a_Momentary_Mindfulness_Intervention_on_Rumination_Negative.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Our final sample comprised 91 Australian residents, whose mean age was 29.2 years (SD = 8.99) and of whom 51.6% were female (46.2% male, 2.2% other). After initially recruiting 146 participants, 28 participants did not commence the ESM phase (due to technical reasons or voluntarily withdrawal). Additionally, 21 participants whose compliance with the ESM protocol or the intervention was low were excluded during data collection (for detailed exclusion criteria, see https://osf.io/cdaxb). Finally, after inspecting the data, we excluded six more participants with low intervention compliance who had not been previously excluded during data collection. Over the following 10 days, participants received eight ESM surveys per day scheduled between 9:00 a.m. and 8:40 p.m. following a stratified random-interval scheme (approximately one survey every 90 min).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Thus, consistent with H1, participants reported levels of rumination that were approximately 2.7 points lower (on a 0-100 scale) after completing the mindfulness intervention as compared with the active-control task. Similarly, consistent with H2, the effect of the mindfulness intervention on NA was significantly negative (see u1D6FDMINA slope), implying that participants reported levels of NA that were approximately 1.2 points lower after completing the mindfulness intervention as compared with the active-control task.",
+   "page": 9,
+   "coverage": 0.667,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 0
+  }
+ },
+ "P01": {
+  "_source": "docling P01_Attention_Restoration_Theory_Systematic_Review.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Studies were eligible for inclusion in the review if they met the following criteria: Population: Any. Intervention and comparators: Studies reporting a comparison of the effects of exposure to natural settings and other, nonnatural settings. The definition of \"natural\" included real settings (such as parks, forests, wilderness areas) and virtual settings (images or videos of similar settings). The definition of \"nonnatural settings\" included real settings (such as city centers, residential areas, parking lots) and virtual ones (images or videos of similar settings). Types of engagement with these settings included active (such as walking or running) and passive (such as looking at the view from a window). Outcomes: Objective measures of attention capacity, for example the Digit Span Forward or Backward.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The 31 included studies were from Europe, the United States, and Asia, and varied in terms of experimental design, sample characteristics, and study duration, as well as the type and extent of exposure to nature (Tables 3A to 3D). Quality scores varied from 22.5 to 75% (Table 4). Seven of the 31 included studies were classified as \"high\" quality (scoring 67-100%), while 22 were classified as \"moderate\" (scoring 34-66%) and 2 were classified as \"low\" quality (scoring 0-33%). The natural exposure groups performed significantly better than controls (Figure 2). The natural exposure groups performed significantly better than controls (Figure 3).",
+   "page": 11,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P03-E1": {
+  "_source": "docling P03_Exposure_to_Restorative_Environments.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Thirty-two undergraduate students (mean age = 23, S.D. = 3.22) at the University of Padova (Italy) took part in Experiment 1. Sixteen subjects (eight males and eight females) viewed the restorative environments, whereas the other sixteen (eight males and eight females) viewed the nonrestorative scenes. Participants were randomly assigned to conditions. The SART paradigm was used to measure participants' attentional capacity. The SART is a computeradministered paradigm that measures sustained attention (Robertson et al., 1997) and/or inhibition capacity (Manly et al., 1999). The task presents repetitive and temporally predictable stimuli (digits from one to nine) to which participants are required to respond with a key press to all stimuli except the target stimulus. Half of the participants (16: eight males and eight females) were exposed to the 25 restorative pictures whereas the other half to the 25 nonrestorative pictures.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 2
+  },
+  "RESULTS": {
+   "text": "As expected, for the restorative group, three of these comparisons yielded significant differences, and performance scores supported the hypothesis that nature scenes would be restorative and result in improved performance, for D-P, t(15) = −2:87, p = .01, for RT, t(15) = 2:29, p = .03, for CR, t(15) = −2:10, p = .04. For the nonrestorative group, these same comparisons yielded nonsignificant effects, for D-P, t(15) = −.09, p = .92, for RT, t(15) = −.91, p = .37, for CR, t(15) = .25, p = .80. The mean SART performance scores (D-P, RT, CR and IR) were calculated for Session 2 in order to perform comparisons between Sessions 1 and 2 within each group, using dependent t-tests (see Table 3). Only the mean RT differed significantly, t(30) = −2:19, p = .03, and the restorative group was faster, for D-P, t(30) = −.40, p = .68, for CR, t(30) = .32, p = .74, for IR, t(30) = .25, p = .80.",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 4,
+   "dropped": 0,
+   "repaired": 46
+  }
+ },
+ "P04": {
+  "_source": "docling P04_Nature_Exposure_Duration_Meta_Analysis.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "A systematic search strategy was devised by the research team with the assistance of independent research librarians from the University of Tasmania. The goal of the search was to capture any experiments examining changes in objective cognitive performance following expo­ sure to natural environments or stimuli. Three concepts were used to systematically search the literature: nature, cognition, and tests/tasks. These three concepts mirror the search strategy employed previously by Stevenson et al. (2018). The final list of search terms (supplementary material S1) was applied to search the titles, abstracts and keywords of articles in MED­ LINE, PsycINFO, SCOPUS, Web of Science and EMBASE databases. The literature search is current up to August 24th, 2023.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 4,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "After combination of groups to reduce double counting, a total of 273 natural vs non-natural contrasts were included in the meta-analyses. There were 39 unique cognitive tests administered across the 80 studies, yielding 123 unique cognitive outcomes. These 123 outcomes were categorised to represent 11 broad cognitive domains (see section 2.5). The most observations are seen for domains of Attentional Control (61 natural vs non-natural contrasts), Vigilance/Sustained Attention (52 contrasts) and Working Memory (51 contrasts). Less researched are In­ hibition (30), Orienting (24), Cognitive Flexibility (15) and Visual Tracking (14). Domains that have received little attention are Processing Speed (9) Creativity (8), Basic Attention Span (5) and Logic/Critical Thinking (4). Overall, effect sizes reliably favour nature conditions to a small degree (g =0.17 [0.11, 0.23], p < .001).",
+   "page": 11,
+   "coverage": 0.889,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 0
+  }
+ },
+ "P07-E1": {
+  "_source": "docling P07_Tracking_Restoration_Field_Settings.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The subjects were 112 normotensive students (20.873.7 years old; 50% female; 97% non-smokers) at the University of California, Irvine (UCI), screened for medications affecting cardiovascular function, mood, or concentration; allergies that might cause problems in the natural environment; weight within 120% of an actuarial ''ideal'' (Metropolitan Life Foundation, 1983); and, with the women, stage in menstrual cycle. The subjects were informed of the study's nature and risks before giving written consent, and they were compensated for participation. The natural environment was the Audubon Society's Starr Ranch Sanctuary, a 4000 acre vegetation and wildlife preserve in a canyon of the Santa Ana mountains adjacent to Cleveland National Forest and Caspers Regional Wilderness Park. The walk was along a well-graded dirt road, closed to the public, that runs through fields and oak-sycamore woodland in the canyon bottom (Fig.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "In contrast to the marginal effect seen in SBP and in line with Hypothesis 1, the subjects with tree views showed significantly steeper DBP declines than the subjects in a viewless room (see Fig. 4, bottom panel); for the environment - time interaction, F(2; 180) = 4:74; p = 0:01: Overall, subjects with tree views had lower DDBP values during seated treatment; for the main effect of environment, F(1; 90) = 8:94; po0:005: Environment also affected BP during the walk. As shown in Fig. 4 (top panel), mean SBP shifted upward in all of the groups between the readings at 10 and 20min, reflecting the change from a seated to a standing posture. From the reading at 20min into the treatment (and so 10min into the walk), SBP declined in the natural environment but increased in the urban environment. Thus, the SBP trends in the two environments continued to diverge as they had through the end of the seated treatment. However, after the 30-min mark the trends for all four groups converged.",
+   "page": 8,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 16
+  }
+ },
+ "P13": {
+  "_source": "docling P13_MBCT_Rumination_Meta_Analysis.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Following the PRISMA-PICOS standards, the inclusion criteria were: (i) participants (P): individuals of any age or gender were included. (ii) intervention (I): MBCT intervention. (iii) comparison (C): other intervention methods besides MBCT. (iv) outcomes (O): rumination scores served as the principal outcome, and the mindfulness, self-compassion, decentering, depression, and anxiety scores as the secondary outcomes. (v) study design (S): RCT. We performed comprehensive literature searches across multiple databases to identify relevant articles published up to December 2024. The main author collected data from each of the incorporated studies. This set of information predominantly encompassed the main investigator, publication time, sample scale, age, and sex of both the control and experimental groups, as well as the types of interventions and follow-up periods for these groups.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "This meta-analysis demonstrated that MBCT had a significant effectiveness in reducing rumination (SMD = -0.51, 95% CI = [-0.64, -0.39], z = 8.30, P < 0.001). The random-effects model was used due to study heterogeneity (I 2 = 50%, P = 0.001), with sensitivity analysis demonstrating reduced heterogeneity (I 2 = 15%, P = 0.240) [32, 42]. The therapeutic effectiveness of MBCT remained statistically significant (SMD = -0.46, 95% CI = [-0.55, -0.37], z = 9.92, P < 0.001).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P14": {
+  "_source": "docling P14_Mindfulness_Apps_Systematic_Review.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "To be included in this review, a study had to (a) be a randomized controlled trial design, (b) evaluate a mindfulnessbased mobile app, (c) assess change in one or more of our identified mechanisms using a validated, reliable measure, (d) focus on adults (≥18 years), and be (e) peer-reviewed and (f) written in English. A mindfulness-based app was defined as any app that was designed for the sole purpose of facilitating mindfulness practice. We excluded studies on Web-only or textbased interventions, as we were most interested in apps for their accessibility and scalability. To avoid sample biases, we also excluded studies of non-smartphone technology (e.g., VR, wearables, tablet apps), which are not yet widely adopted. We also excluded studies on adolescents because many mindfulness apps limit use to adults in their terms and conditions, and because some recent evidence suggests that mindfulness practice may affect adolescents differently than it does adults 25 .",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Across 28 studies, 67 outcome comparisons were made between the intervention and control group. Of these 67 comparisons, 35 (53%) revealed a between-group difference favoring the intervention group. Of the 35 between-group effects favoring the intervention group, most were found when the mindfulness app was evaluated against a passive (n=28; 65%) versus an active (n=7; 30%) control group. Effect sizes tended to be moderate to large across domains, and gains from using mindfulness apps were generally sustained at follow-up.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P15": {
+  "_source": "docling P15_Breathing_Practices_Systematic_Review.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "We included studies that considered any voluntary, regulated breathing practice as its own intervention, whether part of the treatment or control. We excluded interventions that used breath practices in combination with other interventions, such as yoga, meditation, tai chi, etc. We included interventions that used metronomes or visual/audio cues for guiding breathing pace and excluded those in which a device provided real-time biofeedback, such as data on expelled carbon dioxide (CO2), respiratory rate, heart rate variability (HRV), etc. We excluded interventions that incorporated means outside of participants' direct control to manipulate or regulate participants' oxygen or CO2 intake. We included studies where primary or secondary outcomes incorporated psychometric stress or anxiety measures, defined as those that quantitatively measure stress or anxiety by use of inventory, questionnaire, observation, or self-report.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The review included participants with clinical stress or anxiety (e.g., anxiety disorders, post-traumatic stress disorder) and non-clinical stress (e.g., healthy adults, youth, disease-specific populations). Of the 58 included studies, 7 RCTs and 0 non-RCTs received \"good\" quality ratings, 20 RCTs and 9 non-RCTs received \"fair\" ratings, and 14 RCTs and 8 non-RCTs received \"poor\" ratings (Table A2). Among the 72 included interventions, breathing practices significantly reduced stress/anxiety in 54 interventions. The framework also identifies caveats reflecting factors that may potentially reduce intervention effectiveness, such as extensive standing, repeated interruptions, involuntarily restricted diaphragmatic expansion, and inadequate training for highly technical practices.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P16-E1": {
+  "_source": "docling P16_Structured_Respiration_Practices.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were recruited from an undergraduate psychology class at Stanford University, and a few by word of mouth. The 108 participants included females and males 18 and older (refer to Table S1 for details on demographics) who could read and understand English well enough to consent, complete measures and follow instructions. For health and safety reasons, we excluded those with self-reported moderate to severe psychiatric or medical conditions that could be exacerbated by study participation, such as heart disease, glaucoma, history of seizures, pregnancy, psychosis, suicidality, bipolar disorder, or substance use disorders. Excluded also were those with vision or hearing impairment severe enough to interfere with study participation, such as reading study material and watching and listening to the instruction videos for the interventions.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Both mindfulness meditation and breathwork groups showed significant reductions in state anxiety and negative affect and increases in positive affect. The average daily change per person in positive affect was 1.22 ± 2.34 for mindfulness meditation (p = 0.06) and 1.91 ± 3.38 for breathwork groups combined (p < 0.0001, 1.89 ± 3.76 for cyclic sighing [p = 0.025], 1.84 ± 3.24 for box breathing [p = 0.026], and 1.97 ± 3.21 for cyclic hyperventilation with retention [p = 0.003], where p values are based on a paired Wilcoxon test for before and after comparisons). The average daily change per person in state anxiety was −3.95 ± 4.16 for mindfulness meditation and −3.03 ± 3.83 for all breathwork groups combined (−3.85 ± 4.88 for cyclic sighing, −3.75 ± 2.83 for box breathing, and −1.81 ± 2.97 for cyclic hyperventilation with retention [p < 0.0001 for all groups based on a paired Wilcoxon test]).",
+   "page": 3,
+   "coverage": 0.75,
+   "snapped": 2,
+   "dropped": 1,
+   "repaired": 5
+  }
+ },
+ "P16-E2": {
+  "_source": "docling P16_Structured_Respiration_Practices.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The 108 participants included females and males 18 and older (refer to Table S1 for details on demographics) who could read and understand English well enough to consent, complete measures and follow instructions. For health and safety reasons, we excluded those with self-reported moderate to severe psychiatric or medical conditions that could be exacerbated by study participation, such as heart disease, glaucoma, history of seizures, pregnancy, psychosis, suicidality, bipolar disorder, or substance use disorders. Excluded also were those with vision or hearing impairment severe enough to interfere with study participation, such as reading study material and watching and listening to the instruction videos for the interventions. Participant recruitment began on June 2, 2020, during the COVID-19 pandemic, and data collection ended on September 17, 2020. All recruitment and study participation were conducted remotely.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Both mindfulness meditation and breathwork groups showed significant reductions in state anxiety and negative affect and increases in positive affect. The average daily change per person in positive affect was 1.22 ± 2.34 for mindfulness meditation (p = 0.06) and 1.91 ± 3.38 for breathwork groups combined (p < 0.0001, 1.89 ± 3.76 for cyclic sighing [p = 0.025], 1.84 ± 3.24 for box breathing [p = 0.026], and 1.97 ± 3.21 for cyclic hyperventilation with retention [p = 0.003], where p values are based on a paired Wilcoxon test for before and after comparisons). The average daily change per person in state anxiety was −3.95 ± 4.16 for mindfulness meditation and −3.03 ± 3.83 for all breathwork groups combined (−3.85 ± 4.88 for cyclic sighing, −3.75 ± 2.83 for box breathing, and −1.81 ± 2.97 for cyclic hyperventilation with retention [p < 0.0001 for all groups based on a paired Wilcoxon test]).",
+   "page": 3,
+   "coverage": 0.75,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 5
+  }
+ },
+ "P17": {
+  "_source": "docling P17_Breathwork_Meta_Analysis.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Inclusion criteria were that studies: (1) were published in the English language, (2) included a breathwork intervention where breathwork formed 50% or more of the intervention (and home practice/self-practice, if any), (3) were RCTs, (4) included an outcome measure of self-reported/ subjective stress, anxiety, or depression, (5) included an adult participant sample 18 + years of age. For the five databases, studies with abstracts that did not include either the primary outcome keyword (stress), or a secondary outcome keyword (anxiety or depression), were excluded. For the two registers, if it was clear from the summary information that trials did not comprise the primary outcome of stress, they were excluded. The 12 studies included in the meta-analysis for the primary outcome of stress were completed from 2012 to 2021 (seven, or 60%, were conducted from 2020 onwards).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "As shown in Fig. 3, the random-effects meta-analysis (k = 12) displayed a smallmedium but significant post-intervention between-group ES, g = - 0.35 [95% CI - 0.55, - 0.14], z = 3.32, p = 0.0009, denoting breathwork was associated with lower levels of self-reported/subjective stress at postintervention than controls. There were insufficient studies including follow-up measures for a meta-analysis. Heterogeneity was moderate but non-significant, χ 2 11 = 19, p = 0.06, I 2 = 42%. Random-effects analysis for anxiety (k = 20) showed a significant small-medium between-group ES in favour of breathwork, g = - 0.32 [95% CI - 0.48, - 0.16], z = 3.90, p < 0.0001, with moderate and significant heterogeneity, χ 2 19 = 38.62, p = 0.005, I 2 = 51%. Random-effects analysis for depression (k = 18) displayed a significant small-medium ES in favour of breathwork, g = - 0.40 [95% CI - 0.58, - 0.22], z = 4.27, p < 0.0001, and heterogeneity was moderate and significant, χ 2 17 = 40.5, p = 0.001, I 2 = 58%.",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P18-E1": {
+  "_source": "docling P18_PMR_Deep_Breathing_Guided_Imagery.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants included 60 undergraduate students who participated for extra credit in an undergraduate psychology course. Sixty participants were randomly assigned to one of three stress relaxation groups (deep breathing, PMR, or guided imagery) or a control group. Participants then completed the appropriate 20-minute exercise for their assigned group. Participants in the PMR group learned how to tense and relax muscle groups to bring about a state of relaxation. All relaxation exercises were taught by recorded verbal instructions that were developed and disseminated by Dr. Jonathon Smith [25]. Once the assigned exercise was completed, participants were disconnected from the psychophysiological recording equipment, completed the follow-up relaxation self-report questionnaire, were thanked for their participation, and were dismissed.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Changes in levels of relaxation differed across the four groups, F=2.81, p = 0.048, η 2 = .14. The PMR (baseline to follow-up difference=0.42, p = 0.002), deep breathing (baseline to follow-up difference=0.68, p<0.001), and guided imagery (baseline to follow-up difference=0.79, p<0.001) groups all showed statistically significant increases from baseline to follow-up assessment. While differences between the four groups were not statistically significant at the baseline (ps >0.118), PMR (mean difference=0.43, p = 0.046), deep breathing (mean difference=0.54, p = 0.014), and guided imagery (mean difference=0.54, p = 0.015) groups were significantly higher on follow-up assessment relaxation scores compared to the control group.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 13
+  }
+ },
+ "P18-E2": {
+  "_source": "docling P18_PMR_Deep_Breathing_Guided_Imagery.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants included 60 undergraduate students who participated for extra credit in an undergraduate psychology course. Sixty participants were randomly assigned to one of three stress relaxation groups (deep breathing, PMR, or guided imagery) or a control group. Participants then completed the appropriate 20-minute exercise for their assigned group. Participants in the deep breathing group learned how to use their breathing to invoke relaxation by breathing deeply, slowly, and attending to their breath. All relaxation exercises were taught by recorded verbal instructions that were developed and disseminated by Dr. Jonathon Smith [25].",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The PMR (baseline to follow-up difference=0.42, p = 0.002), deep breathing (baseline to follow-up difference=0.68, p<0.001), and guided imagery (baseline to follow-up difference=0.79, p<0.001) groups all showed statistically significant increases from baseline to follow-up assessment. Physiological relaxation evidenced by changes in electrodermal activity is displayed in Figure 2. Changes in levels of electrodermal activity differed across the four groups, F=8.18, p<0.001, η 2 =0.31. The deep breathing, F = 7.46, p < 0.001, η 2 = 0.37, group showed a curvilinear trend where levels of electrodermal activity initially increased in the first 15 minutes and then decreased over the last 10 minutes.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 8
+  }
+ },
+ "P18-E3": {
+  "_source": "docling P18_PMR_Deep_Breathing_Guided_Imagery.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants included 60 undergraduate students who participated for extra credit in an undergraduate psychology course. Sixty participants were randomly assigned to one of three stress relaxation groups (deep breathing, PMR, or guided imagery) or a control group. Participants then completed the appropriate 20-minute exercise for their assigned group. Guided imagery participants learned how to use mental representations to bring about a state of relaxation. All relaxation exercises were taught by recorded verbal instructions that were developed and disseminated by Dr. Jonathon Smith [25]. Once the assigned exercise was completed, participants were disconnected from the psychophysiological recording equipment, completed the follow-up relaxation self-report questionnaire, were thanked for their participation, and were dismissed.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Changes in levels of relaxation differed across the four groups, F=2.81, p = 0.048, η 2 = .14. The PMR (baseline to follow-up difference=0.42, p = 0.002), deep breathing (baseline to follow-up difference=0.68, p<0.001), and guided imagery (baseline to follow-up difference=0.79, p<0.001) groups all showed statistically significant increases from baseline to follow-up assessment. Guided imagery, F=3.86, p = 0.008, η 2 =0.23, and PMR, F=13.40, p<0.001, η 2 =0.51, groups showed linear decreases in electrodermal activity throughout the relaxation exercise.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 3,
+   "dropped": 0,
+   "repaired": 12
+  }
+ },
+ "P19": {
+  "_source": "docling P19_PMR_Systematic_Review.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "This review includes publications that fit two distinct criteria: (1) Those that explore the effects of PMR on stress, anxiety, and depression in adults, either as a standalone intervention or in combination with additional intervention approaches; and (2) Studies that implement rigorous methodologies, utilizing either a Randomized Controlled Trial (RCT) or a Quasi-Experimental Design (QED). For this review, the inclusion criteria necessitate studies to includes all studies that investigate the efficacy of PMR on stress, anxiety, and/or depression symptoms, focus on experimental research, look at non-clinical cases among adults, and have been published in English language from earliest time until 28th March 2023.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Following the completion of the systematic review procedure, the reviewers identified thirty-one (31) papers concentrat­ ing on Progressive Muscle Relaxation (PMR), laying a complete framework for the synthesis and interpretation of the data. The summary of the systematic findings of the studies can be referred on Table 2. The efficacy of each outcome measures was illustrated in Figure 3. Overall, the comprehensive analysis of the PMR studies in this review reveals a spectrum of Cohen's d effect sizes, spanning from d=0.29 to d=4.57 for stress, suggesting a range from small to large impact. Similarly, the effect sizes for anxiety fall between d=0.25 and d=2.54, indicative of a spectrum from small to large, while for depression, the range of d=0.58 to d=1.95 suggests a medium-to-large effect size.",
+   "page": 14,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P20": {
+  "_source": "docling P20_Nature_Based_Mindfulness_Meta_Analysis.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The PICOS approach [37] was used to evaluate studies' eligibility. Adults and adolescents (>12 years) with or without a formal mental or physical diagnosis were included. Studies were also included if they employed other or no comparators, in which case they were then evaluated as open trials. These were any psychological (e.g., depression), physiological (e.g., heart rate), or interpersonal (e.g., prosocial orientation) outcomes based on client-level data for which an effect size could be calculated. Both open and controlled studies were evaluated. Only quantitative peer-reviewed studies reported in the English language were considered for inclusion. Means and standard deviations for all quantitative outcomes were extracted. When these were not available, other test parameters were used (e.g., F and p).",
+   "page": 3,
+   "coverage": 0.889,
+   "snapped": 1,
+   "dropped": 1,
+   "repaired": 1
+  },
+  "RESULTS": {
+   "text": "The overall combined effect size from pre- to post-treatment across outcomes and designs was significant and of medium size (g = 0.54, p < 0.001; see Table 2). Studies employing an open, non-controlled design, again across outcomes, revealed a significant effect of medium size (g = 0.66, p < 0.001); the same was true for studies with passive control groups (g = 0.58, p < 0.001). Studies using active control groups also revealed a significant effect, albeit small in size (g = 0.26, p = 0.023). When the effects from pre- to post-treatment were evaluated for individual outcomes across designs, the effect on psychological outcomes was significant and of medium size (g = 0.55, p < 0.001). The effects on social (g = 0.39, p = 0.004) and physical (g = 0.36, p = 0.011) outcomes were significant and of small size.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 5,
+   "dropped": 0,
+   "repaired": 6
+  }
+ },
+ "P21": {
+  "_source": "docling P21_Nature_Based_Mindfulness_Scoping_Review.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The inclusion criteria that guided the process of identifying relevant studies (Stage 3; Arksey & O'Malley, 2005) were as follows: scientific literature published over the past 12 years, peer reviewed studies that are in the English language, and only studies explicitly addressed nature and mindfulness. The decision to use a 12-year timeframe for including studies is based on the emergence of significant literature in the field, as identified by Djernis et al. (2019). This benchmark study did not include any publications prior to 2009, as the authors noted that the field of NBM practice, despite growing in popularity in recent years, is still in its infancy (Djernis et al., 2019).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "In total, 2,071 publications were screened after duplicates (128) had been removed. After screening titles and abstracts, 1,922 records were excluded based on those studies' foci falling outside of the current research objectives. After these exclusions, 203 full-text articles emerged that were eligible for further assessment. These were assessed in accordance with the Dixon-Woods et al. (2006) protocols for quality appraisal, and the inclusion/exclusion criteria of this study. This resulted in the exclusion of a further 173 articles, leaving a total of 30 articles that were included in this review.",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P22-E1": {
+  "_source": "docling P22_ReST_Natural_vs_Conventional_Mindfulness.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were randomly assigned to ReST or CMT in each round; however, they could not be randomized across the rounds. The overall study design therefore has two between-subjects factors: Course type (ReST, CMT) and Round (1-4). Our aims involved contrasts between the course types across the rounds while checking and controlling for any effects of Round. In Round 4, we allowed for separate analyses by recruiting larger numbers of course participants and additionally including a passive control condition with separately recruited (and so not randomly assigned) participants from the general student population. The participants provided data on the measures in focus here before and directly after the courses. The courses had one 90-min class each week over five course weeks. Each class included at least two meditation sessions of 15-30 min length, theoretical discussion, and homework consultation.",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Average improvements in FFMQ ratings (i.e., positive values) and in CFQ and PSS ratings (i.e., negative values) compared to values before the course were evident for both ReST and CMT participants, for both the completer and ITT samples, affirming our hypotheses regarding effects on dispositional mindfulness (H1a), cognitive functioning (H1b), and chronic stress (H1c). Both ReST and CMT participants' average improvements in FFMQ (i.e., positive values) and in CFQ and PSS (i.e., negative values) ratings were greater than the changes in the control group, for both the completer and ITT samples, affirming our hypotheses regarding effects on dispositional mindfulness (H2a), cognitive functioning (H2b), and chronic stress (H2c). ReST and CMT participants did not differ from each other on any of the outcomes.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P23-E1": {
+  "_source": "docling P23_ReST_Follow_Up.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Across four different rounds of data collection, we recruited 159 university students with stress or concentration problems for a study about mindfulness training (see Lymeus et al., 2020). They were informed that the study involved participation in a 5-week mindfulness course and different assessments in connection with the course, and that they could be contacted for a follow-up after 6 months. We randomly assigned them to ReST or CMT without disclosing that the study involved a contrast between training conducted in different environments. After 5 weeks, 113 participants had completed the course (ReST = 61, CMT = 52). For the follow-up, we only contacted course-completers from data collection rounds 2-4 (N = 97, see Lymeus et al., 2020) because resources for a follow-up were not yet in place at the time of round 1. Participants were contacted by the e-mail address they had provided during recruitment and asked to give an update on their progress through a short online survey.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Supporting H1a and H1b, CIs showed that 6 months after course completion, ReST participants still demonstrated, on average, sustained improvements in dispositional mindfulness (observed M = 0.32, 95% CI [0.19, 0.46]; imputed Mpooled = 0.29, 95% CI [0.18, 0.41]) and fewer cognitive lapses (M = -0.25, 95% CI [-0.43, -0.07]; imputed Mpooled = -0.21, 95% CI [-0.39, -0.04]; see Figure 2). Contrary to H1c, however, there was no sustained reduction in perceived stress (M = -0.15, 95% CI [-0.34, 0.03]; imputed Mpooled = -0.14, 95% CI [-0.31, 0.03]). CMT participants demonstrated, on average, fewer cognitive lapses (M = -0.32, 95% CI [-0.52, -0.12]; imputed Mpooled = -0.29, 95% CI [-0.48, -0.11]) but not improved dispositional mindfulness (M = 0.12, 95% CI [-0.03, 0.26]; imputed Mpooled = 0.11, 95% CI [-0.03, 0.25]) or reduced perceived stress (M = -0.14, 95% CI [-0.35, 0.06]); imputed Mpooled = -0.14, 95% CI [-0.35, 0.07].",
+   "page": 8,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P24-E1": {
+  "_source": "docling P24_Default_Mode_Network_Natural_Viewing.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "A total of 131 healthy university students (33 men and 98 women; aged 18– 28 years) were recruited, with 49 of them (18 men and 28 women) further randomly selected and invited to undergo fMRI while performing behavioral tasks 1 month later. Participants were then randomized to either the nature image viewing group (n = 68) or the city image viewing group (n = 63), with 49 participants (NG = 26, CG = 23) were randomly selected and invited to undergo fMRI while performing behavioral tasks one month later. b The experimental paradigm. After a 15-min interval between the subjective ratings, participants underwent salivary cortisol measurement. Then, they completed the Trier Social Stress Test (TSST) to induce psychological stress. Participants engaged in an image viewing task, where they viewed either nature images or city images. Each participant viewed a total of 30 images, each displayed for 20 s.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 1
+  },
+  "RESULTS": {
+   "text": "After participants viewed the images, all subjective rating scores (R2) were significantly changed in NG (p < 0.001) except for salivary cortisol levels, while subjective rating scores and salivary cortisol levels (R2) were also significantly changed in CG (p ≤ 0.001), except for negative affect. These results suggest that nature viewing has a recovery effect on affect and state rumination after stress.",
+   "page": 5,
+   "coverage": 0.667,
+   "snapped": 0,
+   "dropped": 1,
+   "repaired": 0
+  }
+ },
+ "P25-E1": {
+  "_source": "docling P25_Psychophysiological_Recovery_Multisite_Replication.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Each lab was asked by the coordinating lab to recruit between 80 and 120 participants through local channels such as email, newspaper advertisements, university participant pools, and flyers. Incentives included course credits or small financial compensation. Inclusion criteria were broad: participants had to be at least 17 years old, able to provide informed consent, and free from health restrictions that would interfere with participation. After exclusion of participants with protocol violations (see Table A2), 941 participants were included in the psychological analyses and 858 in the physiological analyses. Out of 1039 initial volunteers, technical issues reduced baseline completion to 978. After additional withdrawals and technical failures, the final sample consisted of 959 participants (49 percent female, mean age 22.4 years, range 17-55), randomly assigned to six environmental conditions.",
+   "page": 4,
+   "coverage": 0.923,
+   "snapped": 0,
+   "dropped": 1,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Across conditions, positive affect increased significantly during recovery, Mdif T2_T3 = .65, 95% CI [.64, .70], with the largest increase observed in the nature condition, followed by the pedestrian condition, and the smallest increase in the traffic condition. Anger/ aggression showed a similar but less pronounced pattern, with a general decrease across conditions, Mdif T2_T3 =-.68, 95% CI [-.73, -.63], and the largest decrease in natural settings, followed by the pedestrian condition, and the smallest decrease in the traffic condition. Fear, Mdif T2_T3 =-1.38, 95% CI [-1.46, -1.30], and sadness, Mdif T2_T3 =-1.47, 95% CI [-1.54, -1.39], generally decreased, with no statistically significant differences between conditions. Follow-up checks did not reveal any significant differences in recovery in ZIPERS scores between individual conditions within the three collapsed environmental conditions, ps ≥ .062 and ηp 2 ≤ .011.",
+   "page": 8,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P28-E1": {
+  "_source": "docling P28_Nature_Scenes_Autonomic_Recovery.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants and Design. Ethical approval from the University ethics committee was granted, and participants (n = 25, 7 males, 18 females) were recruited from University support staff who were independent from the research group conducting the study. Informed consent was obtained from all participants who ranged in age from 19 to 65 years (mean ± SD, 36.08 ± 10.42), with stature 169.05 ± 7.33 cm (mean ± SD) and mass 71.66 ± 13.11 kg (mean ± SD). The study was a within-subject randomized crossover design with all participants visiting the laboratory on two occasions one week apart. Each visit consisted of viewing one of two different groups of slides before being exposed to a mental stressor. Participants were randomly assigned an order to either view the built scenes first or the nature scenes first. Following the period of rest, participants viewed a set of slides (either nature or built environment scenes) for a 10 min period.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "For the primary research question, repeated measures ANOVA revealed an interaction effect for RMSSD between the nature condition and the built condition over time (F1, 22 = 8.72, p = 0.007, ηp 2 = 0.28). This demonstrates increased levels above baseline during recovery for the nature condition compared to recovery in the built condition (Figure 2) where levels dropped below baseline. Repeated measures ANOVA on SDRR determined a main effect of view (F1, 22 = 11, p = 0.003, ηp 2 = 0.33) and time (F1, 22 = 7.7, p = 0.011, ηp 2 = 0.26), with levels increasing during recovery irrespective of view and higher SDRR in the nature condition irrespective of time.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P31-E1": {
+  "_source": "docling P31_2019_Holt_Cognitive_and_Affective_Benefits_of_Coloring_user_manuscript.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants. Forty-seven year one undergraduate psychology students (36 females) with a mean age of 20.62 (ranging between 18 and 37) were recruited through opportunity sampling. Participation was not compulsory, rewarded or part of assessment on the module. Participants were randomized to either read or color for twenty minutes (n = 25 completed reading first). Following this, they completed the self-report measures again, and rated ten abstract images according to the emotions they appeared to represent. Participants then participated in the crossover condition (reading or coloring) for twenty minutes. Finally, they completed the self-report measures and rated another ten abstract images.",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Significant differences across Condition were found for both state anxiety (STAI) (F1,51 = 26.388, p < .001) and mindfulness (MAAS) (F1,51 = 13.770, p < .001) (mean scores can be seen in Table 3 along with post hoc statistics). Post hoc analyses demonstrated that state anxiety was significantly lower after coloring compared with the control condition and mindfulness was significantly higher. Anxiety was also significantly lower after coloring than at baseline and mindfulness increased significantly.",
+   "page": 12,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P32-E1": {
+  "_source": "docling P32_2018_Drew_Colouring_in_a_Distraction_Technique_thesis.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The study was a mixed (3 x 3) experimental design, with condition as the between-subjects factor (distraction, colouring-in, rumination) and time as the repeated measures factor (baseline, post-stressor, post-manipulation). An undergraduate student sample (N = 90) was randomly assigned to one of three experimental conditions. Participants completed the State Rumination Questionnaire (SRQ) and Positive and Negative Affect Schedule (PANAS) to measure the impact of the stressor and the effects of each experimental condition. Participants were randomly assigned to one of the three experimental conditions: (1) colouring-in (n = 30); (2) drawing distraction (n = 30) and; (3) written rumination (n = 30). Participants' state rumination and negative affect (dependent variables) were measured before the stressor and before and after each of the manipulation tasks.",
+   "page": 65,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Participants showed a significant increase in negative affect (p <. 001) and state rumination (p <. 001), and a significant reduction in positive affect (p <. 001). Participants in the colouring-in and distraction condition experienced a significantly greater improvement in negative affect than participants in the rumination condition (p = .001). An independent samples t-test using residualised change scores for postmanipulation negative affect in the rumination condition (M = 1.64, SD = 4.19) to the colouring and object imagination distraction conditions combined (M = -0.82, SD = 2.33) found a significant difference, t = 3.57, p = .001, Cohen d = 0.72.",
+   "page": 65,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P33-E1": {
+  "_source": "docling P33_2018_Golding_Effects_of_Exposure_to_Images_of_Nature_on_Rumination.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants were randomly allocated to one of three conditions: nature (n = 18), urban (n = 20), control (n = 20). Participants were asked to imagine they had come for a job interview, and were advised they would be given three minutes to prepare for a five-minute presentation, the purpose of which was to explain why they were the best candidate for the job. Participants were advised that after their presentation they would be given feedback on their performance. Following this, a rumination induction took place. This consisted of a presentation task, followed by a period of reflection; a similar task has been used in previous studies of rumination [55,56]. Participants completed post-presentation measures of positive mood, negative mood, and state rumination (this also served as a mood manipulation check).",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Changes in state rumination were tested using a mixed (Time x Condition) ANOVA. There was no significant main effect of environment on changes in state rumination, F(2,55) = 0.27, p = 0.77. There was, however, a significant main effect of time on changes in state rumination, F(1,55) = 71.00, p < 0.001, partial η 2 = 0.56, which represents a large effect size; state rumination significantly reduced from post-presentation to post-manipulation across all three conditions (see Figure 3). A one-way independent ANOVA was used to test whether fascination differed between conditions. Fascination was significantly affected by environment, F(2,55) = 17.82, p < 0.001, partial η 2 = 0.39 (see Figure 6). Post hoc tests (Tukey) showed that fascination was significantly higher in the nature condition compared to both the urban, p < 0.001, d = 1.65, and control conditions, p < 0.001, d = 1.58, which represent large effects.",
+   "page": 10,
+   "coverage": 1.0,
+   "snapped": 2,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P34-E1": {
+  "_source": "docling P34_2022_Xi_Art_Coloring_Online_Coloring_Game_Well_Being_and_Anxiety.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "The participants in this study were existing players of the game. In the study, Daily Push sent the 4 intervention coloring pictures mixed with 4 irrelevant pictures to players on schedule, following the group round order of awe, pink, nature, and blue (Figure 2); 1 group of pictures for 4 days was defined as 1 round of coloring. Every day, all players were free to choose and color the intervention images or irrelevant images (that do not have any of the 4 elements) and provide feedback through the Polls for Pages questionnaire embedded in Daily News. The procedure is shown in Figure 3. The participants' SWB and anxiety and the perceived effectiveness of the game in reducing anxiety (subjective effectiveness [SE]) of the participants were measured immediately after each round and right after the intervention. Self-report questionnaires were administered at baseline (T1), after each round of coloring was completed (T2-T5), and right after the intervention (T6).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Players' scores in the GI group showed a significantly larger increase in SWB compared to the GC group (N=164, t162=3.59, Cohen d=0.59, 95% CI 0.36-1.24, P<.001). In the pink round, 149 (60%) participants completed baseline and postround assessments. Of these, 84 (56%) participants in the intervention group reported a significantly greater decrease in SWB than those in the control group (N=149, t147=-2.36, Cohen d=-0.40, 95% CI -0.62 to -0.05, P=.02). In the nature round, 128 (52%) players completed baseline and postround assessments.",
+   "page": 5,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P37-E1": {
+  "_source": "docling P37_2003_Laumann_Selective_attention_and_heart_rate_responses_to_natural_and_urban_envi.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Twenty-eight female undergraduate students (age range 18-24 years) gave their informed consent and participated in return for the equivalent of about $13. They were randomly assigned to either a natural or an urban environment group. Upon arrival at the laboratory, the subject was seated in an armchair in an isolated cubicle, and the EKG electrodes were attached. After waiting some minutes, baseline measurement began. In the baseline phase the subject was instructed to relax for a 10-min period. In the following mental load phase, which lasted for 15min, the subject was presented with a series of proofreading tasks. Then she completed the attentionorienting task (Posner, 1980; Posner et al., 1982), in which the spatial locations were designated by two rectangles, each with a single frame presented in the left and right visual field, respectively, at a horizontal distance of 61 visual angle from the central fixation point on the computer screen (see Fig. 2).",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The ANOVA on difference scores (subtracting the mean IBIs for each period from the baseline mean) yielded a marginally significant effect of group, F(1; 26) = 3:82; p = 0:06; a significant main effect of period, F(3; 78) = 46:15; e = 0:608; po0:001; and a significant group by period interaction, F(3; 78) = 8:46; e = 0:608; po0:001: As Fig. 3 shows, the nature group had longer IBI (lower HR) during the video compared to the urban group, F(1; 26) = 11:40; po0:01: For the nature group IBI increased significantly during the video as compared to both the mental load phase, F(1; 26) = 53:38; po0:001; and the pre-video attention-orienting task, F(1; 26) = 18:38; po0:001: Mean IBI was also significantly longer during the postvideo attention-orienting task compared to the mental load phase, F(1; 26) = 54:49; po0:001: The absolute scores showed that the IBI was longer during the video than during the baseline, F(1; 26) = 19:18; po0:001:",
+   "page": 6,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 27
+  }
+ },
+ "P38-E1": {
+  "_source": "docling P38_2018_Lymeus_Building_mindfulness_bottom_up_Meditation_in_natural_settings_supports.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Eligible individuals who provided informed consent to participate were stratified by gender and randomly assigned to either ReST or CMT within each round of data collection. Altogether, 101 participants were enrolled (median age = 23 [range 18-61]). Twelve of the assigned participants withdrew from the study before the first class or never showed up; 42 participants (26 women) began the ReST course (round 1 n=9, round 2 n=14, round 3 n=19), and 47 participants (31 women) began the CMT course (round 1 n=10, round 2 n=15, round 3 n=22). In each round of data collection, the five weekly ReST and CMT classes were held in the late afternoon, a design element that supports the expectation that the participants would come to each class with some potential for restoration of resources that had been depleted in meeting the days' demands (cf. The design involved assessments before and after the ReST and CMT classes on weeks 1, 3, and 5 of the courses.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "On average across the measures obtained on weeks 1, 3, and 5, participation in the meditation classes was attended by increase in LDST scores (Time F [1,45]=28.23, p < .001, ƞp 2 =0.385), which was similar in ReST and CMT (Course×Time F[1,45]=1.22, p=.274, ƞp 2 =0.026). However, the change with the classes differed between ReST and CMT participants across classes 1, 3, and 5, for the quadratic trend (Course×Week×Time F[1,45]=5.15, p=.028, ƞp 2 = 0.103); the change patterns apparently diverged on week 5 when ReST participants but not CMT participants appeared to improve further. ANCOVAs controlling for the LDST score before the class showed that change with the given class was similar for ReST and CMT participants on week 1 and week 3. However, ReST participants' LDST scores improved more with class 5 than CMT participants'.",
+   "page": 7,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P39-E1": {
+  "_source": "docling P39_2019_Lymeus_A_natural_meditation_setting_improves_compliance_with_mindfulness_trai.pdf · gpt-4o-mini · 2026-10-27",
+  "_confidence": "HIGH",
+  "METHODS": {
+   "text": "Participants had to study ≥75% of full time, experience stress or concentration problems, and have little or no meditation experience. A screening interview excluded those with relevant disorders (Dobkin, Irving, & Amar, 2012) or ongoing treatments. Participation was free. Participants could drop out at any time without facing further requests or consequences. They were, however, promised three cinema tickets if they completed the course and all measurements. The research was approved by the regional ethical review board (registration number: 2013/033) and adhered to the Declaration of Helsinki. Participants were stratified by gender and randomly assigned to ReST or CMT within each data collection round. Altogether, 159 participants were assigned. Seventeen withdrew before the first class. The available data therefore come from 139 participants: 68 who started ReST (44 women; median age=24) and 71 who started CMT (49 women; median age=23) (Fig.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 1,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "Of the 68 participants who started ReST, seven (10%) dropped out. Of the 71 participants who started CMT, 19 (27%) dropped out: a significant difference (χ 2 [1]=6.19, p=.013, φ = .211). In line with H1a, course completion was therefore higher with ReST. The analysis showed that on average, both ReST and CMT participants completed about seven homework exercises per course week (ReST M=7.03 [CI: 6.22, 7.83], CMT M=7.29 [CI: 6.38, 8.20]; Table S1 gives descriptive statistics per course week and round). However, a pronounced linear trend of decline over the course weeks differed between the ReST and CMT participants (Week linear trend: F[1,100]=16.30, p < .001, ηp 2 = .140; Course type x Week linear trend: F[1,100]=4.79, p=.031, ηp 2 = .046). In line with H1b, homework completion was therefore more sustained with ReST.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ }
+}

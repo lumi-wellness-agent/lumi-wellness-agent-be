@@ -190,6 +190,12 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
    다시 돌려도 (`paper_id`, `experiment_id`, `section`, `chunk_idx`)가 같으면 갱신만 해 id가 유지됩니다.
    활동 노드 JSON의 `evidence_record_ids`가 이 id를 가리키므로 행을 지우고 다시 넣지 않습니다. 사람이
    원문으로 확정한 값은 `data/evidence_overrides.json`에 적고 다시 돌립니다(`data/README.md`).
+
+   content는 `data/evidence_excerpts.json`에 발췌가 있는 레코드는 논문 원문 METHODS · RESULTS 구간, 없는
+   레코드(미확보 논문 등)는 시트 요약입니다(`--no-excerpts`면 전부 요약). 발췌를 다시 만드는 순서는
+   `make parse-papers ARGS="--with-records"`(Docling, `.[ingestion]` extras, 캐시는 Research_paper 비공개
+   저장소의 `01_fulltext/`) → `make extract-excerpts XLSX=$XLSX`(LLM이 고르고 본문 문장으로 맞춤, 검토 목록
+   `evidence_excerpts_review.csv`) → `make seed-evidence`입니다. 전후 비교는 「근거 검색 평가」로 합니다.
 5. `make run` 후 `GET /health/db`로 연결, 확장(pgvector·pg_trgm) 설치, 체크포인트 테이블을 확인합니다.
 
 | 연결 방식 | 포트 | 네트워크 | 쓰는 곳 |
@@ -243,16 +249,23 @@ keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)을 내고, `
 비교합니다. content를 바꿔 다시 적재하기 전후에 돌립니다. `build`는 `data/protocols/*.json`에서 케이스를 다시
 만듭니다(`evidence[]`가 바뀌면 다시 만듭니다).
 
-2026-10-27 기준선(content = 근거 arm 시트 요약 122 chunk, text-embedding-3-small, lumi-pg와 Supabase 동일):
+2026-10-27 측정(text-embedding-3-small, lumi-pg). '요약'은 content가 근거 arm 시트 요약 122 chunk일 때,
+'원문'은 레코드 55개(chunk 110개)를 논문 원문 METHODS · RESULTS 발췌로 바꾼 뒤(`data/evidence_excerpts.json`)다.
 
-| group (hybrid) | n | Hit@5 | Recall@5 | MRR |
+| group · 방식 | n | Hit@5 요약 → 원문 | Recall@5 요약 → 원문 | MRR 요약 → 원문 |
 | --- | --- | --- | --- | --- |
-| planner | 9 | 1.000 | 0.867 | 1.000 |
-| template | 21 | 1.000 | 0.875 | 0.863 |
-| open | 21 | 0.714 | 0.558 | 0.648 |
+| planner · hybrid | 9 | 1.000 → 1.000 | 0.867 → 0.889 | 1.000 → 1.000 |
+| template · hybrid | 21 | 1.000 → 1.000 | 0.875 → 0.861 | 0.863 → 0.875 |
+| open · hybrid | 21 | 0.714 → 0.714 | 0.558 → 0.496 | 0.648 → 0.546 |
+| open · dense | 21 | 0.714 → 0.762 | 0.558 → 0.647 | 0.648 → 0.690 |
+| planner · keyword | 9 | 0 → 1.000 | 0 → 0.911 | 0 → 1.000 |
 
-keyword 방식은 세 묶음 모두 0입니다 — content가 한국어 요약이라 영어 질의 낱말이 걸리지 않아, 지금의 hybrid는
-dense와 같습니다. 원문 구간으로 바꾸면 keyword가 살아나는지, `open`의 Recall@5가 오르는지가 비교 지점입니다.
+- 요약일 때 keyword는 세 묶음 모두 0이었다 — 한국어 요약에 영어 질의 낱말이 걸리지 않아 hybrid가 곧 dense였다.
+  원문으로 바꾸자 keyword가 살아났고, 플래너가 실제로 쓰는 필터 경로(planner · template)는 같거나 나아졌다.
+- 필터 없는 `open`에서는 dense가 오르고 hybrid가 내렸다. 아직 약한 keyword 순위가 RRF에서 dense 순위를 흐린다 —
+  RRF 가중치(또는 keyword 후보 수) 조정이 다음 실험이다.
+- 같은 날 `make plan-trial ARGS="S1 S2 S3"`는 요약 · 원문 모두 S1 → PR-09, S2 → PR-06, S3 → PR-01을 골랐다.
+  계획 한 번의 입력 토큰은 3.9~5.6천에서 4.9~6.4천으로 늘었다(추천 이유 프롬프트의 발췌가 길어짐).
 
 ## 배포 (Vercel)
 
@@ -333,18 +346,21 @@ app/
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드
 ├─ content/             이미지 · 안내 문구 (Executor가 쓴다)
-├─ ingestion/           Offline 근거 구축 — 수집 · 파싱 · 추출
+├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
 data/
 ├─ protocols/           활동 노드 JSON 21개 (PR-01 완성 예시, 나머지 초안)
 ├─ instruments/         측정 도구 3개 (SAM · STAI-6 · BSRI)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
+├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
 ├─ manifest.csv         논문 82편 매니페스트
 └─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
+scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling(make parse-papers)
+scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
