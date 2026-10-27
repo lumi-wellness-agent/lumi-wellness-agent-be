@@ -9,6 +9,10 @@ records(필수)는 세션 기록 — 상황 분류 · 질문 답 · 측정값 ·
 처음 입력과 직접 쓴 답 등을 text_retention_days일 동안 남긴다. false로 바꾸면 남긴 원문을 바로
 지운다. 동의 문구는 FE에 있고 BE는 버전(records.CONSENT_VERSION)만 맞춘다.
 
+게스트(익명 로그인)는 동의를 받지 않는다 — 내용을 기록하지 않는 1회성 체험이라 PUT은 403
+(MEMBERS_ONLY)이다. FE는 게스트 시작 화면에 동의 대신 고지 한 줄을 띄운다(README 「인증 · 세션
+기록」).
+
 탈퇴는 Supabase Auth의 사용자 행(auth.users)을 지운다. 로그인 세션도 함께 지워져 같은 토큰은 바로
 401(SESSION_REVOKED)이 된다. FE는 204를 받으면 브라우저에 남은 세션을 지우고 첫 화면으로 간다.
 """
@@ -41,27 +45,29 @@ def _store(request: Request) -> SessionStore:
     return store
 
 
-def consent_view(consent: Consent | None, retention_days: int) -> dict:
+def consent_view(consent: Consent | None, store: SessionStore) -> dict:
     return {
         "version": records.CONSENT_VERSION,  # 지금 받는 동의 문구 버전
         "agreed": consent is not None and consent.current,  # 세션을 시작할 수 있다
         "agreed_version": consent.version if consent else None,
         "raw_text": bool(consent and consent.raw_text),
-        "text_retention_days": retention_days,
+        "text_retention_days": store.retention_days,
     }
 
 
 @router.get("/consent")
 async def get_consent(request: Request, user: CurrentUser) -> dict:
     store = _store(request)
-    return consent_view(await store.consent(user.id), store.retention_days)
+    return consent_view(await store.consent(user.id), store)
 
 
 @router.put("/consent")
 async def put_consent(body: ConsentBody, request: Request, user: CurrentUser) -> dict:
+    if user.anonymous:
+        message = "게스트 체험은 기록하지 않아 동의를 받지 않습니다. 로그인한 뒤 동의하세요."
+        raise HTTPException(403, {"code": "MEMBERS_ONLY", "message": message})
     store = _store(request)
-    consent = await store.save_consent(user.id, body.raw_text)
-    return consent_view(consent, store.retention_days)
+    return consent_view(await store.save_consent(user.id, body.raw_text), store)
 
 
 @router.delete("", status_code=204)

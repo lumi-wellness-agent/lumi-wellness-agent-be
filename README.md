@@ -199,7 +199,8 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 | code | 상태 | 언제 |
 | --- | --- | --- |
 | `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
-| `CONSENT_REQUIRED` | 403 | 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
+| `CONSENT_REQUIRED` | 403 | 회원이 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
+| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` — 게스트 체험은 기록하지 않는다 |
 | `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
 | `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
@@ -224,9 +225,31 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 
 FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰을 모든 세션 API 요청에
 `Authorization: Bearer <토큰>`으로 붙입니다. BE는 `SUPABASE_URL` 프로젝트의 공개 키(JWKS, ES256)로 서명을
-검증하고 만료 · `aud`(`authenticated`) · `iss`를 보며, `sub`가 사용자 ID(`auth.users.id`)입니다. 익명 로그인
+검증하고 만료 · `aud`(`authenticated`) · `iss`를 보며, `sub`가 사용자 ID(`auth.users.id`)입니다. 대칭 키(HS256)
 토큰은 받지 않습니다. `SUPABASE_URL`이 비어 있으면 세션 API는 인증 없이 열리지 않고 503입니다. 세션은 만든
 사용자만 보고, 남의 세션은 없는 세션과 같은 404입니다.
+
+**비로그인(게스트 체험).** 로그인하지 않은 사용자는 기록을 남기지 않는 1회성 체험으로 씁니다. 사용자에게는
+로그인 화면이 없고, Supabase 익명 로그인으로 `auth.users`에 익명 사용자(`is_anonymous`)가 생겨 토큰 검증 ·
+소유자 확인은 회원과 같습니다.
+
+| | 회원 | 게스트 |
+| --- | --- | --- |
+| 시작 | 소셜 로그인 → 동의 화면 → `POST /sessions` | `supabase.auth.signInAnonymously()` → 바로 `POST /sessions`. 동의 화면 대신 고지 한 줄 |
+| 서버에 남는 것 | 세션 기록 · 라운드 · (동의하면) 원문 | 세션 행에 주인과 진행(`step` · 끝난 이유 · END payload)만. 분류 값 · 칩 · 측정값 · 라운드 · 원문은 쓰지 않는다 |
+| 지우는 때 | 탈퇴(`DELETE /me`) · 원문 기한 | 하루(`GUEST_RETENTION_DAYS`) 동안 쓰지 않으면 정리 작업이 사용자째 지운다 |
+| 로그아웃 · 탈퇴 화면 | 있다 | 없다 |
+
+- 고지 예: "체험 내용은 기록으로 남기지 않으며, 진행에 쓴 데이터는 1~2일 안에 지워집니다." 페이지를 나가는 순간
+  지우는 것은 브라우저가 보장하지 않아, 남은 행과 체크포인트는 매일 도는 정리 작업이 지웁니다. 입력이 OpenAI로
+  간다는 것은 회원과 같이 처리방침에 밝힙니다.
+- FE는 게스트 세션을 `sessionStorage`에 둡니다(supabase-js `auth.storage`) — 탭을 닫으면 체험이 끝납니다.
+- 게스트는 `PUT /me/consent`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜 로그인으로 회원이
+  됩니다(게스트 체험은 이어지지 않습니다).
+- 쓰지 않았다는 것은 만든 지, 로그인 세션을 갱신한 지, 세션 행을 쓴 지 모두 그 기간이 지났다는 뜻입니다.
+
+Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은 IP마다 횟수 제한(Rate Limits)이 있으니
+시연장에서 여럿이 같은 Wi-Fi로 들어오면 미리 올립니다.
 
 서명이 맞아도 로그인 세션이 끝났으면 거절합니다(401 `SESSION_REVOKED`). 토큰의 `session_id`를 같은 DB의
 `auth.sessions`에서 요청마다 기본키로 확인합니다 — 로그아웃 · 다른 기기 전체 로그아웃 · 탈퇴하면 Supabase가
@@ -239,8 +262,8 @@ FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰
 그 사용자의 체크포인트도 지웁니다. 되돌릴 수 없으니 FE가 확인 화면을 띄우고, 204를 받으면 브라우저에 남은
 세션을 지우고(`supabase.auth.signOut({ scope: "local" })`) 첫 화면으로 갑니다.
 
-동의는 둘입니다. FE가 로그인 뒤 `GET /me/consent`를 보고 `agreed`가 false면 동의 화면을 띄우고
-`PUT /me/consent`로 보냅니다.
+회원의 동의는 둘입니다. FE가 소셜 로그인 뒤 `GET /me/consent`를 보고 `agreed`가 false면 동의 화면을 띄우고
+`PUT /me/consent`로 보냅니다(게스트는 받지 않습니다).
 
 | 동의 | 본문 | 담는 것 | 없으면 |
 | --- | --- | --- | --- |
@@ -259,9 +282,9 @@ FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰
 
 - SAFETY로 끝난 세션은 끝난 사실(`end_reason`)만 남깁니다 — 칩 · 분류 값 · 원문을 지웁니다(테이블 제약이 지킵니다).
 - 세션이 끝나면 원문이 든 체크포인트를 바로 지우고, 그 뒤의 `GET /sessions/{id}`는 `care_sessions.end_summary`로 답합니다.
-- 정리 작업 `GET /internal/cleanup`(Vercel Cron, 매일 03:00 KST, `CRON_SECRET`)이 기한이 지난 원문, 24시간
-  (`SESSION_IDLE_HOURS`) 넘게 쉰 미완료 세션의 체크포인트(세션은 만료 — 410), 기록이 없는 체크포인트(인증 전
-  세션 · 지운 사용자)를 지웁니다.
+- 정리 작업 `GET /internal/cleanup`(Vercel Cron, 매일 03:00 KST, `CRON_SECRET`)이 기한이 지난 원문, 쓰지 않은
+  게스트(하루, `GUEST_RETENTION_DAYS`), 24시간(`SESSION_IDLE_HOURS`) 넘게 쉰 미완료 세션의 체크포인트(세션은
+  만료 — 410), 기록이 없는 체크포인트(인증 전 세션 · 지운 사용자)를 지웁니다.
 - 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
   동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
 
@@ -362,8 +385,9 @@ DB 테스트(`tests/agent/test_checkpoint.py`·`tests/retrieval/test_hybrid_db.p
 docker run -d --name lumi-pg -e POSTGRES_PASSWORD=postgres -p 54329:5432 pgvector/pgvector:pg17
 psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema extensions' \
   -c 'alter database postgres set search_path = "$user", public, extensions' \
-  -c 'create schema auth' -c 'create table auth.users (id uuid primary key)' \
-  -c 'create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users on delete cascade, not_after timestamptz)' \
+  -c 'create schema auth' \
+  -c 'create table auth.users (id uuid primary key, is_anonymous boolean not null default false, created_at timestamptz default now())' \
+  -c 'create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users on delete cascade, created_at timestamptz default now(), updated_at timestamptz default now(), refreshed_at timestamp, not_after timestamptz)' \
   -f supabase/migrations/20261021000000_init_evidence.sql \
   -f supabase/migrations/20261026000000_evidence_contracts.sql \
   -f supabase/migrations/20261027000000_care_records.sql
@@ -473,10 +497,13 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   plan · intake 환경 질문 판정 · replan 선택지가 같은 조회(`protocols.plan_candidates`)를 봅니다. 환경을 풀면
   계획의 `environment_gaps`(AUDIO · SCREEN · QUIET · OUTDOORS)로 FE가 "소리가 나와요" 같은 안내를 띄워야
   합니다. 2026-10-27 프로토콜에서 실제로 푸는 경우는 S3 + 사건 전(사용자 상태)뿐입니다.
-- 동의 문구(FE)와 그 검토. 지금은 세션 기록(측정값 포함)을 민감정보로 보고 필수 동의로, 원문 보관을 선택 동의로
-  받습니다. 원문 보관 기한은 90일(`TEXT_RETENTION_DAYS`)입니다.
+- 동의 문구(FE)와 그 검토. 지금은 회원의 세션 기록(측정값 포함)을 민감정보로 보고 필수 동의로, 원문 보관을 선택
+  동의로 받습니다. 원문 보관 기한은 90일(`TEXT_RETENTION_DAYS`)입니다. 게스트는 동의 없이 고지만 하므로, 실제
+  서비스로 열 때는 진행 중 처리(측정값 포함)를 고지로 충분히 볼 수 있는지 법률 검토가 필요합니다.
 - 탈퇴 전 재인증. 지금은 FE의 확인 화면뿐이라, 탈취된 토큰으로도 탈퇴할 수 있습니다. 소셜 로그인을 한 번 더
   거치게 할지는 FE와 함께 정합니다.
+- 게스트 남용. 게스트도 세션마다 LLM을 부르므로, 자동화된 익명 로그인이 비용을 키울 수 있습니다. 지금은 Supabase의
+  익명 로그인 횟수 제한뿐이고, 익명 로그인에 CAPTCHA(Turnstile · hCaptcha)를 걸지 정합니다.
 
 ## 디렉터리
 

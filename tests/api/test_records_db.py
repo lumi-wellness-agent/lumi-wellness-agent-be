@@ -47,10 +47,27 @@ async def in_rollback(test) -> None:
         await conn.close()
 
 
-async def new_user(conn: AsyncConnection) -> uuid.UUID:
+async def new_user(
+    conn: AsyncConnection, anonymous: bool = False, age: str = "0 days"
+) -> uuid.UUID:
+    """auth.users 행. anonymous면 게스트, age만큼 전에 만들었다."""
     user_id = uuid.uuid4()
-    await conn.execute("insert into auth.users (id) values (%s)", (user_id,))
+    await conn.execute(
+        "insert into auth.users (id, is_anonymous, created_at)"
+        " values (%s, %s, now() - %s::interval)",
+        (user_id, anonymous, age),
+    )
     return user_id
+
+
+async def login_session(conn: AsyncConnection, user_id: uuid.UUID, age: str) -> None:
+    """age만큼 전에 갱신한 로그인 세션. refreshed_at은 Supabase처럼 시간대 없는 UTC다."""
+    await conn.execute(
+        "insert into auth.sessions (id, user_id, created_at, updated_at, refreshed_at) values"
+        " (%s, %s, now() - interval '60 days', now() - %s::interval,"
+        " (now() - %s::interval) at time zone 'UTC')",
+        (uuid.uuid4(), user_id, age, age),
+    )
 
 
 async def drive(store, record, graph, inputs) -> dict:
@@ -229,5 +246,74 @@ def test_a_login_session_past_not_after_is_not_alive():
         assert await sessions.alive(current)
         assert not await sessions.alive(boxed)  # 기한을 둔 세션이 끝났다
         assert not await sessions.alive(uuid.uuid4())  # 로그아웃해 행이 없다
+
+    asyncio.run(in_rollback(test))
+
+
+def test_a_guest_session_keeps_only_its_progress():
+    async def test(conn, store):
+        guest = await new_user(conn, anonymous=True)
+        graph = build_graph(
+            FakePlanner(BREATHING),
+            FakeIntaker(S2_READING, goal=inference(CareGoal.S2)),
+            memory_checkpointer(),
+        )
+        request = CareRequest(text="발표 앞두고 긴장돼요", setting="HOME")
+        record = SessionRecord(id=str(uuid.uuid4()), user_id=guest, guest=True)
+        await store.create(record.id, guest, request, guest=True)
+        final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
+        end = await drive(
+            store,
+            record,
+            graph,
+            [
+                {"request": request},
+                Command(resume=PRE_S2),
+                Command(resume={"completed": True, "notice_words": ["편안"]}),
+                Command(resume=sam(5, 4)),
+                Command(resume={"next_step": "END"}),
+                Command(resume=final),
+            ],
+        )
+        row = await one(
+            conn,
+            "select step, end_reason, end_summary, goal, request, intake, turns, pre, final"
+            " from public.care_sessions where id = %s",
+            uuid.UUID(record.id),
+        )
+        assert row == ("END", "DONE", end["payload"], None, {}, None, [], None, None)
+        assert await one(conn, "select count(*) from public.care_rounds") == (0,)
+        assert await one(conn, "select count(*) from public.care_texts") == (0,)
+
+    asyncio.run(in_rollback(test))
+
+
+def test_inactive_guests_go_with_their_records_and_the_rest_stay():
+    async def test(conn, store):
+        # GUEST_RETENTION_DAYS 기본 1일
+        idle = await new_user(conn, anonymous=True, age="3 days")
+        await login_session(conn, idle, age="2 days")
+        await store.create(str(uuid.uuid4()), idle, CareRequest(text="-"), guest=True)
+        await conn.execute(
+            "update public.care_sessions set updated_at = now() - interval '2 days'"
+            " where user_id = %s",
+            (idle,),
+        )
+        returning = await new_user(conn, anonymous=True, age="3 days")
+        await login_session(conn, returning, age="2 hours")  # 두 시간 전에 다시 와 토큰을 갱신했다
+        playing = await new_user(conn, anonymous=True, age="3 days")
+        await store.create(str(uuid.uuid4()), playing, CareRequest(text="-"), guest=True)  # 방금
+        fresh = await new_user(conn, anonymous=True, age="1 hour")
+        member = await new_user(conn, anonymous=False, age="400 days")  # 회원은 지우지 않는다
+
+        assert await store.delete_inactive_guests() == 1
+        cur = await conn.execute(
+            "select id from auth.users where id = any(%s)",
+            ([idle, returning, playing, fresh, member],),
+        )
+        assert {row[0] for row in await cur.fetchall()} == {returning, playing, fresh, member}
+        assert await one(
+            conn, "select count(*) from public.care_sessions where user_id = %s", idle
+        ) == (0,)
 
     asyncio.run(in_rollback(test))

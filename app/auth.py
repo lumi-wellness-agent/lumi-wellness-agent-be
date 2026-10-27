@@ -3,8 +3,12 @@
 FE가 Supabase Auth(Google · Kakao)로 로그인해 받은 액세스 토큰을 `Authorization: Bearer`로 보낸다.
 프로젝트는 비대칭 서명 키(ES256)를 쓰므로 공개 키 목록(JWKS,
 `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`)으로 서명을 검증하고 만료 · aud(authenticated) ·
-iss를 본다. sub가 사용자 ID(auth.users.id)다. 익명 로그인 토큰(is_anonymous)과 대칭 키(HS256) 토큰은
-받지 않는다.
+iss를 본다. sub가 사용자 ID(auth.users.id)다. 대칭 키(HS256) 토큰은 받지 않는다.
+
+비로그인 사용자(게스트)는 FE가 Supabase 익명 로그인(signInAnonymously)으로 만든 익명 사용자다.
+토큰의 is_anonymous가 true이고 auth.users에 행이 있어 토큰 검증 · 소유자 확인은 회원과 같다.
+게스트는 1회성 체험이라 동의를 받지 않고 내용을 기록하지 않는다(app/api/sessions.py ·
+app/records.py).
 
 서명이 맞아도 로그인 세션이 살아 있어야 한다. 토큰의 session_id를 Supabase의 auth.sessions에서
 확인한다(AuthSessions). 로그아웃 · 다른 기기 전체 로그아웃 · 탈퇴하면 행이 지워지므로, 액세스
@@ -37,7 +41,8 @@ AUDIENCE = "authenticated"
 class User:
     id: UUID  # auth.users.id = 토큰의 sub
     session_id: UUID | None = None  # auth.sessions.id = 토큰의 session_id. 토큰을 갱신해도 같다
-    provider: str | None = None  # app_metadata.provider — google · kakao
+    provider: str | None = None  # app_metadata.provider — google · kakao · anonymous
+    anonymous: bool = False  # 게스트(익명 로그인) — 1회성 체험
 
 
 class SupabaseVerifier:
@@ -79,14 +84,13 @@ class SupabaseVerifier:
             issuer=self.issuer,
             options={"require": ["exp", "sub", "aud", "iss", "session_id"]},
         )
-        if claims.get("is_anonymous"):
-            raise jwt.InvalidTokenError("익명 로그인은 받지 않는다")
         try:
             user_id, session_id = UUID(claims["sub"]), UUID(claims["session_id"])
         except (ValueError, TypeError, AttributeError) as exc:
             raise jwt.InvalidTokenError("sub · session_id가 ID가 아니다") from exc
         provider = (claims.get("app_metadata") or {}).get("provider")
-        return User(id=user_id, session_id=session_id, provider=provider)
+        anonymous = claims.get("is_anonymous") is True
+        return User(id=user_id, session_id=session_id, provider=provider, anonymous=anonymous)
 
 
 ALIVE_SQL = """

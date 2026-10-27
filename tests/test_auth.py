@@ -74,13 +74,20 @@ def test_a_supabase_token_gives_the_user(keys):
     assert (str(user.id), str(user.session_id), user.provider) == (USER_ID, SESSION_ID, "kakao")
 
 
+def test_a_guest_token_gives_an_anonymous_user(keys):
+    # 비로그인 사용자 — FE의 signInAnonymously가 만든 익명 사용자
+    guest = keys.token(is_anonymous=True, app_metadata={"provider": "anonymous"})
+    user = verify(verifier_for(keys), guest)
+    assert (str(user.id), user.anonymous, user.provider) == (USER_ID, True, "anonymous")
+    assert verify(verifier_for(keys), keys.token()).anonymous is False
+
+
 @pytest.mark.parametrize(
     "claims",
     [
         {"exp": int(time.time()) - 10},  # 만료
         {"aud": "anon"},  # 다른 대상
         {"iss": "https://other.supabase.co/auth/v1"},  # 다른 프로젝트
-        {"is_anonymous": True},  # 익명 로그인
         {"sub": "service-role"},  # 사용자 ID가 아니다
         {"sub": None},  # sub 없음
         {"session_id": None},  # 로그인 세션이 없는 토큰
