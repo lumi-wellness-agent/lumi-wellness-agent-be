@@ -25,6 +25,17 @@ STAI-6와 BSRI는 저작권·한국어판 확인 뒤 문항 원문을 채운다(
 원문이 다른 값이 생긴다 — 검토 목록(`evidence_review.csv`)에서 골라 원문으로 확정한 값을 여기에 적고 적재를
 다시 돌린다. 시트에 없는 키나 `EvidenceMetadata`에 없는 필드가 있으면 적재가 멈춘다.
 
+## evidence_excerpts.json — 레코드별 원문 발췌
+
+`scripts/extract_excerpts.py`(`make extract-excerpts`)가 만든다. 키는 `evidence_overrides.json`과 같고
+(`experiment_id`, 메타·관찰은 `paper_id`), 값은 `METHODS` · `RESULTS`마다 `{text, page, coverage, snapped,
+dropped}`와 `_source` · `_confidence` · `_note`다. `text`는 Docling으로 파싱한 논문 본문에 실제로 있는 문장만
+담는다 — LLM이 고른 발췌를 문장 단위로 본문과 대조해, 없는 문장은 가장 가까운 본문 문장으로 바꾸거나
+버린다(`coverage`는 남은 비율). `scripts/seed_evidence.py`가 이 `text`를 `evidence_records.content`로 쓰고,
+키나 섹션이 없으면 시트 요약을 쓴다. 논문 전문 캐시는 저작권 때문에 Research_paper(비공개) 저장소의
+`LUMI_R_C_Research_2026-10-22/01_fulltext/`에 두고 여기에는 짧은 인용만 둔다. 검토 목록은
+`evidence_excerpts_review.csv`(gitignore)다.
+
 ## manifest.csv — 논문 82편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·

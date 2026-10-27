@@ -26,3 +26,5 @@ dist/
 
 # 근거 적재 검토 목록 — scripts/seed_evidence.py가 만든다
 evidence_review.csv
+# 발췌 검토 목록 — scripts/extract_excerpts.py가 만든다
+evidence_excerpts_review.csv

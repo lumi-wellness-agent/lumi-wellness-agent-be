@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval parse-papers extract-excerpts
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -53,6 +53,18 @@ plan-trial:
 #     make rag-eval ARGS="compare before.json after.json"
 rag-eval:
 	$(PY) scripts/rag_eval.py $(ARGS)
+
+# 논문 PDF → 섹션 텍스트 캐시(Docling, `.[ingestion]` extras). 캐시는 Research_paper(비공개)/…/01_fulltext
+# 예: make parse-papers ARGS="--with-records"
+#     make parse-papers ARGS="P16 P18 --force"
+parse-papers:
+	$(PY) scripts/parse_papers.py $(ARGS)
+
+# 레코드마다 원문 METHODS · RESULTS 발췌를 고른다(LLM 비용) → data/evidence_excerpts.json. seed가 content로 쓴다
+# 예: make extract-excerpts XLSX=<워크북> ARGS=--dry-run
+#     make extract-excerpts XLSX=<워크북> ARGS="--only P16-E1 --force"
+extract-excerpts:
+	$(PY) scripts/extract_excerpts.py "$(XLSX)" $(ARGS)
 
 # 세션 그래프(app/agent/graph.py)를 Mermaid로 출력한다. README·발표용
 graph:

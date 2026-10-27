@@ -5,8 +5,8 @@
 
 - papers: data/manifest.csv 82편 전부.
 - evidence_records: 근거 arm 시트 65행 → 레코드 61개(여러 프로토콜이 인용한 같은 arm은 하나로) ×
-  chunk 2개(METHODS = 대상·N·중재·측정, RESULTS = 결과). content는 원문이 아니라 시트 요약이다.
-  Docling 추출이 붙으면 원문 구간으로 바꾼다.
+  chunk 2개(METHODS = 대상·N·중재·측정, RESULTS = 결과). content는 그 키의 발췌가
+  data/evidence_excerpts.json에 있으면 논문 원문 구간, 없으면 시트 요약이다(--no-excerpts).
 - 메타데이터는 시트 열에서 정한다. 매체는 시트에 없어서 그 행을 인용한 프로토콜 JSON의 media를
   연구 매체로 바꿔 쓴다(AI_IMAGE → STATIC_IMAGE). 효과는 결과 열을 ';'로 나눈 구절마다 정한다 —
   유의 표현만 있으면 POSITIVE, 비유의·차이 없음·재현 실패만 있으면 NOT_SIGNIFICANT, 섞이거나 없으면
@@ -14,6 +14,9 @@
   않을 때만('누적 효과 g=0.15 비유의') 그 판정을 측정 지표 전체에 쓴다.
 - data/evidence_overrides.json이 시트에서 정한 값을 필드 단위로 덮어쓴다(사람이 원문으로 확정한 값).
   키는 experiment_id, arm이 없는 레코드(메타·관찰)는 paper_id. `_why`에 근거를 적는다.
+- data/evidence_excerpts.json(scripts/extract_excerpts.py)은 같은 키 체계로 METHODS · RESULTS의 원문
+  발췌를 준다. 발췌가 있는 섹션만 content를 바꾸고 없는 섹션은 시트 요약 그대로다. 키 · section ·
+  chunk_idx는 그대로라 id가 유지된다.
 - 사람이 확인할 항목은 --review CSV에 남긴다. dry-run은 DB·임베딩 없이 건수와 이 파일만 만든다.
 - 임베딩은 검색과 같은 클라이언트(app/retrieval/embedding.py)가 설정의 embedding_model(OpenAI)로
   만든다. 입력은 논문 제목 + 메타데이터의 영어 라벨 한 줄 + content다. content가 한국어 요약이라
@@ -30,13 +33,14 @@ import json
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.config import get_settings  # noqa: E402
+from app.ingestion.extract import load_excerpts  # noqa: E402
 from app.protocols import load_protocols  # noqa: E402
 from app.retrieval.embedding import EMBEDDING_DIMS, embeddings  # noqa: E402
 from app.schemas.evidence import (  # noqa: E402
@@ -69,6 +73,7 @@ from scripts.scaffold_protocols import (  # noqa: E402
 
 MANIFEST = ROOT / "data" / "manifest.csv"
 OVERRIDES = ROOT / "data" / "evidence_overrides.json"
+EXCERPTS = ROOT / "data" / "evidence_excerpts.json"
 
 RECORD_TYPE_FOR: dict[StudyDesign, RecordType] = {
     StudyDesign.RANDOMIZED_EXPERIMENT: RecordType.ARM,
@@ -103,6 +108,7 @@ class Record:
     title: str
     metadata: EvidenceMetadata
     chunks: list[EvidenceRecordIn]
+    excerpted: list[Section] = field(default_factory=list)  # 원문 발췌로 바꾼 섹션
 
 
 # ── 시트 값 → 메타데이터 ──────────────────────────────────────────────────────────────────
@@ -269,6 +275,31 @@ def results_summary(results: list[OutcomeResult]) -> str:
 # ── 레코드 조립 ───────────────────────────────────────────────────────────────────────────
 
 
+def load_excerpts_file(path: Path) -> dict[str, dict[Section, str]]:
+    """data/evidence_excerpts.json → {키: {Section: 원문 발췌}}. 파일이 없으면 빈 dict."""
+    if not path.exists():
+        return {}
+    return load_excerpts(json.loads(path.read_text(encoding="utf-8")))
+
+
+def apply_excerpts(
+    texts: dict[Section, str], found: dict[Section, str] | None
+) -> tuple[dict[Section, str], list[Section]]:
+    """시트 요약 content에 원문 발췌를 덧씌운다. 발췌가 있는 섹션만 바꾸고(시트에 결과가
+    없어 RESULTS가 없던 레코드에는 더한다) 순서는 METHODS · RESULTS로 둔다."""
+    if not found:
+        return texts, []
+    merged = dict(texts)
+    replaced: list[Section] = []
+    for section in (Section.METHODS, Section.RESULTS):
+        text = (found.get(section) or "").strip()
+        if text:
+            merged[section] = text
+            replaced.append(section)
+    ordered = {s: merged[s] for s in (Section.METHODS, Section.RESULTS) if s in merged}
+    return ordered, replaced
+
+
 def load_overrides(path: Path) -> dict[str, dict]:
     if not path.exists():
         return {}
@@ -282,7 +313,10 @@ def load_overrides(path: Path) -> dict[str, dict]:
 
 
 def build_records(
-    rows: list[dict[str, str]], papers: dict[str, dict[str, str]], overrides: dict[str, dict]
+    rows: list[dict[str, str]],
+    papers: dict[str, dict[str, str]],
+    overrides: dict[str, dict],
+    excerpts: dict[str, dict[Section, str]] | None = None,
 ) -> tuple[list[Record], list[Issue]]:
     protocols = load_protocols()
     issues: list[Issue] = []
@@ -422,8 +456,11 @@ def build_records(
             }.get(field_name, "")
             issues.append(Issue(key, " ".join(pids), field_name, issue, current, sheet))
 
+        texts, excerpted = apply_excerpts(
+            chunk_texts(row, population_text), (excerpts or {}).get(key)
+        )
         chunks = []
-        for section, content in chunk_texts(row, population_text).items():
+        for section, content in texts.items():
             slot = (paper, experiment_id, section)
             chunks.append(
                 EvidenceRecordIn(
@@ -436,7 +473,7 @@ def build_records(
                 )
             )
             chunk_counter[slot] += 1
-        records.append(Record(key, pids, papers[paper]["title"], metadata, chunks))
+        records.append(Record(key, pids, papers[paper]["title"], metadata, chunks, excerpted))
 
     unknown = set(overrides) - set(groups)
     if unknown:
@@ -559,6 +596,9 @@ def main() -> int:
         help="적재할 DB. 공용 Supabase에 실수로 쓰지 않도록 .env 값을 기본으로 쓰지 않는다",
     )
     parser.add_argument("--review", type=Path, default=ROOT / "evidence_review.csv")
+    parser.add_argument(
+        "--no-excerpts", action="store_true", help="원문 발췌를 쓰지 않고 전부 시트 요약으로"
+    )
     args = parser.parse_args()
     if not args.dry_run and not args.database_url:
         parser.error("적재하려면 --database-url이 필요하다(건수만 보려면 --dry-run)")
@@ -566,7 +606,8 @@ def main() -> int:
     papers = {row["rc_id"]: row for row in csv.DictReader(MANIFEST.open(encoding="utf-8"))}
     rows = read_sheet(args.xlsx, "근거 arm", "protocol_id")
     overrides = load_overrides(OVERRIDES)
-    records, issues = build_records(rows, papers, overrides)
+    excerpts = {} if args.no_excerpts else load_excerpts_file(EXCERPTS)
+    records, issues = build_records(rows, papers, overrides, excerpts)
     write_review(args.review, issues)
 
     chunks = [c for r in records for c in r.chunks]
@@ -582,6 +623,14 @@ def main() -> int:
     print("확인 수준 " + " · ".join(f"{k} {v}" for k, v in levels.most_common()))
     print("결과 판정 " + " · ".join(f"{k} {v}" for k, v in effects.most_common()))
     print(f"덮어쓴 레코드 {len(overrides)}개 ({OVERRIDES.relative_to(ROOT)})")
+    excerpted = [r for r in records if r.excerpted]
+    n_chunks = sum(len(r.excerpted) for r in excerpted)
+    stale = sorted(set(excerpts) - {r.key for r in records})
+    print(
+        f"원문 발췌 적용 레코드 {len(excerpted)}개 · chunk {n_chunks}개"
+        f" ({EXCERPTS.relative_to(ROOT)} 키 {len(excerpts)}개)"
+        + (f" · 시트에 없는 키 {stale}" if stale else "")
+    )
     print(f"검토 항목 {len(issues)}건 → {args.review}")
     if args.dry_run:
         return 0
