@@ -160,6 +160,7 @@ make run                # http://127.0.0.1:8000/health
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
+| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl`의 질의로 Hit@K · Recall@K · MRR을 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `build`가 케이스를 다시 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -230,6 +231,28 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
   -f supabase/migrations/20261026000000_evidence_contracts.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
+
+### 근거 검색 평가
+
+`data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다. 케이스마다 질의 · 필터 · 정답 레코드
+(`paper_id`, `experiment_id`)가 있고, 정답은 활동 노드 JSON `evidence[]` 가운데 그 목표의 1차 지표를 측정한
+항목입니다(검색의 outcomes 필터와 같은 축). 질의는 세 묶음입니다 — `planner`(실제 모델이 S1 · S2 · S3 세션에서
+만든 질의와 그때의 필터), `template`(프로토콜 × 목표의 연구 용어 질의, plan 노드와 같은 필터), `open`(같은 질의를
+필터 없이 — 임베딩 · 키워드만의 품질). `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense ·
+keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)을 내고, `--out`으로 남긴 결과 둘을 `compare`가
+비교합니다. content를 바꿔 다시 적재하기 전후에 돌립니다. `build`는 `data/protocols/*.json`에서 케이스를 다시
+만듭니다(`evidence[]`가 바뀌면 다시 만듭니다).
+
+2026-10-27 기준선(content = 근거 arm 시트 요약 122 chunk, text-embedding-3-small, lumi-pg와 Supabase 동일):
+
+| group (hybrid) | n | Hit@5 | Recall@5 | MRR |
+| --- | --- | --- | --- | --- |
+| planner | 9 | 1.000 | 0.867 | 1.000 |
+| template | 21 | 1.000 | 0.875 | 0.863 |
+| open | 21 | 0.714 | 0.558 | 0.648 |
+
+keyword 방식은 세 묶음 모두 0입니다 — content가 한국어 요약이라 영어 질의 낱말이 걸리지 않아, 지금의 hybrid는
+dense와 같습니다. 원문 구간으로 바꾸면 keyword가 살아나는지, `open`의 Recall@5가 오르는지가 비교 지점입니다.
 
 ## 배포 (Vercel)
 
@@ -314,10 +337,12 @@ data/
 ├─ protocols/           활동 노드 JSON 21개 (PR-01 완성 예시, 나머지 초안)
 ├─ instruments/         측정 도구 3개 (SAM · STAI-6 · BSRI)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
-└─ manifest.csv         논문 82편 매니페스트
+├─ manifest.csv         논문 82편 매니페스트
+└─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
+scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)
 tests/
