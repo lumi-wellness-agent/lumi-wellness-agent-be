@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR-16 notice artifact",
+  "type": "object",
+  "required": ["protocol_id", "notice_phrases", "completion"],
+  "properties": {
+    "protocol_id": {"const": "PR-16"},
+    "notice_phrases": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string", "minLength": 1, "maxLength": 20}},
+    "completion": {"type": "object", "required": ["status", "completed_by_user"], "properties": {"status": {"enum": ["COMPLETED", "SKIPPED", "STOPPED"]}, "completed_by_user": {"type": "boolean"}, "interrupted": {"type": "boolean"}}},
+    "host_protocol_id": {"type": ["string", "null"]},
+    "return_target": {"type": "string"},
+    "interrupted": {"type": "boolean"},
+    "cancelled": {"type": "boolean"},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": true
+}

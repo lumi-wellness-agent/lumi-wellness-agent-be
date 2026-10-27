@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR-18 writing artifact",
+  "type": "object",
+  "required": ["protocol_id", "timer", "writing", "completion"],
+  "properties": {
+    "protocol_id": {"const": "PR-18"},
+    "timer": {"type": "object", "required": ["elapsed_seconds", "timer_status"], "properties": {"started_at": {"type": "string", "format": "date-time"}, "elapsed_seconds": {"type": "integer", "minimum": 0}, "target_reached": {"type": "boolean"}, "timer_status": {"enum": ["READY", "WRITING", "PAUSED", "STOPPED", "COMPLETED"]}, "normal_time_end": {"type": "boolean"}, "early_stopped": {"type": "boolean"}}},
+    "writing": {"type": "object", "required": ["text"], "properties": {"text": {"type": "string", "minLength": 300}, "edited_at": {"type": "string", "format": "date-time"}}},
+    "completion": {"type": "object", "required": ["completed_by_user"], "properties": {"completed_by_user": {"type": "boolean"}, "status": {"enum": ["COMPLETED", "STOPPED", "INCOMPLETE"]}}},
+    "test_mode": {"type": "boolean"},
+    "internal": {"type": "object", "properties": {"refresh_count": {"type": "integer", "minimum": 0}, "error_events": {"type": "array"}}}
+  },
+  "additionalProperties": true
+}

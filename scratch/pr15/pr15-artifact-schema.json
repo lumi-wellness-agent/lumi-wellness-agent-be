@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR-15 coloring artifact",
+  "type": "object",
+  "required": ["protocol_id", "design_id", "regions", "completion"],
+  "properties": {
+    "protocol_id": {"const": "PR-15"},
+    "design_id": {"type": "string", "minLength": 1},
+    "regions": {"type": "array", "items": {"type": "object", "required": ["region_id", "state", "fill"], "properties": {"region_id": {"type": "string"}, "state": {"enum": ["uncolored", "colored"]}, "fill": {"type": "string"}}}},
+    "colored_region_count": {"type": "integer", "minimum": 0},
+    "remaining_region_count": {"type": "integer", "minimum": 0},
+    "completion_percent": {"type": "number", "minimum": 0, "maximum": 100},
+    "completion": {"type": "object", "required": ["status", "completed_by_user"], "properties": {"status": {"enum": ["COMPLETED", "STOPPED", "INCOMPLETE"]}, "completed_by_user": {"type": "boolean"}}},
+    "elapsed_seconds": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}

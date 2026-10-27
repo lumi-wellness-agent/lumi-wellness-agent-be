@@ -1,43 +1,66 @@
-# PR-14 mandara3 로컬 실험
+# PR-14 만다라 컬러링 프로토타입
 
-원본 `../mandara3.png`를 보존하고, `../floral-mandara-svg.svg`를 직접 불러와 클릭 색칠을 검증하는 별도 실험 결과입니다.
+## SVG 사용 정책
 
-## 결과
+이 프로토타입은 PNG·JPG 이미지를 실행 중 SVG로 변환하지 않습니다. 클릭 색칠에 필요한 독립 영역과 `data-region-id`가 포함된 SVG를 사전에 준비하고, `pr14-runtime.json`의 `designs[].svg` 경로에서 직접 읽습니다.
 
-- `mandara3.svg`: 이전 PNG 자동 분할 결과 보관본
-- `mandara3-regions.svg`: 다운로드 SVG의 449개 닫힌 서브패스를 독립 path로 재구성
-- `mandara3-region-review.svg`: 8색을 순환 적용한 검수용 분할 이미지
-- `debug.html`: 모든 영역에 서로 다른 임시 색을 적용하고 실제 클릭 target·영역 ID·화면 범위를 기록하는 검수 화면
-- `index.html`: `mandara3-regions.svg`의 영역을 클릭 색칠
-- 다운로드 SVG 서브패스: 448개를 클릭 영역으로 사용. 첫 번째 전체 외곽 서브패스는 영역에서 제외하고 outline에만 유지했다.
-- 외곽선: `#outline` 그룹으로 분리되어 색칠 클릭의 영향을 받지 않음
-- `index.html`: 외부 서버·패키지 없이 SVG를 불러오는 로컬 테스트 화면
+이미지→SVG 변환 스크립트와 과거 중간 산출물은 참고용으로만 남아 있으며 현재 서비스 실행 경로에서 호출되지 않습니다.
 
-## 실행 방법 (Windows PowerShell / VS Code)
+## 확정 프로세스
 
-1. VS Code에서 이 폴더를 엽니다.
-2. `index.html`을 마우스 오른쪽 버튼으로 클릭합니다.
-3. **Open with Live Server**가 설치되어 있으면 선택합니다. 이 실험 폴더를 서버 루트로 지정합니다.
-4. 확장이 없으면 PowerShell에서 이 실험 폴더로 이동한 뒤 아래 명령을 실행합니다.
+1. 첫 도안을 자동으로 표시합니다.
+2. 흰색 독립 영역을 처음 클릭할 때 타이머가 시작됩니다. 팔레트 선택, 배경, 검은 외곽선 클릭은 시작 조건이 아닙니다.
+3. 독립 영역은 `UNCOLORED` 또는 `COLORED` 상태로 관리합니다.
+4. 현재 도안의 모든 영역을 한 번 이상 색칠하면 도안 완성으로 기록합니다.
+5. 도안 완성 후 `다음 도안`을 누르면 저장된 도안 중 하나를 랜덤으로 표시합니다. 새 도안은 흰색·`UNCOLORED` 상태로 시작합니다.
+6. 완성 도안이 1개 이상이고 16분(20분의 80%) 이상 경과하면 `완료` 버튼이 활성화됩니다.
+7. 20분 도달 후에도 진행률은 100%로 유지하며 자동 종료하지 않습니다.
+
+## 상태·복구 규칙
+
+- 일시정지는 제공하지 않습니다.
+- 새로고침 시 타이머는 정지하고 색칠 상태는 `localStorage`에서 복구합니다.
+- 새로고침 후 다시 유효 영역을 클릭하면 타이머가 재시작됩니다.
+- 재시작 횟수와 이벤트는 개발 로그에만 보관합니다.
+- `Reset`은 현재 도안의 모든 영역을 흰색·`UNCOLORED`로 되돌립니다.
+- `Undo`는 직전 색상을 복원합니다. 이전 색상이 흰색이면 `UNCOLORED`, 팔레트 색상이면 `COLORED`로 해석합니다.
+- 결과는 브라우저 저장용이며 공식 서버 기록이 아닙니다.
+
+## 파일
+
+- `index.html`: JSON 기반 UI와 컬러링 실행 화면
+- `PR-14.proposed.json`: 활동 정의와 완료 기준
+- `pr14-runtime.json`: 타이머·팔레트·도안·복구 설정
+- `pr14-result.example.json`: 결과 JSON 예시
+- `assets/white-space-regions.svg`: 441개 독립 색칠 영역과 검은 외곽선이 포함된 실행용 SVG
+- `browser-integration-check.html`, `outline-integration-check.html`, `debug.html`: 검증용 화면
+
+## 실행 방법 (Windows PowerShell)
 
 ```powershell
-cd "C:\Users\Admin\Desktop\KG AI\coding\my_llm_service\lumi-wellness-agent\lumi-wellness-agent-be\scratch\coloring-review\experiment-mandara3"
-python -m http.server 8765
+cd "...\lumi-wellness-agent-be\scratch\pr14"
+py -m http.server 8765
 ```
 
-브라우저에서 `http://localhost:8765/`를 엽니다. `fetch()`로 SVG를 읽기 때문에 `file:///`로 직접 여는 방식보다 로컬 서버가 안전합니다. 종료는 PowerShell에서 `Ctrl+C`입니다.
+브라우저에서 `http://localhost:8765/`를 엽니다. `fetch()`로 JSON과 SVG를 읽으므로 `file://` 직접 실행 대신 HTTP 서버를 사용해야 합니다.
 
-## 한계와 수동 보정
+실험용 도안 3개는 현재 동일한 검증 SVG를 재사용합니다. 실제 서로 다른 도안을 제공할 때 `pr14-runtime.json`의 `designs[].svg` 경로만 교체하면 됩니다. 각 SVG에는 독립 영역별 `data-region-id`와 최상단 외곽선이 있어야 합니다.
 
-다운로드한 SVG는 하나의 검은 `path` 안에 449개 서브패스가 있고 선(stroke)이 없습니다. 테스트 결과는 이를 서브패스별 path로 분리하고 흰색 fill·검은 stroke를 적용합니다. 서브패스가 실제 사용자 색칠 공간과 일치하는지는 원본 제작 방식에 따라 다르며, 일부는 선 조각·겹치는 도형일 수 있습니다. 따라서 449개를 확정된 폐곡선 영역 수로 간주하면 안 됩니다. `mandara3-region-review.svg`에서 색이 같은 영역이 반복되어 보이는 것은 8색 검수 표시이며, 영역 구분은 `data-region-id`를 기준으로 합니다.
+## 새 SVG를 추가하는 방법
 
-정식 사용 전에는 다운로드 출처와 라이선스를 확인하고, 벡터 편집기에서 실제 폐곡선만 남긴 뒤 영역 ID를 부여해야 합니다. 모바일에서는 작은 영역을 확대하여 탭하고, 경계 누락·겹침·색 번짐을 확인해야 합니다.
+1. 준비된 SVG 파일을 `scratch/pr14/assets/`에 저장합니다.
+2. SVG 내부에 클릭 영역별 `data-region-id`가 있는지 확인합니다.
+3. 검은 외곽선에는 `id="outline"`을 부여하고 색칠 영역과 분리합니다.
+4. `pr14-runtime.json`의 `designs` 배열에 파일 경로를 추가합니다.
 
-## 재사용 요소
+예:
 
-- 팔레트 8색과 선택 상태 표시
-- `data-region-id` 기반 영역 클릭
-- `fill` 변경 방식의 재색칠
-- 변경 이력 기반 Undo와 Reset
-- `pointerdown` 기반 마우스·터치 입력
-- 분리된 `#outline` 레이어
+```json
+{
+  "id": "mandala-04",
+  "name": "만다라 도안 4",
+  "svg": "assets/mandala-04.svg"
+}
+```
+
+서비스가 사용하는 전처리 기준은 SVG 파일 자체에 보관합니다. 별도의 PNG 원본이나 변환 스크립트는 실행에 필요하지 않습니다.

@@ -1,0 +1,22 @@
+{
+  "protocol_id": "PR-15",
+  "source_protocol": "data/protocols/PR-15.json",
+  "review_status": "PROPOSED",
+  "design_count": 5,
+  "designs": [
+    {"id": "nature-1", "name": "자연 도안 1", "svg": "assets/processed_images/nature-1.svg"},
+    {"id": "nature-3", "name": "자연 도안 3", "svg": "assets/processed_images/nature-3.svg"},
+    {"id": "nature-5", "name": "자연 도안 5", "svg": "assets/processed_images/nature-5.svg"},
+    {"id": "nature-6", "name": "자연 도안 6", "svg": "assets/processed_images/nature-6.svg"},
+    {"id": "nature-7", "name": "자연 도안 7", "svg": "assets/processed_images/nature-7.svg"}
+  ],
+  "recommended_duration_seconds": 300,
+  "timer": {"display_mode": "HIDDEN_INTERNAL", "start_trigger": "first_valid_region_click", "record_started_at": true, "record_elapsed_seconds": true, "auto_stop": false},
+  "palette": {"fixed": true, "colors": ["#397D78", "#759BC3", "#8873A6", "#B86F87", "#C48760", "#D4B85F", "#89964E", "#DFD1B5"]},
+  "state": {"region_states": ["uncolored", "colored"], "initial_state": "uncolored", "outline_click_ignored": true},
+  "eraser": {"enabled": true, "ui": "palette_adjacent_icon", "effect": "fill_white_and_set_uncolored"},
+  "completion": {"minimum_completion_percent": 80, "requires_user_confirmation": true, "auto_complete": false, "continue_coloring_after_threshold": true},
+  "progress": {"show_completion_rate": true, "show_remaining_region_count": true, "show_timer": false},
+  "persistence": {"storage": "localStorage", "key": "lumi.pr15.coloring.v1", "autosave_debounce_ms": 500, "restore_after_reload_or_close": true, "clear_on_completed": true},
+  "features": {"undo": false, "reset": false}
+}

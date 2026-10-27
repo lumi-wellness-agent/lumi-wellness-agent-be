@@ -1,0 +1,15 @@
+{
+  "protocol_id": "PR-18",
+  "source_protocol": "data/protocols/PR-18.json",
+  "review_status": "PROPOSED",
+  "state_flow": ["INTRO", "WRITING", "PAUSED", "COMPLETED", "STOPPED"],
+  "timer": {"target_seconds": 900, "research_reference_seconds": 1200, "display_mode": "HIDDEN_INTERNAL", "show_progress": false, "show_remaining_time": false, "start_trigger": "first_text_input", "record_started_at": true, "record_elapsed_seconds": true, "user_pause_control": false, "refresh_pauses_timer": true, "resume_trigger": "next_text_input", "auto_stop_on_target": false},
+  "prompt": {"status": "NEEDS_REVIEW", "source_must_be_verified": true},
+  "input": {"required_for_completion": true, "minimum_characters": 300, "count_for_validation_only": true, "allow_edit": true, "allow_delete": true, "max_length": 5000, "normalize_whitespace": true, "start_on_first_input": true},
+  "completion": {"requires_minimum_characters": true, "requires_user_confirmation": true, "content_quality_evaluation": false, "duration_required": false},
+  "persistence": {"storage": "localStorage", "key": "lumi.pr18.writing.v1", "autosave_debounce_ms": 500, "restore_running_as": "PAUSED", "restore_fields": ["writing_text", "elapsed_seconds", "activity_completed"], "refresh_log": "internal_only", "refresh_count_user_visible": false, "browser_close_status": "STOPPED", "unexpected_error_status": "STOPPED", "completion_idempotency": true},
+  "internal_log": {"enabled": true, "record_refresh_events": true, "record_error_type_and_message": true, "include_writing_text": false, "show_error_details_to_user": false},
+  "privacy": {"management_features": "OUT_OF_SCOPE", "server_text_storage": false},
+  "privacy": {"server_text_storage": false, "allow_export": true, "allow_delete": true},
+  "test_modes": [30, 60]
+}

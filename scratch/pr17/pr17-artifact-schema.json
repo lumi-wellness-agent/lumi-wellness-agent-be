@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PR-17 grounding artifact",
+  "type": "object",
+  "required": ["protocol_id", "steps_completed", "completion"],
+  "properties": {
+    "protocol_id": {"const": "PR-17"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "elapsed_seconds": {"type": "integer", "minimum": 0},
+    "recommended_duration_reached": {"type": "boolean"},
+    "steps_completed": {"type": "array", "uniqueItems": true, "items": {"enum": ["SIGHT_5", "TOUCH_4", "SOUND_3", "SMELL_2", "TASTE_1"]}},
+    "nonblank_input_count": {"type": "integer", "minimum": 0},
+    "current_step": {"enum": ["SIGHT_5", "TOUCH_4", "SOUND_3", "SMELL_2", "TASTE_1"]},
+    "completion": {"type": "object", "required": ["status", "completed_by_user"], "properties": {"status": {"enum": ["COMPLETED", "STOPPED"]}, "completed_by_user": {"type": "boolean"}}},
+    "test_mode": {"type": "boolean"},
+    "internal": {"type": "object", "properties": {"refresh_count": {"type": "integer", "minimum": 0}, "error_events": {"type": "array"}}}
+  },
+  "additionalProperties": true
+}
