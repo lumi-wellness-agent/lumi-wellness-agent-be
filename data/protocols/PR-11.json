@@ -60,7 +60,7 @@
   "measures": {
     "anchor": "INS-SAM",
     "goal_scale_by_goal": {
-      "S3": null,
+      "S3": "INS-MFVAS",
       "S2": "INS-STAI6"
     },
     "schedule": {
@@ -274,7 +274,7 @@
     "status": "DRAFT",
     "open_items": [
       "steps · content_spec · guide 문안은 scratch/pr11 실행 계약과 대조 검수 필요",
-      "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 현재 실행 계약에 넣지 않음",
+      "시트의 INS-GAP-S3는 코드의 INS-MFVAS(정신 피로 VAS 3문항, 임시·미검증)로 들어갔다 — S3 세션은 SAM + MFVAS를 사전·라운드마다 잰다",
       "앱 밖 활동이므로 FE는 타이머와 진행률만 실행하며 현재 버전에서는 활동 후 자기보고를 수집하지 않음",
       "20분(E19)과 90분(N20)은 참고 근거로 기록하지만 현재 UI에는 노출하지 않음",
       "안전·불편 중단의 실제 FE 핸들러와 stop_reason 기록 연결은 FE 구현 검수 필요",

@@ -67,15 +67,15 @@ graph TD;
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
 | `intake` | intake (LLM 호출 1회) | 자유 텍스트를 `IntakeResult`(목표 S1·S2·S3 · 순서 조건 · 시간·장소·제약 · 안전 신호)로 분류한다. 점수는 추정하지 않는다. FE 칩 값이 분류보다 우선하고 빈 슬롯은 기본값. 안전 신호·목표 미정이면 세션을 열지 않는다 | `nodes/intake.py` |
-| `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
+| `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
 | `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계·안내 문구로 `ActivityContent`를 준비한다(이미지·음성·Reference 카드는 예정) | `nodes/executor.py` |
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 한 단어)를 보낼 때까지 기다린다 | `nodes/executor.py` |
-| `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM | `nodes/measure.py` |
-| `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성). S1 쾌↑ · S2 각성↓ · S3 기준 없음(—) | `nodes/evaluator.py` |
+| `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
+| `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로↓ | `nodes/evaluator.py` |
 | `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션 중 하나를 제안한다 (임시 규칙, 라운드 ≤ 3) | `nodes/replanner.py` |
 | `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값) | `nodes/replanner.py` |
-| `measure_final` ⏸ | measure (코드) | 종료 경로에서 목표 척도 1회 → 세션 Δ. S3는 건너뛴다 | `nodes/measure.py` |
+| `measure_final` ⏸ | measure (코드) | 종료 경로에서 사전·종료에만 재는 목표 척도(STAI-6 · BSRI) 1회 → 세션 Δ. S3는 라운드마다 재서 건너뛴다 | `nodes/measure.py` |
 
 ⏸는 LangGraph interrupt입니다. 그래프가 멈추고 상태를 체크포인터에 남긴 뒤, 같은 thread_id로
 `Command(resume=값)`을 받으면 그 자리부터 이어서 돕니다. interrupt가 있는 노드는 재개될 때 처음부터
@@ -85,7 +85,7 @@ graph TD;
 | --- | --- | --- | --- |
 | S1 반추 완화 | 반복적으로 떠오르는 생각에서 잠시 벗어나기 | BSRI | PR-09 마음챙김 / PR-21 이미지+명상(실험) / PR-15 컬러링(실험) |
 | S2 긴장·스트레스 완화 | 스트레스와 긴장감 완화 | STAI-6 | PR-06 호흡 / PR-02 영상+자연음 / PR-01 자연 사진 … |
-| S3 주의·피로 회복 | 인지 피로 이후 주의력 회복 | 없음(SAM만) | PR-10 ReST / PR-11 자연 보행 / PR-01 자연 사진 |
+| S3 주의·피로 회복 | 인지 피로 이후 주의력 회복 | MFVAS(정신 피로 VAS, 임시·미검증 — 주관적 피로만 잰다) | PR-10 ReST / PR-11 자연 보행 / PR-01 자연 사진 |
 
 목표는 결과 지표 라벨이고 매체 묶음이 아닙니다. 활동 노드 21개는 `data/protocols/`에 있고, 라운드마다 하나를
 고릅니다. 조합은 검증된 다중매체 프로토콜(PR-02 · 10 · 12) 자체로만 제공하고 플래너가 임의로 묶지 않습니다.
@@ -131,8 +131,8 @@ interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니�
 | --- | --- | --- |
 | `POST /sessions` — `CareRequest` | 새 thread → intake → `measure_pre`에서 멈춤 (안전 신호·목표 미정이면 `ended`로 끝) | 측정 문항 |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
-| `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항 |
-| `POST /sessions/{id}/measure` — SAM 응답 | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
+| `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
+| `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
 | `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → plan으로 돌아가거나, 종료면 `measure_final`에서 멈춤(S3는 바로 끝) | 새 계획·콘텐츠 또는 종료 측정 문항 |
 
 체크포인터는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장합니다(`app/agent/checkpoint.py`).
@@ -303,7 +303,9 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 - 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-4o-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
 - Replanning 기준. 지금은 임시 규칙(끝까지 못 함 → 활동 변경, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 →
   활동 변경, 라운드 3회 상한)입니다.
-- S3의 순간 피로·주의 자가보고 척도. 13편 안에 검증된 도구가 없어 SAM만 재고 목표 지표는 '—'입니다.
+- S3의 순간 피로 자가보고 척도. 13편 안에 검증된 도구가 없어 임시 도구 `INS-MFVAS`(정신 피로 VAS 3문항, 팀 작성·미검증)로
+  사전·라운드마다 재고 피로↓로 판정합니다. 주의 용량은 재지 않습니다(근거의 S3 1차 지표 ATTENTION은 과제) — 사용자
+  데이터로 문항 신뢰도를 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
 - STAI-6(Mind Garden)·BSRI 문항 사용 허가와 한국어판. 확인 전에는 문항 원문을 넣지 않습니다.
 - Session Outcome DB(측정값·라운드) 테이블 — 사용자 식별 방식과 함께 정합니다. Care Protocol은 JSON 파일로 둡니다.
 - 세션 API (설계안은 위에)

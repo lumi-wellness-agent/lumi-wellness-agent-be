@@ -25,17 +25,17 @@ POST /sessions …(API는 통합 담당이 붙인다)
   ↓
 intake          LLM 호출 1회 → IntakeResult(goal · order_condition · minutes · place · constraints · safety)
   ↓             안전 신호 · 목표 미정이면 세션을 열지 않는다(ended = SAFETY | NO_GOAL)
-measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 없음)
+measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
   ↓
 plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
   ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
 prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
-measure_post ⏸  SAM
-evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 기준 없음)
+measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
+evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로↓)
 replan          종료 · 활동 변경 · 추가 세션 제안 (라운드 ≤ 3)
 confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
-measure_final ⏸ 종료 경로에서 목표 척도 1회 (S3는 건너뜀)
+measure_final ⏸ 종료 경로에서 STAI-6 · BSRI 1회 (라운드마다 잰 S3는 건너뜀)
 ```
 
 `app/agent/state.py`가 노드 사이 계약이고, `app/agent/graph.py`만 노드를 배선한다. ⏸는 interrupt —
@@ -50,7 +50,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/agent/state.py` `graph.py` `checkpoint.py` | v2 state · 배선 · 직렬화 허용 타입 |
 | 완료 | `app/agent/nodes/intake.py` `measure.py` `executor.py` `evaluator.py` `replanner.py` | 노드 뼈대. intake·measure는 담당이 본문을 채운다 |
 | 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates`, 등급 순) · LLM용 압축본(`compact`) |
-| 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO |
+| 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO, S3용 MFVAS는 PROVISIONAL(팀 작성·미검증) |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
@@ -77,7 +77,7 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 | --- | --- |
 | `data/instruments/INS-STAI6.json` `INS-BSRI.json` | 문항 원문 `text`와 `instruction`을 채우고 `status`를 `READY`로. STAI는 Mind Garden 허가·한국어판, BSRI는 한국어판 출처 확인. **LLM 번역 금지** |
 | `app/instruments.py` | 채점은 되어 있다(STAI-6 역채점 후 합 × 20/6, BSRI 평균, SAM 문항별). 제시 형식(`present`)에 FE가 필요한 값을 더한다 |
-| `app/agent/nodes/measure.py` | interrupt payload·resume 모양을 FE와 맞춘다. 사전은 SAM + 목표 척도, 라운드 사이는 SAM만, 종료는 목표 척도만 |
+| `app/agent/nodes/measure.py` | interrupt payload·resume 모양을 FE와 맞춘다. 사전은 SAM + 목표 척도, 라운드 사이는 SAM(S3는 + MFVAS), 종료는 STAI-6 · BSRI만 |
 | `tests/measure/` | `make test-measure` |
 
 ### intake 담당 (먼저 끝난 사람, 화)

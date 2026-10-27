@@ -64,7 +64,7 @@
     "anchor": "INS-SAM",
     "goal_scale_by_goal": {
       "S2": "INS-STAI6",
-      "S3": null
+      "S3": "INS-MFVAS"
     },
     "schedule": {
       "pre": [
@@ -296,7 +296,7 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "시트의 측정 도구 ['INS-GAP-S3']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
+      "시트의 INS-GAP-S3는 코드의 INS-MFVAS(정신 피로 VAS 3문항, 임시·미검증)로 들어갔다 — S3 세션은 SAM + MFVAS를 사전·라운드마다 잰다",
       "N14의 회복기 4분 조건과 결과를 원문으로 재확인",
       "Freesound 실제 후보 음원의 라이선스·반복 가능성·청취 품질 검수 필요"
     ],

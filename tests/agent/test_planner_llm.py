@@ -165,8 +165,8 @@ def changed_round(protocol_id: str) -> Round:
     return Round(
         plan=CarePlan(activity=PlannedActivity(protocol_id=protocol_id, minutes=3), rationale="-"),
         report=SessionReport(completed=True),
-        pre=Measurement(timepoint=Timepoint.PRE, round=0, **sam),
-        post=Measurement(timepoint=Timepoint.POST, round=1, **sam),
+        pre=[Measurement(timepoint=Timepoint.PRE, round=0, **sam)],
+        post=[Measurement(timepoint=Timepoint.POST, round=1, **sam)],
         evaluation=OutcomeEvaluation(
             goal=CareGoal.S1, round=1, deltas={}, improved=False, completed=True
         ),

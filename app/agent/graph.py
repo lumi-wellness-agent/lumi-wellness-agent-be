@@ -12,11 +12,11 @@
   ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
   ② prepare       콘텐츠 준비                                     nodes/executor.py
      run_session  FE 실행 대기 ⏸                                  nodes/executor.py
-     measure_post 코드 ⏸ SAM                                     nodes/measure.py
+     measure_post 코드 ⏸ SAM (+ S3는 MFVAS)                      nodes/measure.py
   ③ evaluate      Outcome Evaluator                               nodes/evaluator.py
   ④ replan        Replanning 규칙                                 nodes/replanner.py
      confirm      사용자 선택·동의 대기 ⏸                         nodes/replanner.py
-     measure_final 코드 ⏸ 목표 척도(S3 없음)                      nodes/measure.py
+     measure_final 코드 ⏸ STAI-6 · BSRI(라운드마다 잰 S3는 없음)  nodes/measure.py
 
 ⏸는 interrupt다. 그래프가 멈추고 상태를 체크포인터에 남긴다. 같은 thread_id로
 `Command(resume=값)`을 보내면 그 자리부터 이어서 돈다. 세션 하나가 thread 하나다.

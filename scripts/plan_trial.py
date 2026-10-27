@@ -128,8 +128,8 @@ def previous_round(protocol_id: str, goal: CareGoal) -> Round:
             activity=PlannedActivity(protocol_id=protocol_id, minutes=5), rationale="(직전 라운드)"
         ),
         report=SessionReport(completed=True),
-        pre=Measurement(timepoint=Timepoint.PRE, round=0, **sam),
-        post=Measurement(timepoint=Timepoint.POST, round=1, **sam),
+        pre=[Measurement(timepoint=Timepoint.PRE, round=0, **sam)],
+        post=[Measurement(timepoint=Timepoint.POST, round=1, **sam)],
         evaluation=OutcomeEvaluation(
             goal=goal, round=1, deltas={}, improved=False, completed=True
         ),
