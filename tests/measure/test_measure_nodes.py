@@ -71,4 +71,4 @@ def test_missing_sam_answer_fails_loudly(node):
         CONFIG,
     )
     with pytest.raises(ValueError, match="INS-SAM 응답이 없다"):
-        graph.invoke(Command(resume={}), CONFIG)
+        graph.invoke(Command(resume={"NOT-INS-SAM": {}}), CONFIG)
