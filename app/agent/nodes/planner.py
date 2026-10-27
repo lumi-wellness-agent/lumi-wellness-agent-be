@@ -34,7 +34,7 @@ from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field
 
 from app import protocols
-from app.agent import validation
+from app.agent import reference_card, validation
 from app.agent.context import AgentContext, PlannerContext
 from app.agent.llm import with_fallback
 from app.agent.prompts import (
@@ -369,6 +369,14 @@ def make_plan_node(planner: Planner):
             rationale=rationale,
             relaxed=list(search.relaxed),
             environment_gaps=protocols.environment_gaps(protocol, session.environment),
+            reference_card=reference_card.build_card(
+                state["intake"],
+                protocol,
+                activity,
+                [(c.hit, c.verdict) for c in evidence],
+                delivered=protocols.delivered_media(protocol, session.content_type),
+                relaxed=search.relaxed,
+            ),
         )
         return {"plan": plan}
 

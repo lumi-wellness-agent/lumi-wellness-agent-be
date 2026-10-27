@@ -13,6 +13,7 @@ from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.schemas.card import ReferenceCard
 from app.schemas.care import CareGoal, CareRequest, Environment, Place, Setting
 from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import GoalSource, IntakeEndReason, IntakeQuestion, IntakeTurn
@@ -101,6 +102,9 @@ class CarePlan(BaseModel):
     # 고른 활동이 지금 환경에서 어려운 이유(AUDIO · SCREEN · QUIET · OUTDOORS). FE가 "소리가 나와요"
     # 같은 안내를 띄운다. 환경을 풀지 않았으면 비어 있다
     environment_gaps: list[str] = []
+    # "왜 추천했나요?" — plan 노드가 검증한 근거 · 프로토콜 · intake로 만든다
+    # (app/agent/reference_card.py)
+    reference_card: ReferenceCard | None = None
 
 
 class ContentStep(BaseModel):

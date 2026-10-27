@@ -13,6 +13,7 @@ from app import protocols
 from app.agent.context import AgentContext
 from app.agent.nodes.planner import ActivityChoice, PlanRejected, make_plan_node
 from app.agent.state import IntakeResult
+from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
@@ -89,6 +90,20 @@ def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
     assert plan.activity.evidence_record_ids == [102, 101, 112, 111]
     assert plan.rationale == "추천 이유"
     assert planner.explained == [("PR-21", "-", [102, 101, 112, 111])]
+
+
+def test_pipeline_builds_the_reference_card_from_the_cited_evidence(fake_backends):
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+
+    card = plan.reference_card
+    assert (card.protocol_id, card.minutes) == ("PR-21", plan.activity.minutes)
+    # 인용한 chunk 넷이 실험 둘로 — 목표를 지지하는 P24-E1이 앞
+    assert [e.experiment_id for e in card.evidence] == ["P24-E1", "P33-E1"]
+    assert sorted(i for e in card.evidence for i in e.evidence_record_ids) == [101, 102, 111, 112]
+    assert card.evidence[0].supports_goal and not card.evidence[1].supports_goal
+    # 조합 근거가 없는 구성 · AI 생성 이미지(사용자 선호)
+    assert {CardBadge.EXPERIMENTAL, CardBadge.AI_IMAGE_UNVERIFIED} <= set(card.badges)
+    assert card.goal.goal is CareGoal.S1 and card.goal.measured_by.instrument_id.value == "INS-BSRI"
 
 
 def test_pipeline_retries_a_choice_outside_the_candidates_then_rejects(fake_backends):

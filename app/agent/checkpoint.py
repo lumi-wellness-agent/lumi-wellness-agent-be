@@ -43,6 +43,16 @@ from app.agent.state import (
     SessionReport,
 )
 from app.config import get_settings
+from app.schemas.card import (
+    CardBadge,
+    CardEvidence,
+    Excerpt,
+    GoalDefinitionRef,
+    GoalSection,
+    MeasureRef,
+    PaperCitation,
+    ReferenceCard,
+)
 from app.schemas.care import (
     CareGoal,
     CareRequest,
@@ -52,7 +62,14 @@ from app.schemas.care import (
     Setting,
     UserProfile,
 )
-from app.schemas.evidence import InterventionOrder, Outcome
+from app.schemas.evidence import (
+    Effect,
+    InterventionOrder,
+    Outcome,
+    OutcomeResult,
+    Section,
+    StudyDesign,
+)
 from app.schemas.intake import (
     GoalSource,
     IntakeEndReason,
@@ -64,6 +81,8 @@ from app.schemas.intake import (
     SelectMode,
 )
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
+from app.schemas.protocol import Composition, Grade
+from app.schemas.retrieval import Check, CheckResult, Flag
 
 SCHEMA = "langgraph"
 # 라이브러리 마이그레이션의 마지막 버전. 테이블이 이보다 낮으면 make checkpoint-setup을 다시 돌린다
@@ -103,6 +122,24 @@ STATE_TYPES = (
     NextStep,
     ReplanProposal,
     Round,
+    # Reference 카드(CarePlan.reference_card)
+    ReferenceCard,
+    CardBadge,
+    GoalSection,
+    GoalDefinitionRef,
+    MeasureRef,
+    PaperCitation,
+    CardEvidence,
+    Excerpt,
+    OutcomeResult,
+    Effect,
+    Section,
+    StudyDesign,
+    Composition,
+    Grade,
+    Flag,
+    CheckResult,
+    Check,
 )
 
 
