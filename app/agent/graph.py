@@ -12,15 +12,15 @@
     intake_context ④ 코드 — 추천을 바꾸는 환경 칸만 묻는다                 nodes/intake.py
     intake_ask    ⏸ 질문(입구 되묻기 · 시점 · 재질문 · 환경 칩). 글 답은 intake_read로
     intake_finish 코드 — 기본값 · 환경 조건                                 nodes/intake.py
-    measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
+    measure_pre   코드 ⏸ SAM만 (MVP)                            nodes/measure.py
   ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
   ② prepare       콘텐츠 준비                                     nodes/executor.py
      run_session  FE 실행 대기 ⏸                                  nodes/executor.py
-     measure_post 코드 ⏸ SAM (+ S3는 MFVAS)                      nodes/measure.py
+     measure_post 코드 ⏸ SAM만 (MVP)                            nodes/measure.py
   ③ evaluate      Outcome Evaluator                               nodes/evaluator.py
   ④ replan        Replanning 규칙                                 nodes/replanner.py
      confirm      사용자 선택·동의 대기 ⏸                         nodes/replanner.py
-     measure_final 코드 ⏸ STAI-6 · BSRI(라운드마다 잰 S3는 없음)  nodes/measure.py
+     measure_final 코드 ⏸ SAM만 (모든 목표, MVP)                 nodes/measure.py
 
 ⏸는 interrupt다. 그래프가 멈추고 상태를 체크포인터에 남긴다. 같은 thread_id로
 `Command(resume=값)`을 보내면 그 자리부터 이어서 돈다. 세션 하나가 thread 하나다.
