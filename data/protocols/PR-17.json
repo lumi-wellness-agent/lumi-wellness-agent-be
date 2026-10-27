@@ -4,7 +4,7 @@
   "protocol_id": "PR-17",
   "name": "오감 그라운딩(5-4-3-2-1)",
   "name_en": null,
-  "summary": "오감 그라운딩. 약 10분. 매체 GROUNDING. 허용 사용자 상태 제한 없음.",
+  "summary": "주변의 보고 만지고 듣고 냄새 맡고 맛보는 감각을 자기 속도로 알아차린다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -17,19 +17,20 @@
     "default": 10.0,
     "min": null,
     "max": null,
-    "evidence": "원문 확인"
+    "evidence": "기존 계약용 임시 10분. 실제 수행 시간 미측정; 종료 제한 아님. 연구의 단회 시간 근거 아님."
   },
   "eligibility": {
-    "min_minutes_available": 10.0,
+    "min_minutes_available": null,
     "needs": [
-      "AUDIO"
+      "AUDIO",
+      "SCREEN"
     ],
     "place": "ANY",
     "quiet_required": true,
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 오감 그라운딩을 약 10분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 주변의 감각을 천천히 알아차려 보겠습니다.\n\n편안한 자세를 취하고, 자신의 속도로 안내를 따라와 주세요.\n\n개수를 모두 채우지 않아도 괜찮습니다. 찾기 어렵거나 불편한 단계는 건너뛰어도 되고, 언제든 활동을 멈춰도 됩니다.",
     "intro_text_ref": "guide/pr17_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -38,18 +39,19 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "GUIDE_AUDIO",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "START 대본과 동일; 중복 재생하지 않음. 기존 max_seconds=15와 실제 음성 길이 검토 필요."
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "오감 순서로 알아차리기",
+      "label": "오감 순서 알아차리기(사용자 진행)",
       "minutes": 10.0,
       "slots": [
         "GUIDE_AUDIO"
       ],
-      "user_can_stop": true
+      "user_can_stop": true,
+      "note": "10분은 계약용 임시 추정값이며 강제 종료 시각이 아니다."
     }
   ],
   "measures": {
@@ -76,15 +78,158 @@
       {
         "slot": "GUIDE_AUDIO",
         "required": true,
-        "evidence_stimulus": "E20-E1: 오감 그라운딩 교육·실습",
+        "evidence_stimulus": "E20: 40분 교육 중 지도자 안내 FST; 5 보기, 4 촉각, 3 청각, 2 후각, 1 미각. 순서 완료형 앱과 선택적 눈감기·건너뛰기는 LUMI 설계.",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "원문은 보기 후 눈 감기 요청. LUMI는 선택적으로 변형.",
+        "text": "지금부터 주변의 감각을 천천히 알아차려 보겠습니다.\n\n편안한 자세를 취하고, 자신의 속도로 안내를 따라와 주세요.\n\n개수를 모두 채우지 않아도 괜찮습니다. 찾기 어렵거나 불편한 단계는 건너뛰어도 되고, 언제든 활동을 멈춰도 됩니다.",
+        "scripts": [
+          {
+            "id": "START",
+            "label": "시작",
+            "target_count": null,
+            "text": "지금부터 주변의 감각을 천천히 알아차려 보겠습니다.\n\n편안한 자세를 취하고, 자신의 속도로 안내를 따라와 주세요.\n\n개수를 모두 채우지 않아도 괜찮습니다. 찾기 어렵거나 불편한 단계는 건너뛰어도 되고, 언제든 활동을 멈춰도 됩니다."
+          },
+          {
+            "id": "SEE",
+            "label": "보기",
+            "target_count": 5,
+            "text": "먼저 주변을 천천히 둘러보세요.\n\n지금 눈에 보이는 것 다섯 가지를 하나씩 찾아봅니다.\n\n크거나 특별한 것이 아니어도 괜찮아요. 색이나 모양처럼 눈에 들어오는 것을 편하게 살펴보세요."
+          },
+          {
+            "id": "TOUCH",
+            "label": "만지기",
+            "target_count": 4,
+            "text": "이번에는 만질 수 있는 것 네 가지를 알아차려 보세요.\n\n옷의 감촉이나 몸이 닿아 있는 의자처럼, 지금 편하게 느낄 수 있는 것들이어도 좋습니다.\n\n손으로 직접 만지지 않고 몸에 닿는 느낌을 알아차려도 괜찮아요."
+          },
+          {
+            "id": "HEAR",
+            "label": "듣기",
+            "target_count": 3,
+            "text": "이제 주변에서 들리는 소리에 귀를 기울여 보세요.\n\n가까운 소리나 먼 소리 중에서 세 가지를 천천히 알아차려 봅니다.\n\n소리가 잘 들리지 않거나 세 가지를 찾기 어렵다면, 지금 들리는 만큼만 살펴봐도 괜찮습니다."
+          },
+          {
+            "id": "SMELL",
+            "label": "냄새",
+            "target_count": 2,
+            "text": "이번에는 지금 맡을 수 있는 냄새가 있는지 살펴보세요.\n\n주변에서 두 가지를 찾을 수도 있고, 아무 냄새도 나지 않는다는 것을 알아차려도 괜찮습니다.\n\n냄새를 찾기 어렵거나 불편하다면 이 단계를 건너뛰어도 좋아요."
+          },
+          {
+            "id": "TASTE",
+            "label": "맛",
+            "target_count": 1,
+            "text": "마지막으로 지금 입안에서 느껴지는 맛이 있는지 가볍게 알아차려 보세요.\n\n특별한 맛이 느껴지지 않아도 괜찮습니다. 무언가를 먹거나 마실 필요는 없어요.\n\n이 단계가 불편하다면 그대로 건너뛰어도 좋습니다."
+          },
+          {
+            "id": "END",
+            "label": "마무리",
+            "target_count": null,
+            "text": "지금까지 주변의 감각을 천천히 살펴봤습니다.\n\n잠시 몸이 닿아 있는 곳과 주변 공간을 느껴보세요.\n\n준비가 되면 자신의 속도로 다음 활동을 시작하면 됩니다."
+          }
+        ],
+        "selection": {
+          "type": "APPROVED_FIXED_SCRIPT",
+          "script_ids": [
+            "START",
+            "SEE",
+            "TOUCH",
+            "HEAR",
+            "SMELL",
+            "TASTE",
+            "END"
+          ]
+        },
+        "render": {
+          "status": "SPEC_ONLY",
+          "timing_mode": "USER_CONTROLLED_SEQUENCE",
+          "hard_time_limit": null,
+          "stages": [
+            "SEE",
+            "TOUCH",
+            "HEAR",
+            "SMELL",
+            "TASTE"
+          ],
+          "next": "사용자가 다음을 누르면 현재 음성 중단 후 다음 단계 안내",
+          "skip": "사용자가 건너뛰면 현재 단계를 미완료 처리하고 다음 단계 안내",
+          "completion": "마지막 완료 또는 건너뛰기 후 END 재생, END 종료 후 활동 종료",
+          "on_exit": "음성 중단, 완료 false",
+          "estimate_minutes": null,
+          "contract_placeholder_minutes": 10,
+          "note": "단계별 버튼과 재생은 설계 명세이며 실제 구현 및 계약 합의 필요."
+        },
+        "personalization": {
+          "eye_closing": "선택",
+          "target_count_required": false,
+          "capture_answers": false
+        },
+        "generation": {
+          "method": "RECORDED_VOICE_OR_TTS_FROM_APPROVED_TEXT",
+          "status": "SPEC_ONLY",
+          "language": "ko-KR",
+          "provider": null,
+          "voice_id": null,
+          "clips": [
+            {
+              "id": "START",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "SEE",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "TOUCH",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "HEAR",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "SMELL",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "TASTE",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "END",
+              "asset_url": null,
+              "duration_seconds": null
+            }
+          ],
+          "quality_checks": [
+            "시작 음성과 안내 중복 여부",
+            "각 음성의 길이 및 발음",
+            "단계 전환·건너뛰기·중단시 재생 중단 확인"
+          ]
+        }
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "SPEC_ONLY",
+      "current_stage_and_count": true,
+      "answer_entry": false,
+      "controls": [
+        "NEXT",
+        "SKIP",
+        "EXIT"
+      ],
+      "timer_limit": null,
+      "eye_closing_optional": true,
+      "completion_reporting": "완료 또는 건너뛴 단계 구분은 플레이어 연동 검토; SessionReport.completed의 정의 합의 필요"
+    }
   },
   "grades": {
     "AFFECT": {
@@ -130,18 +275,19 @@
       "n": 94,
       "order": "—",
       "population": "간호대생(미국)",
-      "stimulus": "오감 그라운딩 교육·실습",
+      "stimulus": "40분 교육 내 5 보기·4 촉각·3 청각·2 후각·1 미각, 연구자 단계별 안내; 단회 수행 시간 미확인.",
       "outcomes": [
         "SUBJECTIVE_STRESS"
       ],
-      "result": "TAQ −4.7(p<.001); 고불안 23%→4%",
+      "result": "시작 94명, 사전·사후 모두 응답한 48명 분석: TAQ 평균 −4.68점(p<.001). 대조군 없음.",
       "verification": "본문",
       "evidence_record_ids": []
     }
   ],
   "constraints": [
-    "단일군 사전사후",
-    "간호대생 시험 불안"
+    "단일군 사전사후, 대조군 없음",
+    "미국 간호대생 시험 불안; 94명 중 48명 사전·사후 분석",
+    "순서 완료형 앱과 건너뛰기·눈감기 선택의 효과 미검증"
   ],
   "safety": [],
   "unverified_claims": [
@@ -161,11 +307,13 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "활동 시간을 시트에서 못 읽어 10분으로 두었다(원문 확인)"
+      "기본 10분은 기존 스키마용 임시값, 실제 측정 전 사용자 예상시간 아님; 플래너 분 단위 및 강제 타이머 여부 팀 합의 필요",
+      "단계별 음성·다음·건너뛰기·화면과 완료 보고는 확장 명세이며 실제 실행기 연결 확인 필요",
+      "START 안내 guide.max_seconds 15초 실제 음성 길이 검토",
+      "실제 음성 제작 및 사용성 검토 필요"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-17, 근거 arm 1행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

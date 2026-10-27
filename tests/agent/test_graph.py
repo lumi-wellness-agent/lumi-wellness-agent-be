@@ -112,7 +112,7 @@ def test_session_loops_until_user_ends(caplog):
     out = run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
     session = out["__interrupt__"][0].value
     assert session["plan"]["activity"]["protocol_id"] == "PR-06"
-    assert session["content"]["name"] == "5분 구조화 호흡(주기적 한숨·느린 호흡)"
+    assert session["content"]["name"] == "주기적 한숨 호흡 5분"
     assert session["content"]["steps"][0]["minutes"] == 5  # 계획한 시간으로 맞춘다
     assert out["pre"][1].scores == {"total": 56.67}  # 역채점 후 (3,3,2,3,3,3) 합 17 × 20/6
 
@@ -248,7 +248,7 @@ def test_check_plan_rules():
     assert check_plan(BREATHING.activity, state) == []
     assert check_plan(activity("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
     assert "단계 모듈" in check_plan(activity("PR-16", 1), state)[0]
-    assert any("최대 20" in p for p in check_plan(activity("PR-06", 25), state))
+    assert any("최대 5" in p for p in check_plan(activity("PR-06", 25), state))
     assert any("최소 5" in p for p in check_plan(activity("PR-06", 3), state))
     assert any("가용 시간 15분" in p for p in check_plan(activity("PR-07", 20), state))
     # PR-01은 POST_STRESS·POST_FATIGUE만 허용 — PRE_STRESS 사용자에게는 맞지 않는다
@@ -270,7 +270,7 @@ def test_check_plan_rules():
     )
     with_round = {**state, "rounds": [changed]}
     assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
-    assert check_plan(activity("PR-07", 15), with_round) == []
+    assert check_plan(activity("PR-07", 9), with_round) == []
 
 
 def test_routes():

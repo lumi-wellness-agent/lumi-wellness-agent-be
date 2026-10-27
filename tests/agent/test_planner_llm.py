@@ -177,11 +177,11 @@ def changed_round(protocol_id: str) -> Round:
 @pytest.mark.parametrize(
     ("protocol_id", "available", "expected"),
     [
-        ("PR-06", 10, 5),  # 기본 5, 5~20분
+        ("PR-06", 10, 5),  # 5분 고정
         ("PR-06", None, 5),
         ("PR-11", 30, 30),  # 기본 50, 최소 20 → 쓸 수 있는 30분
         ("PR-11", 10, 20),  # 최소 20분 아래로는 줄이지 않는다(check_plan이 거른다)
-        ("PR-07", 10, 10),  # 기본 20, 최소 없음 → 10분
+        ("PR-07", 10, 9),  # 9분 고정
         ("PR-01", 60, 6),  # 기본 6.0 → 6
     ],
 )

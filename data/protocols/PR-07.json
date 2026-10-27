@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "record_type": "care_protocol",
   "protocol_id": "PR-07",
-  "name": "점진적 근육 이완(PMR) 20분",
-  "name_en": null,
-  "summary": "점진적 근육 이완(PMR) 20분. 약 20분. 매체 PMR. 허용 사용자 상태 NO_INDUCTION.",
+  "name": "점진적 근육 이완(PMR) 18부위 — 수행 9분",
+  "name_en": "Progressive muscle relaxation — 18 regions",
+  "summary": "HealthyWA·CCI 공개 안내를 참고해 18부위를 차례로 긴장·이완한다. 부위당 설명 10초·긴장 5초·이완 10초·전환 5초, 수행 블록 9분. 준비·종료 안내는 별도이며 P18의 20분 중재를 재현한 것이 아니다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -16,22 +16,24 @@
     "NO_INDUCTION"
   ],
   "duration_minutes": {
-    "default": 20.0,
-    "min": null,
-    "max": null,
-    "evidence": "20분(P18)"
+    "default": 9.0,
+    "min": 9.0,
+    "max": 9.0,
+    "evidence": "20분(P18)",
+    "implementation_note": "확정: 18부위 각 30초, 실제 수행 블록 540초(9분). 세션 시작 소개·준비 설명과 종료 안내는 별도. 부위별 동작 설명 10초는 수행 9분에 포함. 실제 전체 소요 시간은 준비·종료 음성 길이 확인 후 산출. P18의 20분과 다르며 효과 동등성 미검증."
   },
   "eligibility": {
-    "min_minutes_available": 20.0,
+    "min_minutes_available": 9.0,
     "needs": [
-      "AUDIO"
+      "AUDIO",
+      "SCREEN"
     ],
     "place": "ANY",
     "quiet_required": true,
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 점진적 근육 이완(PMR) 20분을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "지금부터 안내에 따라 부위별로 근육을 긴장시키고 이완합니다. 통증이 있거나 불편한 부위는 힘주기를 생략하고 편하게 쉬세요. 불편하면 언제든 활동을 종료할 수 있습니다.",
     "intro_text_ref": "guide/pr07_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -46,8 +48,8 @@
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "녹음 안내 PMR 20분",
-      "minutes": 20.0,
+      "label": "부위별 PMR 수행 블록 — 18부위 기준",
+      "minutes": 9.0,
       "slots": [
         "GUIDE_AUDIO"
       ],
@@ -84,9 +86,340 @@
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "공개 안내 기반 LUMI 대본으로 진행 확정. 대본·시간·제공 방식은 미확정.",
+        "implementation_sources": [
+          {
+            "source_id": "HEALTHYWA_CCI_PMR",
+            "title": "Progressive muscle relaxation",
+            "organization": "Western Australia Department of Health / Centre for Clinical Interventions",
+            "url": "https://www.scgh.health.wa.gov.au/sitecore/content/Healthy-WA/Articles/N_R/Progressive-muscle-relaxation",
+            "role": "PROCEDURE_REFERENCE_ONLY",
+            "verified_procedure": {
+              "approximate_tension_seconds": 5,
+              "approximate_relaxation_seconds": 10,
+              "muscle_group_count": 18
+            },
+            "note": "구체적인 수행 순서의 참고 자료. P18 실험의 원 녹음·대본과 동일하지 않음."
+          }
+        ],
+        "selection": {
+          "script_source": "LUMI_AUTHORED_FROM_PUBLIC_GUIDANCE",
+          "procedure_source_id": "HEALTHYWA_CCI_PMR",
+          "research_reference": "P18-E1",
+          "original_p18_script_obtained": false,
+          "note": "공개 안내 기반 한국어 초안. 통증 방지를 위해 강도 표현 완화. 가슴·배는 숨 참기를 피하도록 감각 관찰로 각색했으며 원 안내와 동일하지 않음."
+        },
+        "personalization": {
+          "llm_rewrite": false,
+          "painful_area": "SKIP_TENSION",
+          "note": "사용자가 통증·불편을 느끼는 부위는 긴장을 강요하지 않고 생략. 무작위 동작 추가 금지."
+        },
+        "generation": {
+          "method": "TTS_FROM_REVIEWED_FIXED_TEXT",
+          "status": "SCRIPT_DRAFT_PENDING_AUDIO_QA",
+          "original_research_audio_reproduction": false,
+          "note": "검수 후 고정 한국어 대본 제작. 실제 TTS·영상 생성은 아직 진행하지 않음.",
+          "language": "ko-KR",
+          "voice_direction": "차분하고 또렷한 동일 화자, 자연스러운 속도, 속삭임·배경 음악 없음",
+          "llm_rewrite": false
+        },
+        "render": {
+          "status": "DRAFT_TIMELINE",
+          "progression": "SEQUENTIAL",
+          "seconds_per_region": 30,
+          "phases": [
+            {
+              "phase": "INSTRUCTION",
+              "start_seconds": 0,
+              "duration_seconds": 10,
+              "note": "동작 설명과 힘주기 시작 신호 포함. 이 구간에는 긴장 유지 시간을 시작하지 않는다."
+            },
+            {
+              "phase": "TENSE",
+              "start_seconds": 10,
+              "duration_seconds": 5,
+              "note": "힘 빼기 신호는 15초 경계에 맞춰 제공. 실제 음성 길이 검수 필요."
+            },
+            {
+              "phase": "RELAX",
+              "start_seconds": 15,
+              "duration_seconds": 10
+            },
+            {
+              "phase": "TRANSITION",
+              "start_seconds": 25,
+              "duration_seconds": 5
+            }
+          ],
+          "regions": [
+            {
+              "order": 1,
+              "id": "RIGHT_HAND_FOREARM",
+              "label": "오른손·아래팔"
+            },
+            {
+              "order": 2,
+              "id": "RIGHT_UPPER_ARM",
+              "label": "오른쪽 위팔"
+            },
+            {
+              "order": 3,
+              "id": "LEFT_HAND_FOREARM",
+              "label": "왼손·아래팔"
+            },
+            {
+              "order": 4,
+              "id": "LEFT_UPPER_ARM",
+              "label": "왼쪽 위팔"
+            },
+            {
+              "order": 5,
+              "id": "FOREHEAD",
+              "label": "이마"
+            },
+            {
+              "order": 6,
+              "id": "EYES_CHEEKS",
+              "label": "눈 주변·볼"
+            },
+            {
+              "order": 7,
+              "id": "MOUTH_JAW",
+              "label": "입·턱"
+            },
+            {
+              "order": 8,
+              "id": "NECK",
+              "label": "목"
+            },
+            {
+              "order": 9,
+              "id": "SHOULDERS",
+              "label": "어깨"
+            },
+            {
+              "order": 10,
+              "id": "SHOULDER_BLADES_BACK",
+              "label": "견갑골·등"
+            },
+            {
+              "order": 11,
+              "id": "CHEST_STOMACH",
+              "label": "가슴·배"
+            },
+            {
+              "order": 12,
+              "id": "HIPS_BUTTOCKS",
+              "label": "엉덩이"
+            },
+            {
+              "order": 13,
+              "id": "RIGHT_UPPER_LEG",
+              "label": "오른쪽 허벅지"
+            },
+            {
+              "order": 14,
+              "id": "RIGHT_LOWER_LEG",
+              "label": "오른쪽 종아리"
+            },
+            {
+              "order": 15,
+              "id": "RIGHT_FOOT",
+              "label": "오른발"
+            },
+            {
+              "order": 16,
+              "id": "LEFT_UPPER_LEG",
+              "label": "왼쪽 허벅지"
+            },
+            {
+              "order": 17,
+              "id": "LEFT_LOWER_LEG",
+              "label": "왼쪽 종아리"
+            },
+            {
+              "order": 18,
+              "id": "LEFT_FOOT",
+              "label": "왼발"
+            }
+          ],
+          "region_scope_status": "USER_CONFIRMED_ALL_18",
+          "instruction_overrun": "실제 음성 길이를 측정한다. 설명·시작 신호가 10초에 들어가지 않으면 대본 수정 또는 일정 재설계 전 READY로 전환 금지. 긴장 상태에서 음성 지연을 기다리게 하지 않는다.",
+          "note": "5초 긴장·10초 이완은 공개 안내 참고. 30초 배분과 10초 설명·5초 전환은 LUMI 설계 초안.",
+          "session_timing": {
+            "before_activity": [
+              "guide.intro_text",
+              "scripts.pre_start"
+            ],
+            "activity_timer_start": "AFTER_PRE_START_AUDIO_END",
+            "activity_seconds": 540,
+            "after_activity": [
+              "scripts.end"
+            ],
+            "after_end_audio": "SUBMIT_SESSION_REPORT_THEN_MEASURE_POST",
+            "instruction_and_closing_included_in_activity": false,
+            "total_duration_seconds": null,
+            "note": "준비·종료 음성 실제 길이 측정 후 전체 소요 시간 산출. 활동 중 동작 설명은 각 30초에 포함."
+          }
+        },
+        "scripts": {
+          "pre_start": "등과 머리가 편하게 지지되는 의자에 앉아 주세요. 각 부위의 설명을 듣고 시작 신호가 나오면 통증 없는 범위에서 가볍게 힘을 줍니다. 힘을 빼라는 안내가 나오면 편하게 쉽니다. 숨을 참지 마세요. 통증이 있거나 불편한 부위는 건너뛰고, 원하면 언제든 종료할 수 있습니다.",
+          "region_scripts": [
+            {
+              "region_id": "RIGHT_HAND_FOREARM",
+              "instruction_text": "오른손을 가볍게 쥐어 손과 아래팔의 긴장을 느낄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "RIGHT_UPPER_ARM",
+              "instruction_text": "오른팔의 팔꿈치를 굽혀 위팔에 가볍게 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "LEFT_HAND_FOREARM",
+              "instruction_text": "왼손을 가볍게 쥐어 손과 아래팔의 긴장을 느낄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "LEFT_UPPER_ARM",
+              "instruction_text": "왼팔의 팔꿈치를 굽혀 위팔에 가볍게 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "FOREHEAD",
+              "instruction_text": "눈썹을 살짝 들어 이마에 긴장을 줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "EYES_CHEEKS",
+              "instruction_text": "눈을 가볍게 감아 눈 주변과 볼에 긴장을 줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "MOUTH_JAW",
+              "instruction_text": "턱이 불편하지 않은 범위에서 입을 조금 벌릴 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "NECK",
+              "instruction_text": "목이 불편하면 건너뛰세요. 편안한 범위에서 고개를 조금 뒤로 기울릴 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "SHOULDERS",
+              "instruction_text": "어깨를 귀 쪽으로 살짝 올릴 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "SHOULDER_BLADES_BACK",
+              "instruction_text": "양쪽 날개뼈를 가볍게 모아 등 근육에 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "CHEST_STOMACH",
+              "instruction_text": "숨을 편안히 들이쉬며 가슴과 배의 움직임을 느껴보세요. 숨은 참지 마세요.",
+              "tension_cue": "숨을 참지 말고 편안히 움직임을 느껴보세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "HIPS_BUTTOCKS",
+              "instruction_text": "엉덩이 근육에 가볍게 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "RIGHT_UPPER_LEG",
+              "instruction_text": "오른쪽 허벅지 근육에 가볍게 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "RIGHT_LOWER_LEG",
+              "instruction_text": "쥐가 나지 않도록 오른발 끝을 몸 쪽으로 살짝 당길 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "RIGHT_FOOT",
+              "instruction_text": "오른발 발가락을 가볍게 오므릴 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "LEFT_UPPER_LEG",
+              "instruction_text": "왼쪽 허벅지 근육에 가볍게 힘줄 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "LEFT_LOWER_LEG",
+              "instruction_text": "쥐가 나지 않도록 왼발 끝을 몸 쪽으로 살짝 당길 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            },
+            {
+              "region_id": "LEFT_FOOT",
+              "instruction_text": "왼발 발가락을 가볍게 오므릴 준비를 하세요.",
+              "tension_cue": "이제 가볍게 힘을 주세요.",
+              "relaxation_cue": "이제 힘을 빼고 편하게 쉬세요.",
+              "transition_text": "편하게 쉬며 다음 부위를 준비하세요."
+            }
+          ],
+          "end": "모든 부위의 안내가 끝났습니다. 몸의 힘을 편하게 풀고 평소 호흡을 이어가세요. 잠시 앉아서 주변을 살핀 뒤 천천히 움직이세요."
+        }
       }
-    ]
+    ],
+    "reference_card_note": "P18은 20분 녹음 안내 PMR 연구다. LUMI 수행 대본은 HealthyWA·CCI 공개 안내를 참고해 별도 작성하며 원 연구 대본 및 효과의 동등성은 확인되지 않았다.",
+    "session_ui": {
+      "status": "SPEC_ONLY",
+      "component": "BODY_REGION_SEQUENCE",
+      "silhouette_base_color": "BLUE",
+      "active_region_color": "RED",
+      "active_region_window": "CURRENT_REGION_30_SECOND_BLOCK",
+      "reset_previous_region_on_advance": true,
+      "highlight_meaning": "현재 안내하는 부위. 빨간색 자체가 힘주기 명령은 아님. 긴장·이완은 별도 단계 문구와 음성으로 구분.",
+      "phase_labels": [
+        "동작 안내",
+        "힘주기 또는 감각 관찰",
+        "힘 빼고 쉬기",
+        "다음 부위 준비"
+      ],
+      "side_labels": "사용자 신체 기준 좌우. 정면 실루엣에서 사용자 오른쪽은 화면 왼쪽.",
+      "back_regions": "등·엉덩이 등 후면 부위는 후면 실루엣 또는 별도 위치 표시 필요.",
+      "controls": {
+        "close_icon": true,
+        "skip_region": true
+      },
+      "reference": "사용자 첨부 image(5).png — 형태 참고, 파란색 기본 실루엣으로 구현",
+      "note": "색상·신체 그림은 수행 안내 UI이며 논문 검증 자극이 아님."
+    }
   },
   "grades": {
     "AFFECT": {
@@ -119,12 +452,12 @@
       "note": null
     },
     "PHYSIO": {
-      "grade": "미확인",
+      "grade": "B",
       "support": [
         "P18-E1"
       ],
       "conflicts": [],
-      "note": "P18 EDA 등"
+      "note": "P18-E1 PMR군 피부전도활동 선형 감소. 심박수 효과와 구분. 프로젝트 등급 최종 검수 필요."
     }
   },
   "paper_id_scheme": "RC_MASTER",
@@ -143,7 +476,7 @@
         "SUBJECTIVE_STRESS",
         "PHYSIO"
       ],
-      "result": "대조 대비 이완↑(유의)",
+      "result": "PMR 사후 이완 점수가 대조군보다 높음(p=.046). PMR군 피부전도활동의 시간에 따른 선형 감소(p<.001). 심박수 집단×시간 효과는 유의하지 않음(p=.084). n=60은 전체 네 집단 합계.",
       "verification": "본문",
       "evidence_record_ids": []
     },
@@ -166,13 +499,16 @@
     }
   ],
   "constraints": [
-    "P19는 서술 종합(통합 효과크기 없음)"
+    "P19는 서술 종합(통합 효과크기 없음)",
+    "P18의 20분과 다른 9분 각색 활동. 원 대본 미확보, 단축·TTS·화면의 효과 동등성 미검증."
   ],
   "safety": [
     "근육·관절 통증 부위는 긴장 단계 생략"
   ],
   "unverified_claims": [
-    "20분 미만 단축"
+    "20분 미만 단축",
+    "새 한국어 대본과 P18 원 안내의 효과 동등성",
+    "공개 안내와 시범 영상 결합의 추가 효과"
   ],
   "population_validated": [
     "대학생(미국)"
@@ -183,12 +519,17 @@
   "user_facing_flags": {
     "default": null,
     "by_goal": {},
-    "when_generated_assets": null
+    "when_generated_assets": null,
+    "when_adapted_script": "ADAPTED_STIMULUS"
   },
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요"
+      "설명 10초+긴장 5초+이완 10초+전환 5초 대본·음성 경계 검수",
+      "준비·종료 음성 길이 측정 후 전체 소요 시간과 시간 적합성 검사에 반영",
+      "P18의 이완 척도와 AFFECT·SUBJECTIVE_STRESS 분류 관계 및 P19 원문 검수",
+      "스키마·make test-protocols·FE 시퀀스와 부위별 생략 계약 확인",
+      "한국어 18부위 대본은 초안. 강도 완화·가슴배 감각 관찰 각색 검수와 음성 10초·경계 검수 전 실행 준비 완료로 표시 금지"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-07, 근거 arm 2행",
     "reviewed_by": null,

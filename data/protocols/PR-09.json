@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "record_type": "care_protocol",
   "protocol_id": "PR-09",
-  "name": "3분 안내 마음챙김(순간)",
-  "name_en": null,
-  "summary": "3분 안내 마음챙김. 약 3분. 매체 MINDFULNESS. 허용 사용자 상태 NO_INDUCTION.",
+  "name": "3분 안내 마음챙김",
+  "name_en": "Brief guided mindfulness (3 minutes)",
+  "summary": "음성 안내를 들으며 현재의 생각, 감정과 호흡 감각을 열린 마음으로 알아차린다.",
   "goal": "S1",
   "secondary_goals": [],
   "media": [
@@ -16,22 +16,23 @@
     "NO_INDUCTION"
   ],
   "duration_minutes": {
-    "default": 3.0,
-    "min": 3.0,
-    "max": 5.0,
-    "evidence": "3분(N26) / 5분(P16 명상 arm)"
+    "default": 3,
+    "min": 3,
+    "max": 3,
+    "evidence": "N26-E1 원본 영어 음성은 3분 22초(202초). LUMI는 3분(180초) 한국어 대본으로 조정한 독자 설계이며 효과 동등성은 미검증."
   },
   "eligibility": {
-    "min_minutes_available": 3.0,
+    "min_minutes_available": 3,
     "needs": [
-      "AUDIO"
+      "AUDIO",
+      "SCREEN"
     ],
     "place": "ANY",
     "quiet_required": true,
     "not_recommended_if": []
   },
   "guide": {
-    "intro_text": "지금부터 3분 안내 마음챙김을 약 3분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+    "intro_text": "편안한 자세로 눈을 감거나 시선을 내려놓으세요.\n\n지금부터 잠시 생각과 감정, 호흡을 알아차려 보겠습니다.\n\n불편하면 언제든 눈을 뜨거나 멈춰도 괜찮습니다.",
     "intro_text_ref": "guide/pr09_intro_ko",
     "max_seconds": 15,
     "source_policy": {
@@ -40,14 +41,14 @@
       "llm_rewrite": "FORBIDDEN"
     },
     "during_activity": "GUIDE_AUDIO",
-    "note": "초안 문안. 활동 중 안내 음성이 자극 자체인 경우(호흡·PMR·심상·마음챙김)만 GUIDE_AUDIO 슬롯을 쓴다"
+    "note": "시작 안내는 START 대본과 동일하며 별도 중복 재생하지 않는다. max_seconds 15는 기존 계약값이며 실제 음성 길이 미측정."
   },
   "steps": [
     {
       "order": 1,
       "type": "ACTIVITY",
-      "label": "오디오 안내 3분",
-      "minutes": 3.0,
+      "label": "음성 안내 마음챙김 3분",
+      "minutes": 3,
       "slots": [
         "GUIDE_AUDIO"
       ],
@@ -62,7 +63,7 @@
         "NOTICE_PROMPT"
       ],
       "optional": true,
-      "note": "한 단어 응답. 점수화하지 않음(E10 정서 명명 참고)"
+      "note": "선택형 추가 단계로 3분 활동 종료 후 제공(0.5분 별도). 한 단어 응답, 점수화하지 않음. E10 정서 명명은 참고이며 이 추가 단계의 동일 효과 근거가 아님."
     }
   ],
   "measures": {
@@ -89,18 +90,162 @@
       {
         "slot": "GUIDE_AUDIO",
         "required": true,
-        "evidence_stimulus": "N26-E1: 하루 8회 × 10일, 짧은 오디오(약 3분); P16-E2: 매일 5분 × 1개월",
+        "evidence_stimulus": "N26-E1 원본 음성 3분 22초; P16-E2 명상군 매일 5분 × 1개월, 별도 조건.",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "고정 대본 및 화면은 명세이며 실제 재생 구현과 음성 파일 생성은 별도.",
+        "text": "편안한 자세로 눈을 감거나 시선을 내려놓으세요.\n\n지금부터 잠시 생각과 감정, 호흡을 알아차려 보겠습니다.\n\n불편하면 언제든 눈을 뜨거나 멈춰도 괜찮습니다.",
+        "scripts": [
+          {
+            "id": "START",
+            "elapsed_seconds": 0,
+            "text": "편안한 자세로 눈을 감거나 시선을 내려놓으세요.\n\n지금부터 잠시 생각과 감정, 호흡을 알아차려 보겠습니다.\n\n불편하면 언제든 눈을 뜨거나 멈춰도 괜찮습니다."
+          },
+          {
+            "id": "THOUGHTS",
+            "elapsed_seconds": 25,
+            "text": "지금 떠오르는 생각과 느껴지는 감정을 가볍게 살펴보세요.\n\n바꾸거나 없애려고 애쓰지 않아도 괜찮아요. 지금 있는 그대로 잠시 바라보세요."
+          },
+          {
+            "id": "BREATH",
+            "elapsed_seconds": 60,
+            "text": "이제 주의를 호흡으로 옮겨 보세요.\n\n숨을 들이쉬고 내쉴 때의 감각을 알아차립니다. 호흡의 속도를 바꾸지 않아도 괜찮아요."
+          },
+          {
+            "id": "RETURN",
+            "elapsed_seconds": 100,
+            "text": "다른 생각이나 소리에 주의가 옮겨갔다면 괜찮습니다.\n\n가볍게 알아차리고, 준비가 되면 다시 호흡으로 돌아와 보세요. 불편하다면 발이 바닥에 닿는 느낌이나 주변 소리에 주의를 두어도 좋습니다."
+          },
+          {
+            "id": "BODY",
+            "elapsed_seconds": 135,
+            "text": "이제 몸 전체로 주의를 조금 넓혀 보세요.\n\n몸이 의자나 바닥에 닿는 느낌과 주변의 소리를 가볍게 알아차립니다."
+          },
+          {
+            "id": "END",
+            "elapsed_seconds": 163,
+            "text": "이제 활동을 마무리합니다.\n\n눈을 감고 있었다면 준비가 되었을 때 천천히 눈을 떠 주세요. 자신의 속도로 일상으로 돌아가면 됩니다."
+          }
+        ],
+        "selection": {
+          "type": "APPROVED_FIXED_SCRIPT",
+          "script_ids": [
+            "START",
+            "THOUGHTS",
+            "BREATH",
+            "RETURN",
+            "BODY",
+            "END"
+          ]
+        },
+        "render": {
+          "status": "SPEC_ONLY",
+          "activity_seconds": 180,
+          "timer_start": "AT_START_AUDIO",
+          "timer_continues_during_audio": true,
+          "cues": [
+            {
+              "elapsed_seconds": 0,
+              "script_id": "START"
+            },
+            {
+              "elapsed_seconds": 25,
+              "script_id": "THOUGHTS"
+            },
+            {
+              "elapsed_seconds": 60,
+              "script_id": "BREATH"
+            },
+            {
+              "elapsed_seconds": 100,
+              "script_id": "RETURN"
+            },
+            {
+              "elapsed_seconds": 135,
+              "script_id": "BODY"
+            },
+            {
+              "elapsed_seconds": 163,
+              "script_id": "END"
+            }
+          ],
+          "silence_between_cues": true,
+          "countdown_sound": false,
+          "completion_sound": false,
+          "on_stop": "STOP_TIMER_AND_CANCEL_ALL_PENDING_AUDIO",
+          "on_completion": "OPTIONAL_NOTICE_AFTER_ACTIVITY",
+          "note": "실제 음성 길이를 측정하여 안내 겹침과 마지막 17초 종료를 검증한다. 3분은 안내·침묵·마무리 포함. 원본 연구는 202초이며 단축본의 효과 동등성은 미검증."
+        },
+        "personalization": {
+          "script_rewrite": false,
+          "attention_alternative": "호흡이 불편하면 발이 바닥에 닿는 느낌 또는 주변 소리"
+        },
+        "generation": {
+          "method": "RECORDED_VOICE_OR_TTS_FROM_APPROVED_TEXT",
+          "status": "SPEC_ONLY",
+          "language": "ko-KR",
+          "voice_direction": "차분하고 또렷한 한국어, 동일 화자, 자연스러운 속도",
+          "background_music": false,
+          "background_ambience": false,
+          "llm_rewrite": false,
+          "provider": null,
+          "voice_id": null,
+          "clips": [
+            {
+              "id": "START",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "THOUGHTS",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "BREATH",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "RETURN",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "BODY",
+              "asset_url": null,
+              "duration_seconds": null
+            },
+            {
+              "id": "END",
+              "asset_url": null,
+              "duration_seconds": null
+            }
+          ],
+          "quality_checks": [
+            "승인 대본·발음·동일 화자·음량 검토",
+            "START를 guide.intro_text와 중복 재생하지 않음",
+            "첫 음성 25초 이내, 마지막 음성 17초 이내 종료 확인",
+            "각 클립의 실제 길이와 다음 안내 사이 간격 검토",
+            "guide.max_seconds 15초 계약 확인, 미충족 시 팀과 문안·제한 검토",
+            "총 180초 및 음성·무음 구간, 중단과 종료 확인"
+          ]
+        },
+        "script_review": {
+          "status": "DRAFT",
+          "source": "N26: Mindfulness Intervention and Active-Control Task (논문 인쇄 263쪽), 3분 22초 음성, 생각·감정·호흡에 개방성과 호기심으로 주의.",
+          "source_url": "https://link.springer.com/article/10.1007/s42761-024-00291-9",
+          "original_audio": "https://soundcloud.com/momentary-mindfulness/task-one",
+          "note": "원본 음성의 대본과 세부 시간표를 듣고 검증하지 못함. LUMI 대본과 시점은 독자 설계이며 연구 음성 202초를 180초로 조정한 효과 동등성은 미검증."
+        }
       },
       {
         "slot": "NOTICE_PROMPT",
         "required": false,
-        "evidence_stimulus": "N26-E1: 하루 8회 × 10일, 짧은 오디오(약 3분); P16-E2: 매일 5분 × 1개월",
+        "evidence_stimulus": "선택형 활동 후 단어 응답은 LUMI 설계. E10 정서 명명 참고; N26 원본 프로토콜과 동일하다고 주장하지 않음.",
         "source_policy": {
           "fixed_text": "ALLOWED",
           "tts": "ALLOWED",
@@ -108,7 +253,38 @@
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "SPEC_ONLY",
+      "component": "CIRCULAR_SESSION_TIMER",
+      "timer": {
+        "format": "MM:SS",
+        "initial_seconds": 180,
+        "starts_at": "START_AUDIO",
+        "at_zero": "COMPLETE_WITHOUT_SOUND"
+      },
+      "outer_wave": {
+        "visible_when": "GUIDE_SPEECH_PLAYING",
+        "hidden_when": "SILENCE",
+        "animation": "SOFT_PLAYBACK_ANIMATION",
+        "actual_amplitude_analysis_required": false
+      },
+      "imagery_image_or_video": false,
+      "controls": {
+        "close_icon": true,
+        "back_navigation": true,
+        "on_exit": "STOP_TIMER_AND_ALL_AUDIO_AND_CANCEL_PENDING_CUES",
+        "completed_on_exit": false
+      },
+      "completion": {
+        "notice_is_optional": true,
+        "notice_seconds": 30,
+        "at_180_seconds": "OFFER_OPTIONAL_NOTICE_THEN_MEASURE_POST"
+      },
+      "accessibility": {
+        "eyes_closed_optional": true
+      }
+    }
   },
   "grades": {
     "AFFECT": {
@@ -158,12 +334,12 @@
       "n": 91,
       "order": "무관(일상)",
       "population": "성인(원문 확인)",
-      "stimulus": "하루 8회 × 10일, 짧은 오디오(약 3분)",
+      "stimulus": "N26 3분 22초 음성; 10일 동안 하루 8회 알림에서 마음챙김 또는 대조 과제에 매번 무작위 배정.",
       "outcomes": [
         "AFFECT",
         "RUMINATION"
       ],
-      "result": "마음챙김 후 반추·NA 단기↓; 둘의 역동 관계는 불변",
+      "result": "대조 과제 대비 즉시 보고된 반추·부정 정서 평균 감소; 시간적 상호작용 약화의 일관된 근거 없음.",
       "verification": "본문",
       "evidence_record_ids": []
     },
@@ -226,7 +402,9 @@
   "safety": [],
   "unverified_claims": [
     "자연 이미지 병행(→ PR-21)",
-    "반추 '치료' 주장"
+    "반추 치료 주장",
+    "LUMI 한국어 음성의 원본 N26 음성과 효과 동등성",
+    "원본 202초에서 180초로 단축한 LUMI 음성의 효과 동등성"
   ],
   "population_validated": [
     "성인(원문 확인)"
@@ -242,11 +420,15 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
-      "시트 비고: S1 1순위"
+      "원본 오디오 세부 대본·시점 미확인. LUMI 한국어 문안은 논문 요약을 참고해 새로 작성",
+      "N26 연구의 202초와 다른 180초 구성의 적용 및 효과 동등성 미검증 팀 검토",
+      "음성 실제 길이와 안내 간 겹침 및 guide.max_seconds 검토",
+      "타이머·음파·중단·선택형 NOTICE 및 측정 연동 구현 확인",
+      "원본 음성 또는 번역을 재사용할 경우 이용 권한 확인",
+      "P16·P14·P13 근거 등급과 세부 결과 팀 검토"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-09, 근거 arm 4행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }
