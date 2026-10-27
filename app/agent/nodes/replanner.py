@@ -7,7 +7,7 @@
 - confirm: interrupt로 평가 · 제안 · 선택지를 보여 주고 ReplanDecision을 기다린다. 동의한 경우에만
   다음 라운드(plan)로 간다. 다음 라운드의 사전값은 직전 사후값(round_pre = post). 결정은 세션 API가
   선택지로 미리 거른다 — 여기서 거부하면 그 재개 값에 세션이 묶인다(app/api/sessions.py).
-- route_after_confirm: END면 SAM 종료 측정을 거친다. MVP는 목표와 관계없이 PRE · POST · FINAL에서 SAM을 쓴다.
+- route_after_confirm: 종료면 모든 목표에서 SAM을 측정한다(PRE · POST · FINAL).
 """
 
 from typing import Literal
@@ -48,7 +48,8 @@ def replan(state: CareState) -> dict:
     elif evaluation.improved is None:
         recommended, reason = NextStep.END, "이 목표는 세션 내 판정 기준이 없다(목표 지표 —)"
     else:
-        recommended, reason = NextStep.CHANGE_ACTIVITY, "SAM 기분 지표가 개선 방향을 보이지 않았다(탐색 지표)"
+        recommended = NextStep.CHANGE_ACTIVITY
+        reason = "SAM 기분 지표가 개선 방향을 보이지 않았다(탐색 지표)"
     if recommended not in options:
         limit = (
             f"라운드 {MAX_ROUNDS}회를 채웠다"
