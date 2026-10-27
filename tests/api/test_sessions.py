@@ -21,18 +21,16 @@ from tests.agent.test_graph import (
     ASK_TIMING,
     BREATHING,
     S2_READING,
-    STAI6,
     FakeIntaker,
     FakePlanner,
     inference,
-    mfvas,
     plan,
     reading,
     sam,
 )
 
 SSE = {"Accept": "text/event-stream"}
-PRE_S2 = {**sam(3, 7), "INS-STAI6": STAI6}
+PRE_S2 = sam(3, 7)
 
 
 def client_for(
@@ -79,7 +77,7 @@ def test_s2_session_runs_to_end_over_json():
     body = res.json()
     sid = body["session_id"]
     assert (body["step"], body["node"]) == ("MEASURE", "measure_pre")
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM"]
 
     body = client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()
     assert body["step"] == "RUN"
@@ -95,7 +93,7 @@ def test_s2_session_runs_to_end_over_json():
     body = client.post(f"/sessions/{sid}/decision", json={"next_step": "END"}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "FINAL")
 
-    final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
+    final = sam(5, 5)
     body = client.post(f"/sessions/{sid}/measure", json=final).json()
     assert (body["step"], body["node"]) == ("END", None)
     end = body["payload"]
@@ -103,13 +101,13 @@ def test_s2_session_runs_to_end_over_json():
     assert [(r["protocol_id"], r["improved"], r["next_step"]) for r in end["rounds"]] == [
         ("PR-06", True, "END")
     ]
-    # 세션 Δ는 사전과 종료 측정의 STAI-6(56.67 → 43.33)
-    assert end["goal_scale"]["instrument_id"] == "INS-STAI6"
-    assert end["goal_scale"]["delta"]["total"] == pytest.approx(43.33 - 56.67)
+    # 시작·종료 SAM 차이는 기분 변화이며 S2 목표 점수로 해석하지 않는다.
+    assert end["sam_change"]["instrument_id"] == "INS-SAM"
+    assert end["sam_change"]["delta"] == {"valence": 2.0, "arousal": -2.0}
     assert client.get(f"/sessions/{sid}").json() == body
 
 
-def test_s3_session_ends_without_final_measure_and_uses_last_post():
+def test_s3_session_uses_sam_and_reports_no_goal_scale_change():
     outdoors = reading(
         order_condition=InterventionOrder.POST_FATIGUE, setting=Setting.OUTDOOR, minutes=30
     )
@@ -118,19 +116,20 @@ def test_s3_session_ends_without_final_measure_and_uses_last_post():
     )
     sid = start(client)
     assert (
-        client.post(f"/sessions/{sid}/measure", json={**sam(4, 5), **mfvas(80, 70, 20)}).json()[
+        client.post(f"/sessions/{sid}/measure", json=sam(4, 5)).json()[
             "step"
         ]
         == "RUN"
     )
     client.post(f"/sessions/{sid}/report", json={"completed": True})
-    client.post(f"/sessions/{sid}/measure", json={**sam(6, 5), **mfvas(45, 40, 55)})
+    client.post(f"/sessions/{sid}/measure", json=sam(6, 5))
 
     body = client.post(f"/sessions/{sid}/decision", json={"next_step": "END"}).json()
-    assert body["step"] == "END"
-    scale = body["payload"]["goal_scale"]
-    assert scale["instrument_id"] == "INS-MFVAS"
-    assert scale["delta"] == {"fatigue": -35.0, "concentration": -30.0, "energy": 35.0}
+    assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "FINAL")
+    end = client.post(f"/sessions/{sid}/measure", json=sam(7, 6)).json()
+    change = end["payload"]["sam_change"]
+    assert change["instrument_id"] == "INS-SAM"
+    assert change["delta"] == {"valence": 3.0, "arousal": 1.0}
 
 
 def test_sse_streams_progress_then_the_same_result():
@@ -183,15 +182,17 @@ def test_invalid_measure_answers_never_reach_the_graph():
     client = client_for()
     sid = start(client)
     for bad in (
-        sam(3, 7),  # STAI-6 없음
-        {**sam(3, 7), "INS-STAI6": {**STAI6, "calm": 9}},  # 범위 밖
-        {"INS-SAM": {"valence": 3}, "INS-STAI6": STAI6},  # 문항 빠짐
+        {"INS-SAM": {"valence": 3}},  # SAM 문항 빠짐
+        {"INS-SAM": {"valence": 0, "arousal": 7}},  # SAM 범위 밖
+        {},  # 필수 SAM 응답 없음
     ):
         res = client.post(f"/sessions/{sid}/measure", json=bad)
         assert res.status_code == 422
         assert res.json()["detail"]["code"] == "INVALID_ANSWER"
-    # 그래프에 들어간 적이 없어서 올바른 답으로 그대로 이어진다
-    assert client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()["step"] == "RUN"
+    # 그래프에 들어간 적이 없어서 올바른 답으로 그대로 이어진다.
+    # TODO 키를 추가로 보내도 비활성 척도 답은 검증·저장하지 않는다.
+    extra = {**sam(3, 7), "INS-STAI6": {"calm": 999}}
+    assert client.post(f"/sessions/{sid}/measure", json=extra).json()["step"] == "RUN"
 
 
 def test_decision_outside_the_options_is_refused():
@@ -206,8 +207,7 @@ def test_decision_outside_the_options_is_refused():
         FakePlanner(plan("PR-15", 5)), FakeIntaker(cafe, goal=inference(CareGoal.S1))
     )
     sid = start(client)
-    bsri = {f"item{i}": 60 for i in range(1, 9)}
-    client.post(f"/sessions/{sid}/measure", json={**sam(4, 6), "INS-BSRI": bsri})
+    client.post(f"/sessions/{sid}/measure", json=sam(4, 6))
     client.post(f"/sessions/{sid}/report", json={"completed": True})
     body = client.post(f"/sessions/{sid}/measure", json=sam(4, 6)).json()
     assert body["payload"]["options"] == ["END", "ADDITIONAL_SESSION"]
@@ -278,7 +278,7 @@ def test_intake_questions_are_answered_until_the_pre_measure():
     answer = {"question_id": "q2", "answer": {"setting": "OFFICE_CAFE", "earphones": False}}
     body = client.post(f"/sessions/{sid}/answer", json=answer).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "PRE")
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-BSRI"]
+    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM"]
 
 
 def test_invalid_intake_answers_never_reach_the_graph():
@@ -333,8 +333,8 @@ def test_off_topic_input_is_restated_and_can_be_skipped():
 
     body = client.post(f"/sessions/{sid}/answer", json={"question_id": "r1", "skip": True}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "PRE")
-    # 건너뛰면 추론 없이 S2(기본값)로 시작한다 — 목표 척도가 STAI-6다
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    # 건너뛰면 추론 없이 S2(기본값)로 시작한다 — MVP 측정은 SAM만 쓴다
+    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM"]
 
 
 def test_session_api_is_unavailable_without_a_graph():
