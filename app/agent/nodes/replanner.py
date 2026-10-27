@@ -1,10 +1,11 @@
 """④ Replanning — 종료 · 활동 변경 · 추가 세션 중 하나를 제안하고 사용자의 선택을 받는다.
 
 - replan: 제안을 만든다. 규칙(임시): 끝까지 못 함 → 활동 변경, 라운드 상한 → 종료, 개선 → 종료,
-  판정 기준 없음(S3) → 종료, 그 밖 → 활동 변경. 기준은 팀이 정한다.
+  판정 기준 없음 → 종료, 그 밖 → 활동 변경. 기준은 팀이 정한다.
 - confirm: interrupt로 평가와 제안을 보여 주고 ReplanDecision을 기다린다. 동의한 경우에만 다음
   라운드(plan)로 간다. 다음 라운드의 사전값은 직전 사후값(round_pre = post).
-- route_after_confirm: END면 목표 척도가 있을 때 measure_final을 거친다(S3는 바로 END).
+- route_after_confirm: END면 사전·종료에만 재는 목표 척도(STAI-6 · BSRI)가 있을 때 measure_final을
+  거친다. 라운드마다 잰 S3(MFVAS)는 마지막 사후값이 종료값이라 바로 END.
 """
 
 from typing import Literal
@@ -13,7 +14,7 @@ from langgraph.graph import END
 from langgraph.types import interrupt
 
 from app.agent.state import CareState, NextStep, ReplanDecision, ReplanProposal, Round
-from app.schemas.measure import GOAL_SCALE
+from app.schemas.measure import final_scale
 
 MAX_ROUNDS = 3  # 라운드 2–3회 제한(등급 규칙 시트 '라운드 규칙')
 
@@ -66,7 +67,10 @@ def confirm(state: CareState) -> dict:
 
 
 def route_after_confirm(state: CareState) -> Literal["plan", "measure_final", "__end__"]:
-    """종료면 목표 척도를 한 번 더 재고 끝낸다(S3는 바로 끝). 활동 변경·추가 세션이면 Planner로."""
+    """종료면 STAI-6 · BSRI를 한 번 더 재고 끝낸다(라운드마다 잰 S3는 바로 끝).
+
+    활동 변경·추가 세션이면 Planner로.
+    """
     if state["next_step"] is not NextStep.END:
         return "plan"
-    return "measure_final" if GOAL_SCALE[state["intake"].goal] else END
+    return "measure_final" if final_scale(state["intake"].goal) else END

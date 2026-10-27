@@ -1,0 +1,33 @@
+{
+  "instrument_id": "INS-MFVAS",
+  "name": "정신 피로 VAS (Mental Fatigue VAS)",
+  "paper_id": "—",
+  "concept": "순간 정신 피로(주관) — 피로감 · 집중 어려움 · 기운",
+  "timeframe": "지금",
+  "instruction": "지금 느낌에 가장 가까운 곳에 표시해 주세요.",
+  "items": [
+    {
+      "id": "fatigue",
+      "text": "지금 머리가 얼마나 피로한가요?",
+      "low_label": "전혀 피로하지 않다",
+      "high_label": "매우 피로하다"
+    },
+    {
+      "id": "concentration",
+      "text": "지금 집중하기가 얼마나 어려운가요?",
+      "low_label": "전혀 어렵지 않다",
+      "high_label": "매우 어렵다"
+    },
+    {
+      "id": "energy",
+      "text": "지금 기운이 얼마나 있나요?",
+      "low_label": "전혀 없다",
+      "high_label": "매우 많다"
+    }
+  ],
+  "scale": {"min": 0, "max": 100, "step": 1, "kind": "SLIDER"},
+  "scoring": {"kind": "PER_ITEM", "range": [0, 100]},
+  "license_note": "팀이 쓴 문항(번역 아님). 심리측정 타당화 없음 — 사용자 데이터로 문항 간 상관·신뢰도를 본 뒤 유지·교체(ROS 등)를 정한다",
+  "status": "PROVISIONAL",
+  "note": "S3 목표 척도이자 라운드 척도(schemas/measure.ROUND_SCALES) — 사전·라운드마다 SAM과 함께 재고 종료에는 다시 묻지 않는다. 판정은 fatigue 한 문항(evaluator.IMPROVEMENT_RULE: fatigue↓). concentration·energy는 데이터 수집용(energy는 높을수록 좋다). 분야 표준이 정신 피로 VAS 단일 문항이다(Mental Load and Fatigue Assessment Instruments: A Systematic Review, IJERPH 2022, PMC8744873 — 논문목록 등재 뒤 paper_id를 채운다). concentration 문항은 Chalder 피로 척도(N03) 정신 피로 하위척도의 대표 문항을 '지금' 시간틀로 옮긴 것. 주의 용량은 재지 않는다 — 근거의 S3 1차 지표 ATTENTION(과제 BDS·SART)과 다르다고 Reference 카드에 적는다. 측정도구 시트의 INS-GAP-S3가 이 도구다"
+}

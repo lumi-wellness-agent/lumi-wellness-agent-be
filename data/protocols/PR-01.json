@@ -76,7 +76,7 @@
     "anchor": "INS-SAM",
     "goal_scale_by_goal": {
       "S2": "INS-STAI6",
-      "S3": null
+      "S3": "INS-MFVAS"
     },
     "schedule": {
       "pre": [

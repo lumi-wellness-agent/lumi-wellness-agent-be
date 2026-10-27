@@ -15,14 +15,34 @@ class InstrumentId(StrEnum):
     SAM = "INS-SAM"  # 공통 앵커. 쾌·각성 그림 척도 2탭. 모든 MEASURE 노드
     STAI6 = "INS-STAI6"  # S2 목표 척도. 6문항 4점 → 20–80 환산. 사전·종료만
     BSRI = "INS-BSRI"  # S1 목표 척도. 8문항 0–100 슬라이더. 사전·종료만
+    MFVAS = "INS-MFVAS"  # S3 목표 척도(임시·미검증). 정신 피로 VAS 3문항 슬라이더. 사전·라운드마다
 
 
-# 목표별 척도. S3는 검증된 순간 피로·주의 자가보고가 13편 안에 없어 앵커만 재고 목표 지표는 '—'
+# 목표별 척도. S3는 13편 안에 검증된 순간 피로·주의 자가보고가 없어 임시 도구(INS-MFVAS, 팀 작성·
+# 미검증)로 주관적 피로만 잰다. 근거 쪽 S3 1차 지표는 그대로 ATTENTION(과제)이다
+# (retrieval.GOAL_OUTCOMES) — 측정 지표와 근거 지표가 다르다는 것을 Reference 카드에 적는다
 GOAL_SCALE: dict[CareGoal, InstrumentId | None] = {
     CareGoal.S1: InstrumentId.BSRI,
     CareGoal.S2: InstrumentId.STAI6,
-    CareGoal.S3: None,
+    CareGoal.S3: InstrumentId.MFVAS,
 }
+
+# 짧아서 라운드마다 SAM과 함께 다시 재는 목표 척도. 라운드 판정에 직접 쓰고 종료(measure_final)
+# 에서는 다시 묻지 않는다 — 마지막 라운드의 사후값이 종료값이다.
+# 나머지 목표 척도(STAI-6 · BSRI)는 사전·종료에만 잰다
+ROUND_SCALES: frozenset[InstrumentId] = frozenset({InstrumentId.MFVAS})
+
+
+def round_scale(goal: CareGoal) -> InstrumentId | None:
+    """라운드마다 앵커와 함께 재는 목표 척도. 없으면 None(라운드 사이는 SAM만)."""
+    scale = GOAL_SCALE[goal]
+    return scale if scale in ROUND_SCALES else None
+
+
+def final_scale(goal: CareGoal) -> InstrumentId | None:
+    """종료 경로에서 한 번 더 재는 목표 척도. 라운드마다 잰 척도는 다시 묻지 않는다."""
+    scale = GOAL_SCALE[goal]
+    return None if scale is None or scale in ROUND_SCALES else scale
 
 
 class Timepoint(StrEnum):
