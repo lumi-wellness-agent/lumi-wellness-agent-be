@@ -9,7 +9,8 @@
 
 - **라운드당 활동 노드 1개.** 플래너는 검수된 프로토콜(`data/protocols/*.json`)에서 고를 뿐 조합하지 않는다.
   조합은 `VALIDATED_MULTIMODAL` 프로토콜 자체로만 제공한다(PR-02 · 10 · 12).
-- **LLM은 두 군데뿐이다.** `intake`(구조화 출력 1회)와 `plan`(Tool 루프). 측정·평가·재계획은 코드다.
+- **LLM은 두 노드뿐이다.** `intake`(구조화 출력 1회)와 `plan`(구조화 출력 2회 — 활동 선택 · 추천 이유). plan의 후보·검색·검증과
+  측정·평가·재계획은 코드다.
 - **측정은 RAG가 아니다.** 척도는 `data/instruments/*.json`에 있고 LLM은 문항을 만들거나 바꾸거나 점수를
   계산하지 않는다. LLM 번역 금지 — 번역·타당화된 문항만 쓴다.
 - **근거는 막지 않는다.** 검증은 출처 실재 · 중재 관련 · 지표 측정 세 가지만 차단하고, AI 생성·조합 콘텐츠는
@@ -26,7 +27,7 @@ intake          LLM 호출 1회 → IntakeResult(goal · order_condition · minu
   ↓             안전 신호 · 목표 미정이면 세션을 열지 않는다(ended = SAFETY | NO_GOAL)
 measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 없음)
   ↓
-plan            Adaptive Care Planning Agent — get_care_protocols · search_evidence · validate_evidence → CarePlan
+plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
   ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
 prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_word)
@@ -48,12 +49,12 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | --- | --- | --- |
 | 완료 | `app/agent/state.py` `graph.py` `checkpoint.py` | v2 state · 배선 · 직렬화 허용 타입 |
 | 완료 | `app/agent/nodes/intake.py` `measure.py` `executor.py` `evaluator.py` `replanner.py` | 노드 뼈대. intake·measure는 담당이 본문을 채운다 |
-| 완료 | `app/schemas/protocol.py` `app/protocols.py` `app/agent/tools/protocol.py` | 활동 노드 본문 스키마 · JSON 로더 · `get_care_protocols` |
+| 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates`, 등급 순) · LLM용 압축본(`compact`) |
 | 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
-| 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `app/agent/tools/*` `scripts/plan_trial.py` | plan을 실제 모델로(S1 · S2 · S3 시나리오 통과, `make plan-trial`). 세션 값은 `PlannerContext`로 Tool에. 계획의 근거 ID 재검증(`keep_usable_evidence`) |
+| 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
 | 수 | `app/agent/reference_card.py` | Reference 카드 — 계획의 근거 ID · 검증 플래그(ADAPTED_STIMULUS · CONFLICTING_EVIDENCE) · 프로토콜 composition(EXPERIMENTAL)에서 만든다. rationale 문장에 기대지 않는다 |
 | 수 | `app/api/routes.py` | 세션 API 세 개(README 「세션 API」) + FE |
 | 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
@@ -90,10 +91,11 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 
 ### plan (통합 담당 겸임)
 
-`app/agent/nodes/planner.py` · `prompts.py` · `context.py` · `tools/*`. 테스트(`tests/agent/`)는
-fixture(`tests/fixtures/evidence_hits.json`)로 도구를 흉내 낸 대본 모델로 돈다. 실제 모델은
-`make plan-trial ARGS="S1 S2 S3"`로 돌린다 — gpt-4o-mini 실측(10/26): S1 → PR-09, S2 → PR-06, S3 → PR-01,
-호출당 5~7초 · 모델 호출 4~5회 · 입력 1.5~2만 토큰. 프롬프트를 고치면 세 시나리오를 다시 돌려 본다.
+`app/agent/nodes/planner.py` · `prompts.py` · `context.py`. 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM)이고
+LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`tests/fixtures/evidence_hits.json`)로 검색·검증을
+흉내 내고 Planner 대역(FakeStructuredModel · RecordingPlanner)으로 돈다. 실제 모델은 `make plan-trial ARGS="S1 S2 S3"`로
+돌린다 — gpt-4o-mini 실측(10/27): S1 → PR-09, S2 → PR-06, S3 → PR-01, 계획당 2.5~3.5초 · 모델 호출 2회 · 토큰 4~6천.
+프롬프트를 고치면 세 시나리오를 다시 돌려 본다.
 
 ## 계약
 
@@ -105,7 +107,7 @@ fixture(`tests/fixtures/evidence_hits.json`)로 도구를 흉내 낸 대본 모�
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
-| `get_care_protocols` | `protocols.compact()` 목록. 주 목표가 앞, 단계 모듈 제외 | `app/agent/tools/protocol.py` |
+| 후보 프로토콜 | `protocols.candidates()` → `compact()` 목록. 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
 | 세션 종료 | `ended = SAFETY | NO_GOAL` (intake), `final`(목표 척도) | `app/agent/state.py` |
 
@@ -137,4 +139,4 @@ make protocols-scaffold XLSX=../Research_paper/LUMI_R_C_Research_2026-10-22/LUMI
 ```
 
 대본 모델로 그래프를 테스트하는 방법은 `tests/agent/test_graph.py`(FakeIntaker · FakePlanner · interrupt 재개 대본)와
-`tests/agent/fakes.py`(ScriptedChatModel · fixture 기반 가짜 검색·검증)를 참고한다.
+`tests/agent/fakes.py`(FakeStructuredModel · fixture 기반 가짜 검색·검증)를 참고한다.

@@ -1,72 +1,114 @@
-"""① Adaptive Care Planning Agent — 근거를 찾고 검증해 이번 라운드의 활동 노드 1개를 고른다.
+"""① Adaptive Care Planning — 이번 라운드의 활동 노드 1개를 고르고 근거를 찾아 검증한다.
+고정 절차다.
 
-LangChain `create_agent`의 Tool 호출 루프다. 시스템에서 Tool 루프를 도는 유일한 노드.
-- get_care_protocols: 검수된 Care Protocol 후보 (data/protocols)
-- search_evidence: Evidence Record 하이브리드 검색 (RAG 근거 검색)
-- validate_evidence: EvidenceValidationTool
-그 결과로 CarePlan(활동 1개 + rationale)을 제출한다(ToolStrategy). Tool은 세션에서 정해진 값(목표 ·
-사용자 상태 · 시간 · 이미지 선호)을 PlannerContext에서 읽고, LLM은 고르는 값만 넘긴다.
+    후보(코드) → 선택(LLM 1회) → 검색(코드) → 검증(코드) → 설명(LLM 1회) → CarePlan
 
-LLM의 계획은 그대로 믿지 않는다. check_plan(후검증)이 규칙을 확인하고, 어기면 거부 사유를 붙여
-한 번 다시 묻는다. 그래도 어기면 PlanRejected다. 규칙을 통과한 계획은 keep_usable_evidence가
-인용 근거를 다시 검증해 usable만 남긴다 — 근거는 활동을 막지 않으므로 다시 묻지 않는다.
+LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동을 고를지(제약 · 장소 · 자유 텍스트 대조)와
+검증된 근거를 어떻게 설명할지. 나머지(후보 정렬 · 검색 필터 · 검증 · usable만 남기기 · 활동 시간)는
+규칙이라 코드가 한다. 처음에는 create_agent Tool 루프였는데 gpt-4o-mini가 검색을 건너뛰고, 인자를
+빠뜨리고, 제외한 활동을 다시 고르고, 한 번은 10분 넘게 돌았다(2026-10-26 실측). 절차를 코드로 옮기니
+종료가 보장되고 모델 호출이 4~5회에서 2회로 준다. 적응은 이 노드 안의 루프가 아니라 측정 → 평가 →
+재계획 → plan 순환(graph.py)에서 온다.
 
-Tool 루프는 끝이 보장되지 않는다(LangGraph 기본 재귀 한도 10007 — 2026-10-26 실측에서 10분 넘게
-돈 일이 있다). 모델 호출이 MAX_MODEL_CALLS번째가 되면 SubmitWithinBudget이 일반 Tool을 빼
-CarePlan 제출만 남기고, RECURSION_LIMIT를 넘으면 GraphRecursionError로 끊는다.
+LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
+순서 · 시간 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
+묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
+evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
 
-모델 조립은 app/agent/assembly.py(OpenAI 1순위 · Anthropic 폴백).
+모델 조립은 app/agent/assembly.py(OpenAI 1순위 · Anthropic 폴백 → LlmPlanner). 테스트는 Planner
+대역을 넣는다(tests/agent/test_graph.py FakePlanner).
 """
 
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Sequence
+from dataclasses import dataclass
 from typing import Protocol
 
-from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware, ModelRequest
-from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.runtime import Runtime
+from pydantic import BaseModel, Field
 
+from app import protocols
+from app.agent import validation
 from app.agent.context import AgentContext, PlannerContext
-from app.agent.prompts import PLANNER_SYSTEM_PROMPT, build_planner_input
-from app.agent.state import CarePlan, CareState, NextStep
-from app.agent.tools import PLANNER_TOOLS
-from app.agent.tools.evidence import validate_for_session
-from app.protocols import get_protocol
-from app.schemas.protocol import Composition
+from app.agent.llm import with_fallback
+from app.agent.prompts import (
+    CHOOSE_SYSTEM_PROMPT,
+    EXPLAIN_SYSTEM_PROMPT,
+    build_choice_input,
+    build_rationale_input,
+)
+from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity
+from app.retrieval import hybrid
+from app.schemas.evidence import study_medium
+from app.schemas.protocol import CareProtocol, Composition
+from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict
 
 log = logging.getLogger(__name__)
 
-# 정상 흐름은 모델 호출 4~5회(목록 → 검색 → 검증 → 제출). 인자 오류·재검색 여유를 두고
-# 8번째에는 제출시킨다
-MAX_MODEL_CALLS = 8
-# 그래프 step 상한. 모델·Tool 노드가 번갈아 돌아 호출 1회에 2 step. 제출을 강제한 뒤 CarePlan 인자
-# 오류로 다시 묻는 몇 번까지 둔다
-RECURSION_LIMIT = 2 * (MAX_MODEL_CALLS + 3)
+
+class ActivityChoice(BaseModel):
+    """LLM 호출 1의 구조화 출력 — 후보 중 하나와 그 근거를 찾을 질의. 필드 설명이 LLM에 보인다."""
+
+    protocol_id: str = Field(description="후보 목록에 있는 Care Protocol ID")
+    search_query: str = Field(
+        description="이 활동의 연구 근거를 찾을 영어 질의 3~6단어 — 활동(매체)과 목표 지표를 논문 "
+        "용어로. 예: slow breathing anxiety stress"
+    )
+    reason: str = Field(
+        description="이 활동을 고른 이유 한 문장(한국어). 제약·장소 때문에 앞의 후보를 "
+        "건너뛰었으면 그 이유"
+    )
+
+
+class PlanRationale(BaseModel):
+    """LLM 호출 2의 구조화 출력."""
+
+    rationale: str = Field(description="사용자에게 보여 줄 추천 이유 2~3문장(한국어)")
+
+
+@dataclass(frozen=True)
+class CitedEvidence:
+    """검증을 통과한 근거 하나 — 검색 결과(논문 · 발췌)와 판정(지지 지표 · 플래그)."""
+
+    hit: EvidenceHit
+    verdict: EvidenceVerdict
+
+    @property
+    def evidence_record_id(self) -> int:
+        return self.hit.evidence_record_id
 
 
 class Planner(Protocol):
-    """계획을 세우는 쪽의 모양. 운영은 make_agent_planner, 테스트는 대역을 넣는다."""
+    """LLM이 하는 두 판단. 운영은 LlmPlanner, 테스트는 대역을 넣는다."""
 
-    def __call__(
-        self, state: CareState, context: AgentContext, problems: list[str]
-    ) -> Awaitable[CarePlan]: ...
+    def choose(
+        self, state: CareState, candidates: Sequence[dict], problems: Sequence[str]
+    ) -> Awaitable[ActivityChoice]: ...
+
+    def explain(
+        self,
+        state: CareState,
+        choice: ActivityChoice,
+        protocol: CareProtocol,
+        evidence: Sequence[CitedEvidence],
+    ) -> Awaitable[str]: ...
 
 
 class PlanRejected(Exception):
-    """후검증을 두 번 통과하지 못한 계획."""
+    """후보가 없거나, 선택이 후검증을 두 번 통과하지 못했다."""
 
 
-def check_plan(plan: CarePlan, state: CareState) -> list[str]:
-    """CarePlan 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
+def check_plan(activity: PlannedActivity, state: CareState) -> list[str]:
+    """활동 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
 
     검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 활동 변경 시 같은 프로토콜 금지.
-    인용 근거는 여기서 보지 않는다 — DB가 필요해 keep_usable_evidence가 따로 다시 검증한다.
+    후보 조회(protocols.candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을 고를 수 있어 따로
+    둔다.
     """
-    intake, activity = state["intake"], plan.activity
-    protocol = get_protocol(activity.protocol_id)
+    intake = state["intake"]
+    protocol = protocols.get_protocol(activity.protocol_id)
     if protocol is None:
         return [f"{activity.protocol_id}는 검수된 프로토콜이 아니다"]
     problems = []
@@ -118,96 +160,169 @@ def planner_context(context: AgentContext | None, state: CareState) -> PlannerCo
     )
 
 
-async def keep_usable_evidence(plan: CarePlan, session: PlannerContext) -> CarePlan:
-    """계획이 인용한 근거를 다시 검증해 usable만 남긴다. 목표를 지지하는 근거(supports_goal)가
-    앞, 그 안에서는 LLM이 적은 순서다. 중복은 뺀다.
+async def find_evidence(
+    session: PlannerContext, protocol: CareProtocol, query: str
+) -> list[EvidenceHit]:
+    """제공 매체마다 하이브리드 검색을 돌려 점수 순으로 합친다(상위 hybrid.TOP_K).
 
-    LLM이 검증하지 않은 ID나 usable=False인 ID를 넣었으면 빼고 로그에 남긴다. validate_evidence
-    Tool과 같은 값(validate_for_session)으로 판정한다. check_plan을 통과한 계획만 받는다. 풀이
-    없으면 출처를 확인할 수 없어 전부 빠진다(validation.validate).
+    필터는 검증(validation.judge)과 같은 축이다 — 연구 매체 · 사용자 상태(ORDER_COMPATIBILITY) ·
+    목표 1차 지표. 0건이어도 필터를 완화하지 않는다: 완화해서 찾은 레코드는 어차피 검증에서 막힌다.
     """
-    activity = plan.activity
-    cited = list(dict.fromkeys(activity.evidence_record_ids))
-    if not cited:
-        return plan
-    protocol = get_protocol(activity.protocol_id)
-    if protocol is None:  # check_plan이 막지만 방어한다
-        raise ValueError(f"검수되지 않은 프로토콜 {activity.protocol_id}")
-    verdicts = await validate_for_session(session, protocol, cited)
-    usable = [v.evidence_record_id for v in verdicts if v.usable and v.supports_goal]
-    usable += [v.evidence_record_id for v in verdicts if v.usable and not v.supports_goal]
-    if dropped := [i for i in cited if i not in usable]:
-        log.warning("계획 %s의 인용 근거 %s는 usable이 아니라 뺐다", protocol.protocol_id, dropped)
-    if usable == activity.evidence_record_ids:
-        return plan
-    return plan.model_copy(
-        update={"activity": activity.model_copy(update={"evidence_record_ids": usable})}
-    )
-
-
-class SubmitWithinBudget(AgentMiddleware):
-    """모델 호출이 max_calls번째가 되면 일반 Tool을 빼서 CarePlan 제출만 남긴다.
-
-    ToolStrategy는 Tool 사용을 강제하므로(tool_choice="any") 남은 Tool이 CarePlan뿐이면 모델은
-    지금까지 찾은 것으로 계획을 낸다. 예외로 끊는 것보다 낫다 — 근거가 덜 모였어도 활동은 정해진다.
-    """
-
-    def __init__(self, max_calls: int = MAX_MODEL_CALLS):
-        super().__init__()
-        self.max_calls = max_calls
-
-    def _within_budget(self, request: ModelRequest) -> ModelRequest:
-        made = sum(isinstance(m, AIMessage) for m in request.messages)
-        if made + 1 < self.max_calls:
-            return request
-        log.warning("Planner 모델 호출 %d회째 — Tool을 빼고 CarePlan 제출만 남긴다", made + 1)
-        return request.override(tools=[])
-
-    def wrap_model_call(self, request, handler):
-        return handler(self._within_budget(request))
-
-    async def awrap_model_call(self, request, handler):
-        return await handler(self._within_budget(request))
-
-
-def build_planner_agent(model: BaseChatModel, *, max_model_calls: int = MAX_MODEL_CALLS):
-    return create_agent(
-        model,
-        tools=PLANNER_TOOLS,
-        system_prompt=PLANNER_SYSTEM_PROMPT,
-        middleware=[SubmitWithinBudget(max_model_calls)],
-        response_format=ToolStrategy(CarePlan),
-        context_schema=PlannerContext,
-    )
-
-
-def make_agent_planner(model: BaseChatModel) -> Planner:
-    """LangChain 에이전트로 계획을 세우는 Planner."""
-    agent = build_planner_agent(model)
-
-    async def plan_with_agent(
-        state: CareState, context: AgentContext, problems: list[str]
-    ) -> CarePlan:
-        message = HumanMessage(build_planner_input(state, problems))
-        result = await agent.ainvoke(
-            {"messages": [message]},
-            {"recursion_limit": RECURSION_LIMIT},
-            context=planner_context(context, state),
+    delivered = protocols.delivered_media(protocol, session.content_type)
+    found: dict[int, EvidenceHit] = {}
+    for medium in dict.fromkeys(study_medium(m) for m in delivered):
+        hits = await hybrid.search(
+            session.db_pool,
+            query=query,
+            medium=medium,
+            intervention_order=session.user_order,
+            outcomes=GOAL_OUTCOMES[session.goal].primary,
         )
-        return result["structured_response"]
+        for hit in hits:
+            known = found.get(hit.evidence_record_id)
+            if known is None or hit.score > known.score:
+                found[hit.evidence_record_id] = hit
+    ranked = sorted(found.values(), key=lambda h: (-h.score, h.evidence_record_id))
+    return ranked[: hybrid.TOP_K]
 
-    return plan_with_agent
+
+async def verify_evidence(
+    session: PlannerContext, protocol: CareProtocol, hits: Sequence[EvidenceHit]
+) -> list[CitedEvidence]:
+    """검증을 통과한(usable) 근거만, 목표를 지지하는 것(supports_goal)을 앞에. 검색 순서는 유지."""
+    if not hits:
+        return []
+    verdicts = await validation.validate(
+        session.db_pool,
+        evidence_record_ids=[hit.evidence_record_id for hit in hits],
+        goal=session.goal,
+        media=protocols.delivered_media(protocol, session.content_type),
+        protocol_id=protocol.protocol_id,
+        user_order=session.user_order,
+    )
+    by_id = {hit.evidence_record_id: hit for hit in hits}
+    cited = [CitedEvidence(by_id[v.evidence_record_id], v) for v in verdicts if v.usable]
+    return sorted(cited, key=lambda c: not c.verdict.supports_goal)
+
+
+def make_chooser(model: BaseChatModel):
+    """LLM 호출 1 — 구조화 출력(json_schema) 한 번으로 ActivityChoice를 받는다."""
+    structured = model.with_structured_output(ActivityChoice, method="json_schema")
+
+    async def choose(
+        state: CareState, candidates: Sequence[dict], problems: Sequence[str]
+    ) -> ActivityChoice:
+        messages = [
+            SystemMessage(CHOOSE_SYSTEM_PROMPT),
+            HumanMessage(build_choice_input(state, candidates, problems)),
+        ]
+        return await structured.ainvoke(messages)
+
+    return choose
+
+
+def make_explainer(model: BaseChatModel):
+    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓴다."""
+    structured = model.with_structured_output(PlanRationale, method="json_schema")
+
+    async def explain(
+        state: CareState,
+        choice: ActivityChoice,
+        protocol: CareProtocol,
+        evidence: Sequence[CitedEvidence],
+    ) -> str:
+        messages = [
+            SystemMessage(EXPLAIN_SYSTEM_PROMPT),
+            HumanMessage(build_rationale_input(state, choice, protocol, evidence)),
+        ]
+        return (await structured.ainvoke(messages)).rationale
+
+    return explain
+
+
+class LlmPlanner:
+    """공급자별 모델로 만든 choose · explain에 재시도·폴백(app/agent/llm.py)을 두른 Planner."""
+
+    def __init__(self, models: Sequence[tuple[str, BaseChatModel]]):
+        self._choose = with_fallback([(name, make_chooser(m)) for name, m in models])
+        self._explain = with_fallback([(name, make_explainer(m)) for name, m in models])
+
+    async def choose(
+        self, state: CareState, candidates: Sequence[dict], problems: Sequence[str]
+    ) -> ActivityChoice:
+        return await self._choose(state, candidates, problems)
+
+    async def explain(
+        self,
+        state: CareState,
+        choice: ActivityChoice,
+        protocol: CareProtocol,
+        evidence: Sequence[CitedEvidence],
+    ) -> str:
+        return await self._explain(state, choice, protocol, evidence)
 
 
 def make_plan_node(planner: Planner):
     async def plan(state: CareState, runtime: Runtime[AgentContext]) -> dict:
+        session = planner_context(runtime.context, state)
+        if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
+            raise PlanRejected("목표가 없어 계획할 수 없다")
+        found = protocols.candidates(
+            session.goal,
+            order=session.user_order,
+            minutes=session.minutes_available,
+            exclude=session.excluded_protocol_ids,
+        )
+        if not found:
+            raise PlanRejected(
+                f"{session.goal.value} 목표 · 사용자 상태 {session.user_order} · "
+                f"{session.minutes_available}분에 맞는 검수 프로토콜이 없다"
+            )
+        by_id = {p.protocol_id: p for p in found}
+        candidates = [protocols.compact(p) for p in found]
+
         problems: list[str] = []
         for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
-            care_plan = await planner(state, runtime.context, problems)
-            problems = check_plan(care_plan, state)
+            choice = await planner.choose(state, candidates, problems)
+            protocol = by_id.get(choice.protocol_id)
+            if protocol is None:
+                problems = [f"{choice.protocol_id}는 후보 목록에 없다"]
+                known = protocols.get_protocol(choice.protocol_id)
+                if known is not None:  # 왜 후보가 아닌지도 알려 준다
+                    minutes = protocols.planned_minutes(known, session.minutes_available)
+                    activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
+                    problems += check_plan(activity, state)
+                continue
+            minutes = protocols.planned_minutes(protocol, session.minutes_available)
+            activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
+            problems = check_plan(activity, state)
             if not problems:
-                session = planner_context(runtime.context, state)
-                return {"plan": await keep_usable_evidence(care_plan, session)}
-        raise PlanRejected("; ".join(problems))
+                break
+        else:
+            raise PlanRejected("; ".join(problems))
+        log.info(
+            "계획 선택 %s %d분 (%s) — 질의 %r",
+            activity.protocol_id,
+            minutes,
+            choice.reason,
+            choice.search_query,
+        )
+
+        hits = await find_evidence(session, protocol, choice.search_query)
+        evidence = await verify_evidence(session, protocol, hits)
+        log.info(
+            "계획 근거 %s: 검색 %s → 인용 %s",
+            activity.protocol_id,
+            [h.evidence_record_id for h in hits],
+            [
+                f"{c.evidence_record_id}{'' if c.verdict.supports_goal else '(참고)'}"
+                for c in evidence
+            ],
+        )
+        rationale = await planner.explain(state, choice, protocol, evidence)
+        activity = activity.model_copy(
+            update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
+        )
+        return {"plan": CarePlan(activity=activity, rationale=rationale)}
 
     return plan

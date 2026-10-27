@@ -9,7 +9,7 @@
 
     intake        LLM 호출 1회(구조화 출력), 에이전트 아님      nodes/intake.py
     measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
-  ① plan          Adaptive Care Planning Agent (Tool 루프)       nodes/planner.py
+  ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
   ② prepare       콘텐츠 준비                                     nodes/executor.py
      run_session  FE 실행 대기 ⏸                                  nodes/executor.py
      measure_post 코드 ⏸ SAM                                     nodes/measure.py
@@ -34,7 +34,7 @@ from app.agent.nodes.intake import Intaker, make_intake_node, route_after_intake
 from app.agent.nodes.measure import measure_final, measure_post, measure_pre
 from app.agent.nodes.planner import Planner, make_plan_node
 from app.agent.nodes.replanner import confirm, replan, route_after_confirm
-from app.agent.state import CarePlan, CareState, IntakeResult
+from app.agent.state import CareState, IntakeResult
 from app.schemas.care import CareRequest
 
 
@@ -67,10 +67,12 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-async def _unconfigured_planner(
-    state: CareState, context: AgentContext, problems: list[str]
-) -> CarePlan:
-    raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+class _UnconfiguredPlanner:
+    async def choose(self, *args):
+        raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+
+    async def explain(self, *args):
+        raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
 
 
 async def _unconfigured_intaker(request: CareRequest) -> IntakeResult:
@@ -79,4 +81,4 @@ async def _unconfigured_intaker(request: CareRequest) -> IntakeResult:
 
 if __name__ == "__main__":
     # make graph: 문서·발표용 Mermaid. 그리기만 하므로 LLM을 부르지 않는다
-    print(build_graph(_unconfigured_planner, _unconfigured_intaker).get_graph().draw_mermaid())
+    print(build_graph(_UnconfiguredPlanner(), _unconfigured_intaker).get_graph().draw_mermaid())

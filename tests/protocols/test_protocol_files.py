@@ -82,6 +82,11 @@ def test_candidates_filter_by_order_and_minutes():
     assert "PR-06" in short and "PR-07" not in short  # 20분 PMR은 5분에 안 맞는다
     without = [p.protocol_id for p in protocols.candidates(CareGoal.S1, exclude=["PR-09"])]
     assert "PR-09" not in without and without[0] == "PR-15"  # 직전 라운드에서 바꾸기로 한 활동
+    # 특별한 계기가 없는 사용자(NO_INDUCTION)는 어느 프로토콜이든 쓴다 — POST_* 전용 PR-01도
+    anyone = protocols.candidates(CareGoal.S3, order=InterventionOrder.NO_INDUCTION, minutes=10)
+    assert [p.protocol_id for p in anyone] == ["PR-01", "PR-04"]
+    assert LOADED["PR-01"].allows_order(InterventionOrder.NO_INDUCTION)
+    assert not LOADED["PR-01"].allows_order(InterventionOrder.PRE_STRESS)
 
 
 def test_compact_is_what_the_planner_reads():

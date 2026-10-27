@@ -68,7 +68,7 @@ graph TD;
 | --- | --- | --- | --- |
 | `intake` | intake (LLM 호출 1회) | 자유 텍스트를 `IntakeResult`(목표 S1·S2·S3 · 순서 조건 · 시간·장소·제약 · 안전 신호)로 분류한다. 점수는 추정하지 않는다. FE 칩 값이 분류보다 우선하고 빈 슬롯은 기본값. 안전 신호·목표 미정이면 세션을 열지 않는다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
-| `plan` | ① Adaptive Care Planning Agent | 검수된 프로토콜 조회 + RAG 근거 검색·검증으로 이번 라운드의 활동 노드 1개를 골라 `CarePlan`을 만든다. `check_plan`이 후검증한다 | `nodes/planner.py` |
+| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계·안내 문구로 `ActivityContent`를 준비한다(이미지·음성·Reference 카드는 예정) | `nodes/executor.py` |
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 한 단어)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM | `nodes/measure.py` |
@@ -102,15 +102,15 @@ graph TD;
 - **LangGraph — 세션 그래프 전체.** Replanning → Planner 순환, 사용자 선택에 따른 분기, 사용자가
   활동을 마치거나 동의할 때까지 멈췄다가 이어 가는 interrupt가 필요합니다. 상태가 체크포인터에 남아
   HTTP 요청이 나뉘어도 세션이 이어집니다.
-- **LangChain — Planner와 intake.** `create_agent`가 LLM에 Tool(`get_care_protocols`, `search_evidence`,
-  `validate_evidence`)을 골라 부르게 하고, `CarePlan`을 구조화 출력(`ToolStrategy`)으로 받습니다.
-  세션에서 이미 정해진 값(목표 · 사용자 상태 · 시간 · 이미지 선호 · 직전 라운드에서 바꾸기로 한 활동)은
-  LLM이 인자로 넘기지 않고 Tool이 `PlannerContext`에서 읽습니다 — LLM은 고르는 값(프로토콜 · 검색 질의 ·
-  인용할 근거)만 넘깁니다. 받은 계획은 `check_plan`이 후검증하고, 어기면 거부 사유를 붙여 한 번 다시
-  묻습니다. 통과한 계획의 인용 근거는 `keep_usable_evidence`가 다시 검증해 usable만 남깁니다(근거는
-  활동을 막지 않으므로 다시 묻지 않습니다). Tool 루프는 모델 호출 8회째에 Tool을 빼고 제출만 남기는
-  미들웨어와 LangGraph `recursion_limit`으로 끝을 보장합니다. intake는 `with_structured_output`(json_schema)
-  한 번입니다. 모델은 OpenAI `gpt-4o-mini` 하나로 통일했고
+- **LangChain — intake와 plan의 구조화 출력.** LLM 호출은 세 곳 모두 `with_structured_output`(json_schema)
+  한 번씩입니다 — intake의 `IntakeResult`, plan의 활동 선택 `ActivityChoice`, 추천 이유 `PlanRationale`.
+  plan은 고정 절차입니다: 코드가 후보를 목표 1차 지표 등급 순으로 정렬해 주면 LLM이 하나를 고르고
+  (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 매체 · 사용자 상태 · 목표 지표로 근거를
+  검색·검증해 usable만 남기고, LLM이 그 근거로 추천 이유를 씁니다. 처음에는 `create_agent` Tool
+  루프였지만 gpt-4o-mini가 검색을 건너뛰고, 인자를 빠뜨리고, 한 번은 10분 넘게 돌아(2026-10-26 실측)
+  절차를 코드로 옮겼습니다 — 종료가 보장되고 모델 호출이 4~5회에서 2회로 줍니다. 적응은 이 노드 안의
+  루프가 아니라 측정 → 평가 → 재계획 → plan 순환에서 옵니다. 선택은 `check_plan`이 후검증하고, 어기면
+  거부 사유를 붙여 한 번 다시 묻습니다. 모델은 OpenAI `gpt-4o-mini` 하나로 통일했고
   (`LLM_MODEL`), Anthropic 키가 있으면 `claude-haiku-5-5`를 폴백으로 등록합니다(`FALLBACK_MODEL`,
   `app/agent/assembly.py`). 호출 규칙(`app/agent/llm.py`)은 cure-agent-be를 따릅니다 — 5xx·네트워크
   오류는 같은 공급자에 1회 재시도, 4xx는 재시도 없이 바로 폴백, 전부 실패하면 `LlmExhaustedError`.
@@ -301,11 +301,10 @@ app/
 │  ├─ state.py          그래프 상태와 노드 입출력 스키마 (IntakeResult, CarePlan, Round …)
 │  ├─ assembly.py       설정으로 모델·그래프 조립 (OpenAI → Anthropic 폴백)
 │  ├─ llm.py            재시도(5xx 1회)·폴백(4xx 즉시) 규칙
-│  ├─ context.py        실행 컨텍스트 — AgentContext(DB 풀) · PlannerContext(세션 값. Tool이 읽는다)
+│  ├─ context.py        실행 컨텍스트 — AgentContext(DB 풀) · PlannerContext(plan 단계가 읽는 세션 값)
 │  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
 │  ├─ prompts.py        intake · Planner 프롬프트와 입력 메시지
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
-│  ├─ tools/            Planner의 LangChain Tool (get_care_protocols · search_evidence · validate_evidence)
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드
 ├─ content/             이미지 · 안내 문구 (Executor가 쓴다)

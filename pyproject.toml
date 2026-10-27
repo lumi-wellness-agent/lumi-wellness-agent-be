@@ -15,8 +15,8 @@ dependencies = [
     "langgraph>=1.2",
     # 세션 상태를 Supabase Postgres에 저장하는 체크포인터(app/agent/checkpoint.py)
     "langgraph-checkpoint-postgres>=3.2",
-    # Planner 에이전트(create_agent·Tool·구조화 출력)
-    "langchain>=1.4",
+    # intake·plan의 구조화 출력(with_structured_output)과 메시지 타입. Tool 루프(create_agent)는 쓰지 않는다
+    "langchain-core>=1.6",
     # intake·plan의 모델 공급자(app/agent/assembly.py). 1순위 OpenAI(LLM_MODEL, 기본 gpt-4o-mini),
     # 폴백 Anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5). 재시도·폴백 규칙은 app/agent/llm.py
     "langchain-openai>=1.7",
