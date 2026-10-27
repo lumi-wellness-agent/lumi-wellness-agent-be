@@ -29,6 +29,17 @@ class Settings(BaseSettings):
     content_request_timeout_seconds: float = 10.0
     ai_horde_poll_timeout_seconds: float = 60.0
 
+    # 세션 API를 부를 FE 오리진(쉼표로 구분) — 로컬 개발 서버와 운영 FE
+    cors_origins: str = "http://localhost:3000,https://lumi-wellness-agent-fe.vercel.app"
+    # FE 프리뷰 배포(브랜치마다 주소가 바뀐다). 비우면 프리뷰를 허용하지 않는다
+    cors_origin_regex: str = (
+        r"https://lumi-wellness-agent-fe-[a-z0-9-]+-koothemavericks-projects\.vercel\.app"
+    )
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:

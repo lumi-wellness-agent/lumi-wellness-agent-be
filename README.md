@@ -11,8 +11,8 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
 통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
 질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다 — 실제 모델 확인과 개념 정의 근거(②)는
-아직입니다. Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
-[TEAM.md](TEAM.md)에 있습니다.
+아직입니다. 세션 API는 대역 모델로 흐름을 테스트했고(인증 · 세션 기록은 아직), Reference 카드와 콘텐츠
+생성은 아직입니다. 누가 무엇을 채우는지는 [TEAM.md](TEAM.md)에 있습니다.
 
 ## 구조
 
@@ -143,20 +143,58 @@ graph TD;
 근거 arm 시트 65행과 활동 노드 JSON의 실제 값에서 뽑았고, 계약 테스트(`tests/schemas/`)가 시트의 distinct
 값 전부에 대해 변환을 검사합니다.
 
-### 세션 API (설계안, 미구현)
+### 세션 API (`app/api/sessions.py`)
 
-세션 하나가 LangGraph thread 하나입니다. FE는 interrupt마다 응답을 받고, 다음 요청으로 재개합니다.
-interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니다.
+세션 하나가 LangGraph thread 하나입니다. 요청마다 그래프가 멈춘 자리(interrupt)를 재개해 다음
+interrupt(또는 끝)까지 돌리고, 멈춘 자리를 돌려줍니다. interrupt payload와 resume 값의 모양은 각 노드
+docstring에 있습니다.
 
-| 요청 | 그래프 | 응답 |
+| 요청 | 그래프 | 응답 `step` |
 | --- | --- | --- |
-| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | 질문(`IntakeQuestion`) · 측정 문항 · 또는 종료(SAFETY) |
-| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S2로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | 질문 · 측정 문항 · 또는 종료(SAFETY) |
-| `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
-| `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
-| `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
-| `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → plan으로 돌아가거나, 종료면 `measure_final`에서 멈춤(S3는 바로 끝) | 새 계획·콘텐츠, 종료 측정 문항(S1·S2) 또는 세션 종료(S3) |
-| `POST /sessions/{id}/measure` — 종료 측정 응답(S1 BSRI · S2 STAI-6) | 재개 → `measure_final` 채점 → 끝 | 세션 종료 |
+| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
+| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤(질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S2로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
+| `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 사전: 재개 → plan → prepare → `run_session`에서 멈춤 | `RUN` |
+| `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | `MEASURE`(사후 — SAM, S3는 + MFVAS) |
+| `POST /sessions/{id}/measure` — 사후 응답 | 재개 → evaluate → replan → `confirm`에서 멈춤 | `CONFIRM` |
+| `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → 활동 변경·추가 세션이면 plan → … → `run_session`, 종료면 `measure_final`(S3는 바로 끝) | `RUN` · `MEASURE`(종료) · `END` |
+| `POST /sessions/{id}/measure` — 종료 응답(S1 BSRI · S2 STAI-6) | 재개 → `measure_final` 채점 → 끝 | `END` |
+| `POST /sessions/{id}/retry` | `STALLED` 세션을 멈춘 노드부터 다시 돈다 | 위와 같다 |
+| `GET /sessions/{id}` | 읽기만 한다 — 새로고침 · 끊긴 스트림 복구 | 지금 멈춘 자리 |
+
+응답 본문은 `{session_id, step, node, payload}`입니다. `step`은 멈춘 노드로 정합니다 — `intake_ask` →
+`ASK`(질문 `IntakeQuestion`, `app/schemas/intake.py`), `measure_*` → `MEASURE`(`payload.measure`가 `PRE` ·
+`POST` · `FINAL`), `run_session` → `RUN`(계획 · 콘텐츠), `confirm` → `CONFIRM`(평가 · 제안 · `options`), 끝 →
+`END`. 노드 이름이 API 계약이라 바꾸면 세션 API도 고칩니다. `END`의 `payload.reason`은 `DONE`이거나 intake가
+세션을 끝낸 이유(`SAFETY`)이고, `DONE`이면 라운드 요약과 목표 척도의 세션 변화(`goal_scale` — 끝 − 사전,
+S3는 마지막 사후값)를 싣습니다. 노드가 실패했거나 스트림이 끊겨 interrupt 사이에 멈추면 `STALLED`이고
+`retry`로 잇습니다. 다른 요청이 아직 도는 중이어도 interrupt 사이라 `STALLED`로 보이므로, FE는 `GET`을 첫
+로드와 끊김 복구 때만 부릅니다.
+
+**SSE.** POST에 `Accept: text/event-stream`을 붙이면 같은 실행을 이벤트로 받습니다 — `session`
+(`session_id`) → `progress`(노드가 끝날 때 `{node}` — intake는 `intake_read` · `intake_ask` · `intake_goal` ·
+`intake_context` · `intake_finish`, plan 안 단계가 시작될 때 `{node: "plan", step}` — `choose_activity` ·
+`search_evidence` · `verify_evidence` · `write_rationale`) → `result`(JSON 응답과 같은 본문). 실행이 실패하면
+`error`(오류 본문과 같은 모양)로 끝나고, 15초 동안 이벤트가 없으면 `: ping` 주석을 보냅니다. 요청 검증
+오류(404 · 409 · 422)는 스트림을 열기 전에 JSON으로 돌려줍니다. FE는 응답 전에 LLM이 도는 호출(`POST
+/sessions` · `answer` · 사전 `measure` · `decision` · `retry`)만 SSE로 받고 나머지는 JSON으로 받습니다.
+브라우저 `EventSource`는 GET만 되므로 fetch로 읽습니다.
+
+**오류.** 본문은 `{"detail": {code, message, …}}`입니다.
+
+| code | 상태 | 언제 |
+| --- | --- | --- |
+| `SESSION_NOT_FOUND` | 404 | 없는 세션 |
+| `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
+| `INVALID_ANSWER` | 422 | 측정 응답에 빠진 도구·문항이나 범위 밖 값, 지금 질문이 아닌 답이나 받지 않는 칸·값·직접 입력, `options`에 없는 결정 |
+| `PLAN_REJECTED` | 422 | 계획 실패. `retryable`이면 `retry`로 다시 고른다(후보가 없으면 아니다) |
+| `LLM_UNAVAILABLE` | 503 | 모델 호출이 모두 실패했다(`retryable`) |
+| `AGENT_UNAVAILABLE` | 503 | LLM 키가 없어 세션 그래프를 조립하지 않았다 |
+
+재개 값은 그래프에 넣기 전에 API가 검증합니다. interrupt 뒤에서 노드가 예외를 내면 LangGraph가 그 재개
+값을 체크포인트에 남겨, 같은 interrupt를 다시 재개해도 처음 값으로 실패합니다(interrupt id를 지정해도
+같습니다). 그래서 측정 응답은 노드와 같은 채점 함수로, intake 답은 같은 규칙(`intake_rules.apply_answer`)으로,
+결정은 `options`로 먼저 거릅니다. FE 오리진은 `CORS_ORIGINS`(기본: 로컬 3000 · 운영 FE)와
+`CORS_ORIGIN_REGEX`(기본: FE 프리뷰 배포)로 허용합니다.
 
 체크포인터는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장합니다(`app/agent/checkpoint.py`).
 요청마다 다른 서버(서버리스 인스턴스)가 받아도 같은 세션을 이어 갑니다. `DATABASE_URL`이 비어 있으면
@@ -347,7 +385,6 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   데이터로 문항 신뢰도를 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
 - STAI-6(Mind Garden)·BSRI 문항 사용 허가와 한국어판. 확인 전에는 문항 원문을 넣지 않습니다.
 - Session Outcome DB(측정값·라운드) 테이블 — 사용자 식별 방식과 함께 정합니다. Care Protocol은 JSON 파일로 둡니다.
-- 세션 API (설계안은 위에)
 - intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
   조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
@@ -364,15 +401,20 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   plan · intake 환경 질문 판정 · replan 선택지가 같은 조회(`protocols.plan_candidates`)를 봅니다. 환경을 풀면
   계획의 `environment_gaps`(AUDIO · SCREEN · QUIET · OUTDOORS)로 FE가 "소리가 나와요" 같은 안내를 띄워야
   합니다. 2026-10-27 프로토콜에서 실제로 푸는 경우는 S3 + 사건 전(사용자 상태)뿐입니다.
+- 세션 API 인증 — Supabase Auth(Google · Kakao) 토큰 검증과 세션 소유자 확인. 위 Session Outcome DB와 함께 넣습니다.
+- 세션 기록의 원문(첫 문장 · 자유 입력 답)은 별도 동의를 받은 사용자만, 분석 테이블과 다른 테이블에 보관 기한을
+  두고 저장합니다. SAFETY로 끝난 세션은 원문 없이 끝난 사실만 남기고, 끝난 세션의 체크포인트(원문이 들어 있다)도
+  지웁니다.
 
 ## 디렉터리
 
 ```text
 app/
-├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다)
+├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다 · 세션 그래프 · CORS)
 ├─ config.py            .env 설정 (DB · LLM/임베딩 · A 콘텐츠 공급자 키와 제한 시간)
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
+├─ api/sessions.py      세션 API — interrupt 재개 · step · SSE/JSON 응답
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval
 ├─ intake_cues.py       intake 단서표 — data/intake_cues.json 로더 · 상태 단서
 ├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
