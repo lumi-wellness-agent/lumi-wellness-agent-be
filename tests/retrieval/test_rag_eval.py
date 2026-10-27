@@ -70,7 +70,7 @@ def test_build_cases_is_deterministic_and_covers_three_groups():
     assert all(c.relevant for c in cases)
     assert all(c.media and c.outcomes for c in cases if c.group != "open")
     assert all(not c.media and not c.outcomes for c in cases if c.group == "open")
-    assert any("PR-21" in line for line in skipped)  # 82편 밖 근거뿐이라 정답이 없다
+    assert any("PR-21" in line for line in skipped)  # 83편 밖 근거뿐이라 정답이 없다
 
 
 def test_case_file_matches_the_schema_and_the_protocols():

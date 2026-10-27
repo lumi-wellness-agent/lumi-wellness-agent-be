@@ -41,14 +41,14 @@ dropped}`와 `_source` · `_confidence` · `_note`다. `text`는 Docling으로 �
 (`--include-verified`일 때만 다시 고른다). OCR 초안은 숫자 아래첨자 · 소수점을 놓치고, 실험이 여럿인 논문에서
 모델이 다른 실험의 문단을 가져오기도 해서(P05-E2) 대조 없이 쓰지 않는다.
 
-## manifest.csv — 논문 82편 매니페스트
+## manifest.csv — 논문 83편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·
-fixture의 논문 ID가 실재하는지 여기에 대조한다. 행 하나 = 논문 하나, `rc_id`가 기본 키다.
+측정 도구 JSON · fixture의 논문 ID가 실재하는지 여기에 대조한다. 행 하나 = 논문 하나, `rc_id`가 기본 키다.
 
 | 열 | 뜻 | 출처 |
 | --- | --- | --- |
-| `rc_id` | R/C 마스터 ID(`P01…P39`, `E01…E21`, `N01…N26`). `papers.id` | `LUMI_R_C_논문목록_2026-10-22.xlsx` R_/C_ 시트 |
+| `rc_id` | R/C 마스터 ID(`P01…P39`, `E01…E21`, `N01…N27`). `papers.id` | `LUMI_R_C_논문목록_2026-10-22.xlsx` R_/C_ 시트 |
 | `legacy_36_id` | 36편 근거 재분류 시트의 옛 ID. 조인 키가 아니다(36편만 값이 있다) | `LUMI_RAW데이터 링크.xlsx` '34편 근거 재분류' 크로스워크 |
 | `study_design` | 논문 유형 6범주(`app/schemas/evidence.py` `StudyDesign`) | 논문목록 '논문 유형' 열 |
 | `fulltext_status` | `TEXT` · `IMAGE_PDF`(스캔, OCR 대상) · `ABSTRACT_ONLY` · `MISSING` | PDF 폴더 유무 + 시트 비고('이미지 PDF'). 적재 때 Docling 결과로 확정한다. N12·N14는 `/Font` 객체가 안 보여 스캔일 수 있으니 그때 확인 |

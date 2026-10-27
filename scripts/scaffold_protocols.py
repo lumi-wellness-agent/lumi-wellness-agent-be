@@ -45,8 +45,7 @@ from app.schemas.protocol import CareProtocol, Composition, EvidenceRole, Grade 
 OUT_DIR = ROOT / "data" / "protocols"
 KEEP = {"PR-01"}  # 손으로 쓴 기준 파일
 # 시트가 부르는 도구 이름 → data/instruments.
-# INS-GAP-S3는 시트가 S3 임시 도구를 부르는 이름(코드 INS-MFVAS)
-KNOWN_TOOLS = {i.value for i in InstrumentId} | {"INS-GAP-S3"}
+KNOWN_TOOLS = {i.value for i in InstrumentId}
 
 # ── xlsx 읽기 ─────────────────────────────────────────────────────────────────────────────
 

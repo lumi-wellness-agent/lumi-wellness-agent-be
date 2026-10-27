@@ -1,4 +1,4 @@
-"""계약 1 — data/manifest.csv(82편)와 JSON·fixture의 논문 ID가 실재하는지."""
+"""계약 1 — data/manifest.csv(83편)와 JSON(활동 노드 · 측정 도구)·fixture의 논문 ID가 실재하는지."""
 
 import csv
 import json
@@ -17,8 +17,8 @@ ROWS = list(csv.DictReader(MANIFEST.open(encoding="utf-8")))
 IDS = {row["rc_id"] for row in ROWS}
 
 
-def test_82_unique_rc_ids():
-    assert len(ROWS) == 82 and len(IDS) == 82
+def test_83_unique_rc_ids():
+    assert len(ROWS) == 83 and len(IDS) == 83
     assert all(PAPER_ID.match(pid) for pid in IDS)
 
 
@@ -26,7 +26,7 @@ def test_design_counts_match_master_sheet():
     counts = Counter(row["study_design"] for row in ROWS)
     assert counts == {
         StudyDesign.THEORY_REVIEW: 5,
-        StudyDesign.SYSTEMATIC_REVIEW_META: 17,
+        StudyDesign.SYSTEMATIC_REVIEW_META: 18,
         StudyDesign.SCALE_DEVELOPMENT: 13,
         StudyDesign.RANDOMIZED_EXPERIMENT: 35,
         StudyDesign.QUASI_EXPERIMENT: 7,
@@ -61,6 +61,12 @@ def test_protocol_papers_exist():
         doc = json.loads(path.read_text(encoding="utf-8"))
         missing = {e["paper_id"] for e in doc["evidence"]} - IDS
         assert not missing, f"{path.name}: {missing}"
+
+
+def test_instrument_papers_exist():
+    for path in (ROOT / "data" / "instruments").glob("INS-*.json"):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        assert doc["paper_id"] in IDS, f"{path.name}: {doc['paper_id']}"
 
 
 def test_evidence_hits_fixture_papers_exist():

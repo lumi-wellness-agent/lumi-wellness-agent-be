@@ -3,7 +3,7 @@
     .venv/bin/python scripts/seed_evidence.py <xlsx> --dry-run
     .venv/bin/python scripts/seed_evidence.py <xlsx> --database-url <URL>
 
-- papers: data/manifest.csv 82편 전부.
+- papers: data/manifest.csv 83편 전부.
 - evidence_records: 근거 arm 시트 65행 → 레코드 61개(여러 프로토콜이 인용한 같은 arm은 하나로) ×
   chunk 2개(METHODS = 대상·N·중재·측정, RESULTS = 결과). content는 그 키의 발췌가
   data/evidence_excerpts.json에 있으면 논문 원문 구간, 없으면 시트 요약이다(--no-excerpts).

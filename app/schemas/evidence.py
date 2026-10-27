@@ -30,8 +30,8 @@ from typing import Annotated, Self
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 PaperId = Annotated[str, StringConstraints(pattern=r"^[PEN][0-9]{2}$")]
-"""R/C 마스터 ID(82편). P01…P39 · E01…E21 · N01…N26. 36편 시트 ID는 쓰지 않는다.
-형식만 본다 — 실재하는 82개인지는 data/manifest.csv 대조 테스트가 본다."""
+"""R/C 마스터 ID(83편). P01…P39 · E01…E21 · N01…N27. 36편 시트 ID는 쓰지 않는다.
+형식만 본다 — 실재하는 83개인지는 data/manifest.csv 대조 테스트가 본다."""
 
 ExperimentId = Annotated[str, StringConstraints(pattern=r"^[PEN][0-9]{2}-E[1-9][0-9]*$")]
 """arm ID. paper_id + '-E' + 1부터 시작하는 번호(E0 · E01 금지)."""
@@ -53,7 +53,7 @@ class StudyDesign(StrEnum):
     """
 
     THEORY_REVIEW = "THEORY_REVIEW"  # 이론·개념 리뷰 (5편)
-    SYSTEMATIC_REVIEW_META = "SYSTEMATIC_REVIEW_META"  # 체계적 고찰·메타분석 (17편)
+    SYSTEMATIC_REVIEW_META = "SYSTEMATIC_REVIEW_META"  # 체계적 고찰·메타분석 (18편)
     SCALE_DEVELOPMENT = "SCALE_DEVELOPMENT"  # 척도·측정도구 개발/검증 (13편)
     RANDOMIZED_EXPERIMENT = "RANDOMIZED_EXPERIMENT"  # 무작위 실험 (35편)
     QUASI_EXPERIMENT = "QUASI_EXPERIMENT"  # 준실험·비무작위 비교 (7편)
@@ -68,7 +68,7 @@ class Medium(StrEnum):
     """
 
     STATIC_IMAGE = "STATIC_IMAGE"
-    AI_IMAGE = "AI_IMAGE"  # 제공 전용. 82편에 AI 생성 이미지 실험은 없다 → STUDY_MEDIUM_FOR
+    AI_IMAGE = "AI_IMAGE"  # 제공 전용. 83편에 AI 생성 이미지 실험은 없다 → STUDY_MEDIUM_FOR
     VIDEO = "VIDEO"
     VR = "VR"
     NATURE_SOUND = "NATURE_SOUND"
