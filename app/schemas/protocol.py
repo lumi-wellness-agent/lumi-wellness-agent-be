@@ -2,7 +2,7 @@
 
 앞부분(ProtocolEvidenceSection)은 근거 연결 — evidence[]·grades. PR-A 계약 2. BE는
 evidence[].evidence_record_ids만 역기입한다. 근거는 활동 노드를 제약하는 장치가 아니라 Reference
-카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 82편 밖 근거뿐인
+카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 83편 밖 근거뿐인
 노드(PR-21)는 evidence[]를 비워 둔다.
 
 뒷부분(CareProtocol)은 본문 — steps · content_spec · measures · duration · eligibility … 활동 노드
@@ -153,7 +153,7 @@ class ProtocolEvidenceSection(BaseModel):
     intervention_order: list[InterventionOrder] = []
     paper_id_scheme: str
     grades: dict[Outcome, GradeEntry]
-    evidence: list[ProtocolEvidenceRef] = []  # 82편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
+    evidence: list[ProtocolEvidenceRef] = []  # 83편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
 
     @field_validator("intervention_order", mode="before")
     @classmethod

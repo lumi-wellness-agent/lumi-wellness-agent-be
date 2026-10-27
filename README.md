@@ -175,7 +175,7 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
-4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 82편이 `papers`로, 근거 arm 시트
+4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 83편이 `papers`로, 근거 arm 시트
    65행이 레코드 61개 × chunk 2개(METHODS · RESULTS) = 122행으로 `evidence_records`에 들어갑니다. 먼저
    dry-run으로 건수와 검토 목록(`evidence_review.csv`)을 보고 대상 DB를 적어 넣습니다. 임베딩에
    `OPENAI_API_KEY`가 필요합니다.
@@ -354,7 +354,7 @@ data/
 ├─ instruments/         측정 도구 3개 (SAM · STAI-6 · BSRI)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
-├─ manifest.csv         논문 82편 매니페스트
+├─ manifest.csv         논문 83편 매니페스트
 └─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
