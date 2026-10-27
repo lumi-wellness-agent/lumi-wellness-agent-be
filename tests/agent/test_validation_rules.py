@@ -16,7 +16,7 @@ from app.agent.validation import (
     validate,
 )
 from app.schemas.care import CareGoal
-from app.schemas.evidence import ClinicalStatus, InterventionOrder, Medium, Outcome
+from app.schemas.evidence import ClinicalStatus, InterventionOrder, Medium, Outcome, Verification
 from app.schemas.retrieval import Check, Flag, MediaMatch
 from tests.agent import fakes
 
@@ -64,7 +64,11 @@ def test_ai_image_is_flagged_not_blocked():
 
 
 def test_secondary_source_is_blocked():
-    verdict = judge(BY_ID[P05_RESULTS], goal=CareGoal.S3, media=[Medium.STATIC_IMAGE])
+    # P05-E2는 2026-10-27 쪽 이미지 대조로 FULL_TEXT가 됐다 — 같은 레코드를 2차 자료로 바꿔 본다
+    hit = BY_ID[P05_RESULTS]
+    metadata = hit.metadata.model_copy(update={"verification": Verification.SECONDARY})
+    secondary = hit.model_copy(update={"metadata": metadata})
+    verdict = judge(secondary, goal=CareGoal.S3, media=[Medium.STATIC_IMAGE])
     assert check(verdict, Check.SOURCE_EXISTS).passed is False
     assert not verdict.usable
     assert verdict.supports_goal  # 지지는 하지만 인용할 수 없다

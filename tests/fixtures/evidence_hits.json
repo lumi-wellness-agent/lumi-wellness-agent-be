@@ -357,11 +357,11 @@
     "experiment_id": "P05-E2",
     "section": "METHODS",
     "chunk_idx": 0,
-    "excerpt": "[fixture] P05-E2 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 사진 감상(시간 원문 확인; 이미지 PDF). 2차 자료 전사.",
+    "excerpt": "[fixture] P05-E2 · METHODS — 원문 적재 전 자리표시자. 시트 요약: 사진 감상(시간 원문 확인; 이미지 PDF). 쪽 이미지 대조(2026-10-27).",
     "metadata": {
       "record_type": "ARM",
       "study_design": "RANDOMIZED_EXPERIMENT",
-      "verification": "SECONDARY",
+      "verification": "FULL_TEXT",
       "arm_label": "P05-E2 자연 vs 도시 사진",
       "media": [
         "STATIC_IMAGE"
@@ -371,17 +371,34 @@
       ],
       "population": "UNIVERSITY_STUDENT",
       "clinical_status": "NON_CLINICAL",
-      "n": null,
-      "n_detail": "원문 확인",
-      "population_detail": "대학생(미국)",
-      "exposure_minutes": null,
+      "n": 12,
+      "n_detail": "12 (여 8, 남 4)",
+      "population_detail": "대학생(미국 미시간대)",
+      "exposure_minutes": 10,
       "results": [
         {
           "outcome": "ATTENTION",
           "effect": "POSITIVE",
+          "measure": "ANT 실행 주의",
+          "comparison": "자연 vs 도시 사진(사진 × 시점)",
+          "timepoint": "직후",
+          "stat": "F(1, 10) = 17.089, p_rep = .99"
+        },
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
           "measure": "Backward Digit Span",
-          "comparison": "자연 vs 도시 사진",
-          "timepoint": "직후"
+          "comparison": "자연 사진 전후",
+          "timepoint": "직후",
+          "stat": "t(11) = 2.972, p_rep = .96"
+        },
+        {
+          "outcome": "ATTENTION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "Backward Digit Span",
+          "comparison": "자연 vs 도시 사진(장소 × 시점)",
+          "timepoint": "직후",
+          "stat": "F(1, 10) = 0.486, p_rep = .68"
         }
       ]
     },
@@ -403,11 +420,11 @@
     "experiment_id": "P05-E2",
     "section": "RESULTS",
     "chunk_idx": 0,
-    "excerpt": "[fixture] P05-E2 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연 사진 후 BDS 향상. 2차 자료 전사.",
+    "excerpt": "[fixture] P05-E2 · RESULTS — 원문 적재 전 자리표시자. 시트 요약: 자연 사진 후 BDS 향상. 쪽 이미지 대조(2026-10-27).",
     "metadata": {
       "record_type": "ARM",
       "study_design": "RANDOMIZED_EXPERIMENT",
-      "verification": "SECONDARY",
+      "verification": "FULL_TEXT",
       "arm_label": "P05-E2 자연 vs 도시 사진",
       "media": [
         "STATIC_IMAGE"
@@ -417,17 +434,34 @@
       ],
       "population": "UNIVERSITY_STUDENT",
       "clinical_status": "NON_CLINICAL",
-      "n": null,
-      "n_detail": "원문 확인",
-      "population_detail": "대학생(미국)",
-      "exposure_minutes": null,
+      "n": 12,
+      "n_detail": "12 (여 8, 남 4)",
+      "population_detail": "대학생(미국 미시간대)",
+      "exposure_minutes": 10,
       "results": [
         {
           "outcome": "ATTENTION",
           "effect": "POSITIVE",
+          "measure": "ANT 실행 주의",
+          "comparison": "자연 vs 도시 사진(사진 × 시점)",
+          "timepoint": "직후",
+          "stat": "F(1, 10) = 17.089, p_rep = .99"
+        },
+        {
+          "outcome": "ATTENTION",
+          "effect": "POSITIVE",
           "measure": "Backward Digit Span",
-          "comparison": "자연 vs 도시 사진",
-          "timepoint": "직후"
+          "comparison": "자연 사진 전후",
+          "timepoint": "직후",
+          "stat": "t(11) = 2.972, p_rep = .96"
+        },
+        {
+          "outcome": "ATTENTION",
+          "effect": "NOT_SIGNIFICANT",
+          "measure": "Backward Digit Span",
+          "comparison": "자연 vs 도시 사진(장소 × 시점)",
+          "timepoint": "직후",
+          "stat": "F(1, 10) = 0.486, p_rep = .68"
         }
       ]
     },

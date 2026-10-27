@@ -599,6 +599,57 @@
    "repaired": 0
   }
  },
+ "P05-E1": {
+  "_source": "rapidocr P05_Cognitive_Benefits_of_Interacting_With_Nature.pdf · gpt-4o-mini 초안 · 2026-10-27",
+  "_confidence": "HIGH",
+  "_verified": "2026-10-27 쪽 이미지 대조(2–3쪽) — 실험 1 문장을 원문대로 옮김",
+  "_corrections": [
+   "쪽이 넘어가며 빠진 t검정 문장(t(36) = 4.783, p_rep = .99; t(36) = 1.708, p_rep = .88)을 더함",
+   "OCR: Prep → p_rep, traffie → traffic, arbore-tum → arboretum, interac-tion → interaction",
+   "피로 유도 과제(directed-forgetting 144시행 · 35분)와 표본 문장을 METHODS에 더함"
+  ],
+  "METHODS": {
+   "text": "Thirty-eight (23 females, 15 males; mean age = 22.62 years) University of Michigan students participated in this study. Then participants were given a directed-forgetting task that involved the suppression of information in short-term memory, which was used to fatigue participants further. The task consisted of 144 trials and lasted for 35 min. Participants were then randomly assigned to take a 50- to 55-min walk in the Ann Arbor Arboretum (a park near campus) or to walk in downtown Ann Arbor. The walks were predefined for the participants and were equated in total length (2.8 miles). After the walk, participants returned to the lab and performed the backwards digit-span task, the PANAS, and answered questions assessing their walk. A week later, participants returned to the lab and repeated the procedure, walking in the complementary location.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "As indicated in Table 1, performance on backwards digit-span significantly improved when participants walked in nature, but not when they walked downtown. The location-by-time interaction was of most interest and was reliable, F(1, 36) = 6.055, p_rep = .95, showing that the improvement in backwards digit-span performance was greater when walking in nature than when walking downtown (1.50 digits vs. 0.50 digits). With paired t tests we explored the main effects and found that the improvement when walking in nature was highly reliable, t(36) = 4.783, p_rep = .99; but it was not when walking downtown, t(36) = 1.708, p_rep = .88.",
+   "page": 2,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P05-E2": {
+  "_source": "rapidocr P05_Cognitive_Benefits_of_Interacting_With_Nature.pdf · gpt-4o-mini 초안 · 2026-10-27",
+  "_confidence": "HIGH",
+  "_verified": "2026-10-27 쪽 이미지 대조(3–4쪽) — 실험 2(사진 감상) 문장으로 교체",
+  "_corrections": [
+   "모델 초안이 실험 1(보행)의 표본 · 절차 · 결과를 가져와 실험 2 문단으로 전부 교체",
+   "BDS는 장소 × 시점 상호작용 비유의(F(1, 10) = 0.486), 자연 사진 전후만 유의(t(11) = 2.972) — 메타데이터 결과도 원문대로 나눔"
+  ],
+  "METHODS": {
+   "text": "Twelve (8 females, 4 males; mean age = 24.25 years) University of Michigan students participated in this study. In Experiment 2, participants viewed either pictures of nature or urban areas to further control each participant's experience. Participants then performed the ANT, after which they viewed pictures of either nature (scenery of Nova Scotia) or urban settings (pictures of Ann Arbor, Detroit, and Chicago). Picture viewing lasted approximately 10 min, during which participants rated on a scale of 1 to 3 how much they liked each picture; there were 50 nature and 50 urban pictures. After picture viewing, participants performed the backwards digit-span task, the ANT, and the PANAS a second time.",
+   "page": 3,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The picture-type-by-time interaction was of most interest and was found reliable only for the executive portions of the ANT, indicating that exposure to pictures of nature led to more improved executive attention performance than did exposure to urban pictures, F(1, 10) = 17.089, p_rep = .99. We conducted a separate repeated measures ANOVA for backward span. The location-by-time interaction was not reliable, F(1, 10) = 0.486, p_rep = .68. However, when we explored the main effects with paired t tests, we found that performance on the backwards digit-span task only improved reliably when viewing pictures of nature, t(11) = 2.972, p_rep = .96, but not when viewing pictures of urban areas, t(11) = 1.436, p_rep = .83.",
+   "page": 4,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
  "P07-E1": {
   "_source": "docling P07_Tracking_Restoration_Field_Settings.pdf · gpt-4o-mini · 2026-10-27",
   "_confidence": "HIGH",
@@ -933,6 +984,31 @@
   "RESULTS": {
    "text": "Across conditions, positive affect increased significantly during recovery, Mdif T2_T3 = .65, 95% CI [.64, .70], with the largest increase observed in the nature condition, followed by the pedestrian condition, and the smallest increase in the traffic condition. Anger/ aggression showed a similar but less pronounced pattern, with a general decrease across conditions, Mdif T2_T3 =-.68, 95% CI [-.73, -.63], and the largest decrease in natural settings, followed by the pedestrian condition, and the smallest decrease in the traffic condition. Fear, Mdif T2_T3 =-1.38, 95% CI [-1.46, -1.30], and sadness, Mdif T2_T3 =-1.47, 95% CI [-1.54, -1.39], generally decreased, with no statistically significant differences between conditions. Follow-up checks did not reveal any significant differences in recovery in ZIPERS scores between individual conditions within the three collapsed environmental conditions, ps ≥ .062 and ηp 2 ≤ .011.",
    "page": 8,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  }
+ },
+ "P26-E1": {
+  "_source": "rapidocr P26_Stress_Recovery_Natural_Urban_Environments.pdf · gpt-4o-mini 초안 · 2026-10-27",
+  "_confidence": "HIGH",
+  "_verified": "2026-10-27 쪽 이미지 대조(10 · 18쪽)",
+  "_corrections": [
+   "OCR이 깨뜨린 줄(intei s r ss fs s tas s sied widely)을 원문 'interactions were obtained, indicating that stress recovery trajectories over time varied widely'로",
+   "인용 부호와 무작위 배정 문장(조건마다 20명)을 원문대로 더함"
+  ],
+  "METHODS": {
+   "text": "The subjects consisted of 120 undergraduate volunteers (60 males and 60 females) at the University of Delaware who were studying in diverse fields. Each individual, while seated in a comfortable armchair, viewed two 10 min videotapes on a 19\" color monitor having a supplementary speaker and amplifier system that insured accurate reproduction of sounds. The first videotape was the stressor; this was a black and white film about prevention of work accidents ('It Didn't Have to Happen') that has been found to be an effective stressor in previous studies (e.g. Lazarus et al., 1965). Following the stressor, subjects viewed the second ten minute tape (recovery condition) that was a color/sound display of one of six different everyday outdoor settings (two natural, four urban). Using a random assignment procedure, 20 subjects were exposed to each recovery environment.",
+   "page": 10,
+   "coverage": 1.0,
+   "snapped": 0,
+   "dropped": 0,
+   "repaired": 0
+  },
+  "RESULTS": {
+   "text": "The second mixed-model ANOVA revealed pronounced general differences as a function of environment for all three stress measures. Specifically, significant environment × (linear) recovery period interactions were obtained, indicating that stress recovery trajectories over time varied widely according to category of environment (p = <0·01 for PTT; p = <0·01 for SCR; p = <0·05 for EMG). As Figures 1 to 3 show, the findings from the different measures converge to indicate that recovery from stress was much faster and more complete when subjects were exposed to the natural settings as opposed to either the pedestrian mall or traffic environments. A series of ANOVAs performed for each of the three 3 min recovery periods revealed that significantly greater recovery in terms of SCR had already occurred during the first recovery interval; this therapeutic advantage of nature persisted throughout the other recovery periods (p = <0·01 for all periods).",
+   "page": 18,
    "coverage": 1.0,
    "snapped": 0,
    "dropped": 0,

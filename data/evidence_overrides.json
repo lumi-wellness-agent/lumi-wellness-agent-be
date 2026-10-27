@@ -71,14 +71,36 @@
     "exposure_minutes": 6.25
   },
   "P05-E2": {
-    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "_why": "2026-10-27 쪽 이미지 대조(Berman 2008, 3–4쪽). 실험 2 표본 12명(여 8, 남 4), 사진 감상 약 10분(자연 · 도시 사진 각 50장). 자연 vs 도시 차이는 ANT 실행 주의에서 유의, BDS는 장소 × 시점 상호작용이 비유의이고 자연 사진 전후만 유의. tests/fixtures/evidence_hits.json과 같다",
+    "verification": "FULL_TEXT",
+    "n": 12,
+    "n_detail": "12 (여 8, 남 4)",
+    "exposure_minutes": 10,
+    "population_detail": "대학생(미국 미시간대)",
     "results": [
       {
         "outcome": "ATTENTION",
         "effect": "POSITIVE",
+        "measure": "ANT 실행 주의",
+        "comparison": "자연 vs 도시 사진(사진 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 10) = 17.089, p_rep = .99"
+      },
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
         "measure": "Backward Digit Span",
-        "comparison": "자연 vs 도시 사진",
-        "timepoint": "직후"
+        "comparison": "자연 사진 전후",
+        "timepoint": "직후",
+        "stat": "t(11) = 2.972, p_rep = .96"
+      },
+      {
+        "outcome": "ATTENTION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 vs 도시 사진(장소 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 10) = 0.486, p_rep = .68"
       }
     ]
   },
@@ -221,5 +243,54 @@
         "note": "세 가지 좋은 일·웃긴 일 효과 없음; 코핑 유머만 유의"
       }
     ]
+  },
+  "P32-E1": {
+    "_why": "2026-10-27 학위논문 원문 대조(Drew 2018, 65쪽 등). 시트는 2차 자료로 채웠지만 표본 90명(조건당 30명), 반추 조건 차이 비유의(F(2, 87) = 0.21, p = .81), 컬러링 · 주의분산의 부정 정서 개선(p = .001)이 본문과 같다. 대상은 성인이 아니라 학부생이고, 유도는 어려운 철자 바꾸기 과제(스트레스)다",
+    "verification": "FULL_TEXT",
+    "population": "UNIVERSITY_STUDENT",
+    "population_detail": "학부생(영국, 학위논문)",
+    "n_detail": "90 (조건당 30)",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "PANAS NA",
+        "comparison": "컬러링 · 주의분산 vs 반추 글쓰기",
+        "timepoint": "직후",
+        "stat": "t = 3.57, p = .001, d = 0.72"
+      },
+      {
+        "outcome": "RUMINATION",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "SRQ 상태 반추",
+        "comparison": "조건 × 시점 상호작용",
+        "timepoint": "직후",
+        "stat": "F(2, 87) = 0.21, p = .81"
+      }
+    ]
+  },
+  "P05-E1": {
+    "_why": "2026-10-27 쪽 이미지 대조(Berman 2008, 2–3쪽). 실험 1 표본 38명(여 23, 남 15), 피로 과제(35분) 뒤 50~55분 보행, BDS 장소 × 시점 상호작용 유의",
+    "verification": "FULL_TEXT",
+    "n": 38,
+    "n_detail": "38 (여 23, 남 15)",
+    "exposure_minutes": 50,
+    "population_detail": "대학생(미국 미시간대)",
+    "results": [
+      {
+        "outcome": "ATTENTION",
+        "effect": "POSITIVE",
+        "measure": "Backward Digit Span",
+        "comparison": "자연 vs 도시 보행(장소 × 시점)",
+        "timepoint": "직후",
+        "stat": "F(1, 36) = 6.055, p_rep = .95"
+      }
+    ]
+  },
+  "P26-E1": {
+    "_why": "2026-10-27 쪽 이미지 대조(Ulrich 1991, 10 · 18쪽). 대학생 120명, 스트레스 영화 10분 뒤 자연 2 · 도시 4 영상 10분(조건마다 20명), PTT · SCR · EMG 회복이 자연에서 더 빠르고 완전",
+    "verification": "FULL_TEXT",
+    "exposure_minutes": 10,
+    "population_detail": "대학생(미국 델라웨어대, 남 60 · 여 60)"
   }
 }

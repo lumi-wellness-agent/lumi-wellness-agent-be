@@ -65,11 +65,15 @@ def test_sheet_rows_become_records(seeded):
         RecordType.SYNTHESIS: 16,
         RecordType.OBSERVATION: 1,
     }
+    # 시트는 본문 51 · 2차 7 · 초록 3. 2026-10-27 원문 대조로 P32-E1 · P05-E1 · P05-E2 · P26-E1을
+    # FULL_TEXT로 올렸다(evidence_overrides.json). 남은 2차는 원문 미확보 E02 · E13 · P30
     assert Counter(r.metadata.verification for r in records) == {
-        Verification.FULL_TEXT: 51,
-        Verification.SECONDARY: 7,
+        Verification.FULL_TEXT: 55,
+        Verification.SECONDARY: 3,
         Verification.ABSTRACT: 3,
     }
+    secondary = {r.key for r in records if r.metadata.verification is Verification.SECONDARY}
+    assert secondary == {"E02-E1", "E13", "P30-E1"}
 
 
 def test_fixture_matches_seeded_decision_values(seeded):

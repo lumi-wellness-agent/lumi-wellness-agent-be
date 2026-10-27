@@ -193,7 +193,7 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 
    content는 `data/evidence_excerpts.json`에 발췌가 있는 레코드는 논문 원문 METHODS · RESULTS 구간, 없는
    레코드(미확보 논문 등)는 시트 요약입니다(`--no-excerpts`면 전부 요약). 발췌를 다시 만드는 순서는
-   `make parse-papers ARGS="--with-records"`(Docling, `.[ingestion]` extras, 캐시는 Research_paper 비공개
+   `make parse-papers ARGS="--with-records"`(Docling, 스캔 PDF는 RapidOCR 직접, `.[ingestion]` extras, 캐시는 Research_paper 비공개
    저장소의 `01_fulltext/`) → `make extract-excerpts XLSX=$XLSX`(LLM이 고르고 본문 문장으로 맞춤, 검토 목록
    `evidence_excerpts_review.csv`) → `make seed-evidence`입니다. 전후 비교는 「근거 검색 평가」로 합니다.
 5. `make run` 후 `GET /health/db`로 연결, 확장(pgvector·pg_trgm) 설치, 체크포인트 테이블을 확인합니다.
@@ -250,15 +250,16 @@ keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)을 내고, `
 만듭니다(`evidence[]`가 바뀌면 다시 만듭니다).
 
 2026-10-27 측정(text-embedding-3-small, lumi-pg). '요약'은 content가 근거 arm 시트 요약 122 chunk일 때,
-'원문'은 레코드 55개(chunk 110개)를 논문 원문 METHODS · RESULTS 발췌로 바꾼 뒤(`data/evidence_excerpts.json`)다.
+'원문'은 레코드 58개(chunk 116개)를 논문 원문 METHODS · RESULTS 발췌로 바꾼 뒤(`data/evidence_excerpts.json`,
+스캔 P05 · P26은 쪽 이미지 대조)다.
 
 | group · 방식 | n | Hit@5 요약 → 원문 | Recall@5 요약 → 원문 | MRR 요약 → 원문 |
 | --- | --- | --- | --- | --- |
-| planner · hybrid | 9 | 1.000 → 1.000 | 0.867 → 0.889 | 1.000 → 1.000 |
-| template · hybrid | 21 | 1.000 → 1.000 | 0.875 → 0.861 | 0.863 → 0.875 |
-| open · hybrid | 21 | 0.714 → 0.714 | 0.558 → 0.496 | 0.648 → 0.546 |
-| open · dense | 21 | 0.714 → 0.762 | 0.558 → 0.647 | 0.648 → 0.690 |
-| planner · keyword | 9 | 0 → 1.000 | 0 → 0.911 | 0 → 1.000 |
+| planner · hybrid | 9 | 1.000 → 1.000 | 0.867 → 0.911 | 1.000 → 1.000 |
+| template · hybrid | 21 | 1.000 → 1.000 | 0.875 → 0.882 | 0.863 → 0.843 |
+| open · hybrid | 21 | 0.714 → 0.714 | 0.558 → 0.517 | 0.648 → 0.541 |
+| open · dense | 21 | 0.714 → 0.762 | 0.558 → 0.638 | 0.648 → 0.690 |
+| planner · keyword | 9 | 0 → 1.000 | 0 → 0.933 | 0 → 1.000 |
 
 - 요약일 때 keyword는 세 묶음 모두 0이었다 — 한국어 요약에 영어 질의 낱말이 걸리지 않아 hybrid가 곧 dense였다.
   원문으로 바꾸자 keyword가 살아났고, 플래너가 실제로 쓰는 필터 경로(planner · template)는 같거나 나아졌다.
@@ -359,7 +360,7 @@ scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
-scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling(make parse-papers)
+scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
 vercel.json             Vercel 배포 설정 (리전 icn1)

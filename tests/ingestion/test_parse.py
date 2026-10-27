@@ -29,6 +29,7 @@ def test_major_headings_switch_sections():
     assert parse.next_section("RESULTS", M) is R
     assert parse.next_section("Results and Discussion", M) is R
     assert parse.next_section("Results of the Interventions", M) is R
+    assert parse.next_section("Physiological results", M) is R
     assert parse.next_section("SUMMARY", OTHER) is A
     assert parse.next_section("Summary and conclusions", R) is D
     assert parse.next_section("Limitations of the study", D) is D
@@ -94,11 +95,103 @@ def test_cache_round_trip_and_markdown(tmp_path):
     assert "## [METHODS] Participants" in markdown and "<!-- text p.2 -->" in markdown
 
 
-def test_ocr_engine_prefers_apple_vision_on_macos(monkeypatch):
-    monkeypatch.setattr(parse.sys, "platform", "darwin")
-    monkeypatch.setattr(parse.importlib.util, "find_spec", lambda name: object())
-    assert parse.ocr_engine() == "mac" and parse.tool_label(ocr=True) == "docling+ocr-mac"
-    monkeypatch.setattr(parse.importlib.util, "find_spec", lambda name: None)
-    assert parse.ocr_engine() == "rapid"
-    monkeypatch.setattr(parse.sys, "platform", "linux")
-    assert parse.ocr_engine("mac") == "mac" and parse.tool_label(ocr=False) == "docling"
+def box(text, x0, y0, x1, y1):
+    return parse.OcrBox(text, x0, y0, x1, y1)
+
+
+def test_reading_order_two_columns_with_spanning_rows():
+    boxes = [
+        box("Figure 1. A caption across both columns", 0.10, 0.50, 0.90, 0.52),
+        box("right column line one", 0.55, 0.10, 0.95, 0.12),
+        box("left column line one", 0.08, 0.10, 0.45, 0.12),
+        box("left column line two", 0.08, 0.13, 0.45, 0.15),
+        box("right column line two", 0.55, 0.13, 0.95, 0.15),
+        box("left below caption", 0.08, 0.60, 0.45, 0.62),
+        box("right below caption", 0.55, 0.60, 0.95, 0.62),
+    ]
+    texts = [" ".join(b.text for b in row) for row in parse.reading_order(boxes)]
+    assert texts == [
+        "left column line one",
+        "left column line two",
+        "right column line one",
+        "right column line two",
+        "Figure 1. A caption across both columns",
+        "left below caption",
+        "right below caption",
+    ]
+
+
+def test_reading_order_single_column_is_top_to_bottom():
+    boxes = [
+        box("second line of the page text", 0.10, 0.20, 0.90, 0.22),
+        box("first line of the page text", 0.10, 0.10, 0.90, 0.12),
+        box("settings.", 0.10, 0.30, 0.20, 0.32),  # 짧은 마지막 줄도 한 단으로 읽는다
+    ]
+    texts = [" ".join(b.text for b in row) for row in parse.reading_order(boxes)]
+    assert texts == ["first line of the page text", "second line of the page text", "settings."]
+
+
+def test_is_heading_matches_whole_known_titles_only():
+    titles = ("Results and Discussion", "EXPERIMENT 2", "Method", "Subjects", "GENERAL DISCUSSION")
+    for title in titles:
+        assert parse.is_heading(title), title
+    body_lines = (
+        "Results showed that the nature group had",
+        "Twelve (8 females, 4 males;",
+        "stressor.",
+    )
+    for line in (*body_lines, ""):
+        assert not parse.is_heading(line), line
+
+
+def test_layout_items_builds_headings_and_paragraphs():
+    boxes = [
+        box("Method", 0.08, 0.10, 0.20, 0.12),
+        box("Thirty-eight University of Michigan students took a", 0.08, 0.13, 0.45, 0.15),
+        box("walk. Backwards digit-", 0.08, 0.155, 0.45, 0.175),
+        box("span was measured.", 0.08, 0.18, 0.45, 0.20),
+        box("Results and Discussion", 0.55, 0.10, 0.80, 0.12),
+        box("Performance improved after the nature walk.", 0.55, 0.13, 0.95, 0.15),
+    ]
+    items = parse.layout_items(boxes, page=2)
+    assert items == [
+        parse.RawItem("section_header", "Method", 2),
+        parse.RawItem(
+            "text",
+            "Thirty-eight University of Michigan students took a walk. Backwards digit-span "
+            "was measured.",
+            2,
+        ),
+        parse.RawItem("section_header", "Results and Discussion", 2),
+        parse.RawItem("text", "Performance improved after the nature walk.", 2),
+    ]
+    paper = ParsedPaper("P05", "P05.pdf", 6, items, parse.OCR_TOOL)
+    assert "digit-span" in paper.section_text(R) or "digit-span" in paper.section_text(M)
+    assert paper.blocks[0].section is M and paper.blocks[1].section is R
+
+
+class FakeImage:
+    """PIL 없이(CI는 .[dev]만 설치) ocr_boxes가 쓰는 size · convert만 흉내 낸다."""
+
+    def __init__(self, width, height):
+        self.size = (width, height)
+
+    def convert(self, mode):
+        return [[[0, 0, 0]] * self.size[0]] * self.size[1]
+
+
+def test_ocr_boxes_normalizes_coordinates_and_drops_margins():
+    class Result:
+        boxes = [
+            [[10, 2], [190, 2], [190, 8], [10, 8]],  # 위 5% 안 — 머리글
+            [[10, 100], [190, 100], [190, 110], [10, 110]],
+        ]
+        txts = ["Cognitive Benefits of Nature Interaction", "Body text line"]
+
+    boxes = parse.ocr_boxes(FakeImage(200, 400), lambda array: Result())
+    assert boxes == [parse.OcrBox("Body text line", 0.05, 0.25, 0.95, 0.275)]
+
+    class Empty:
+        boxes = txts = None
+
+    assert parse.ocr_boxes(FakeImage(10, 10), lambda array: Empty()) == []

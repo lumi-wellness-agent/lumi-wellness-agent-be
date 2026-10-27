@@ -33,8 +33,9 @@ dev = [
 # Offline 근거 구축(app/ingestion). 서버 패키지에는 넣지 않는다 — 적재는 로컬에서 돌린다
 ingestion = [
     "docling>=2.0",
-    # 스캔 PDF OCR — macOS면 Apple Vision(app/ingestion/parse.py). 없으면 Docling 기본 RapidOCR
-    "ocrmac>=1.0; sys_platform == 'darwin'",
+    # 스캔 PDF OCR — 쪽 이미지를 RapidOCR(PP-OCR)로 직접 읽는다(app/ingestion/parse.ocr_pdf)
+    "rapidocr>=3.0",
+    "onnxruntime>=1.17",
     # 근거 추출(LLM)·임베딩(text-embedding-3-small) 모두 OpenAI 키 하나로
     "openai>=1.0",
     "openpyxl>=3.1",

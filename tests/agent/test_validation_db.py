@@ -39,7 +39,7 @@ CASES = [
     S1_SCRIPT,
     {"evidence_record_ids": [102], "goal": CareGoal.S2, "media": [Medium.STATIC_IMAGE]},
     {"evidence_record_ids": [102], "goal": CareGoal.S2, "media": [Medium.AI_IMAGE]},
-    # 시점은 프로토콜(PR-01: POST_STRESS · POST_FATIGUE)에서 읽는다. P05-E2는 2차 자료라 막힌다
+    # 시점은 프로토콜(PR-01: POST_STRESS · POST_FATIGUE)에서 읽는다(P05-E2는 FULL_TEXT)
     {
         "evidence_record_ids": [122, 132, 142, 162, 172],
         "goal": CareGoal.S3,
