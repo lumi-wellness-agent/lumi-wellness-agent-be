@@ -207,7 +207,7 @@ def test_session_loops_until_user_ends(caplog):
     assert out["pre"][1].scores == {"total": 56.67}  # 역채점 후 (3,3,2,3,3,3) 합 17 × 20/6
 
     # 활동 끝 → measure_post(SAM만)
-    out = run(graph, Command(resume={"completed": True, "notice_word": "차분"}))
+    out = run(graph, Command(resume={"completed": True, "notice_words": ["차분"]}))
     post = out["__interrupt__"][0].value
     assert post["measure"] == "POST" and post["round"] == 1
     assert [i["instrument_id"] for i in post["instruments"]] == ["INS-SAM"]
@@ -252,6 +252,7 @@ def test_session_loops_until_user_ends(caplog):
     assert isinstance(values["plan"], CarePlan)
     assert isinstance(values["content"], ActivityContent)
     assert isinstance(values["report"], SessionReport)
+    assert values["rounds"][0].report.notice_words == ["차분"]  # 라운드마다 감정 단어가 남는다
     assert isinstance(values["evaluation"], OutcomeEvaluation)
     assert isinstance(values["proposal"], ReplanProposal)
     assert values["next_step"] is NextStep.END

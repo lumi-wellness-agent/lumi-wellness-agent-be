@@ -6,7 +6,7 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 [lumi-wellness-agent-fe](https://github.com/lumi-wellness-agent/lumi-wellness-agent-fe)에서 개발합니다.
 
 현재는 에이전트 아키텍처 v2의 뼈대 단계입니다. 그래프 배선(intake → 사전 측정 → 계획 → 실행 대기 →
-사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 4개의
+사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(담당 셋이 채움, 검수 전)와 측정 도구 4개의
 계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
 적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
 통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
@@ -87,8 +87,8 @@ graph TD;
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
 | `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
-| `prepare` | ② Care Session Executor | 프로토콜의 단계·안내 문구로 `ActivityContent`를 준비한다(이미지·음성·Reference 카드는 예정) | `nodes/executor.py` |
-| `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 한 단어)를 보낼 때까지 기다린다 | `nodes/executor.py` |
+| `prepare` | ② Care Session Executor | 프로토콜의 단계 · 안내 문구 · 실행 명세(`content_spec`)와 자산(사진 · 영상 · 음원 · 컬러링 도안)으로 `ActivityContent`를 준비한다(음성 합성 · Reference 카드는 예정) | `nodes/executor.py` |
+| `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
 | `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로↓ | `nodes/evaluator.py` |
 | `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션 중 하나를 제안하고 고를 수 있는 선택지를 정한다 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 뺀다 (임시 규칙) | `nodes/replanner.py` |
@@ -169,6 +169,21 @@ docstring에 있습니다.
 S3는 마지막 사후값)를 싣습니다. 노드가 실패했거나 스트림이 끊겨 interrupt 사이에 멈추면 `STALLED`이고
 `retry`로 잇습니다. 다른 요청이 아직 도는 중이어도 interrupt 사이라 `STALLED`로 보이므로, FE는 `GET`을 첫
 로드와 끊김 복구 때만 부릅니다.
+
+**RUN 페이로드.** `payload`는 `{plan, content}`입니다. `content`(`ActivityContent`)의 `steps` · `guide_text` ·
+`notice_prompt`는 모든 활동에 공통이고, `assets`는 슬롯별 자산입니다(사진 · 영상 · 음원 · 컬러링 도안 SVG —
+저장소 자산은 BE의 `/assets/…`). 활동마다 다른 실행 방법은 활동 노드 JSON의 `content_spec`을 그대로 실은
+`content.content_spec`에 있습니다 — 슬롯별 대본(`slots[].scripts`)과 재생 시점(`render`), 고르는 방식(`selection`),
+화면 명세(`session_ui` — 타이머 · 컨트롤 · 완료 조건 · 시작 전 안전 확인). 모양이 활동마다 달라 BE는 형을 고정하지
+않습니다. NOTICE 단계가 있는 활동(PR-01 · 09 · 15 · 21)은 단계 모듈 PR-16의 입력 팝업 명세를
+`content.notice_module`로 함께 받습니다. 안내 음성은 녹음하지 않습니다(녹음 음원은 PR-21만). 음성 안내 슬롯
+(`GUIDE_AUDIO` — `generation.provider` `BROWSER_SPEECH_SYNTHESIS`)의 대본은 FE가 `render` 시점에 화면에 띄우고
+브라우저 `speechSynthesis`(ko-KR, 한 활동은 같은 목소리)로 읽습니다. 야외 활동(PR-11 · 12)은 `session_ui.tts_policy`대로
+같은 방식으로 읽습니다. 재생 명세가 없는 시작 안내(`guide.intro_text`)는 화면에만 보이고, `source_policy.tts`가
+`FORBIDDEN`인 대본은 읽지 않습니다. 종료 알림음(`countdown_sound` — PR-06 · 08 · 09 · 22)도 음원이 없어 FE가 Web
+Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`completed` · `stopped_reason` · `notice_words`)를
+`report`로 보냅니다. `notice_words`는 NOTICE 팝업에 적은 감정 단어 1~3개(빈 칸은 빼고 각 20자 이하)이고,
+실사용 데이터로 서버에 남습니다.
 
 **SSE.** POST에 `Accept: text/event-stream`을 붙이면 같은 실행을 이벤트로 받습니다 — `session`
 (`session_id`) → `progress`(노드가 끝날 때 `{node}` — intake는 `intake_read` · `intake_ask` · `intake_goal` ·
@@ -431,11 +446,12 @@ app/
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드
-├─ content/             이미지 · 안내 문구 (Executor가 쓴다)
+├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 (Executor가 쓴다)
+├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공
 ├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
 data/
-├─ protocols/           활동 노드 JSON 21개 (PR-01 완성 예시, 나머지 초안)
+├─ protocols/           활동 노드 JSON 21개 (A · B · C 담당이 채움, review DRAFT)
 ├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)

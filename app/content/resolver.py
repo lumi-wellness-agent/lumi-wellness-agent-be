@@ -43,7 +43,8 @@ def resolve_activity_assets(
     settings: Settings | None = None,
     client: httpx.Client | None = None,
 ) -> ContentResolution:
-    """A 담당 슬롯을 채운다. 공급자 실패는 세션 상태에 안전한 경고로 남긴다."""
+    """콘텐츠 슬롯을 자산으로 채운다 — 외부 공급자(A 담당)와 검수 자산(음원 · 컬러링 도안).
+    공급자 실패는 세션 상태에 안전한 경고로 남긴다."""
     settings = settings or get_settings()
     own_client = client is None
     client = client or httpx.Client(timeout=settings.content_request_timeout_seconds)
@@ -131,13 +132,18 @@ def resolve_activity_assets(
                         )
                     ]
                 elif provider == "CURATED_ASSET_LIBRARY":
-                    refs = selection.get("audio_asset_refs")
+                    # 음원(PR-05 · 21)은 audio_asset_refs, 컬러링 도안(PR-14 · 15)은 asset_refs
+                    refs = selection.get("asset_refs", selection.get("audio_asset_refs"))
                     if refs is None:
                         refs = [selection.get("audio_asset_ref") or selection.get("collection")]
                     if not isinstance(refs, list) or not refs or not all(refs):
                         raise ContentProviderError("검수 자산 참조 목록이 비어 있음")
 
-                    default_ref = selection.get("default_audio_asset_ref") or refs[0]
+                    default_ref = (
+                        selection.get("default_asset_ref")
+                        or selection.get("default_audio_asset_ref")
+                        or refs[0]
+                    )
                     if default_ref not in refs:
                         raise ContentProviderError("기본 검수 자산이 후보 목록에 없음")
 

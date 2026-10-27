@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app import protocols
 from app.schemas.care import CareGoal, ContentType, Environment, Setting, environment_for
 from app.schemas.evidence import InterventionOrder, Medium
-from app.schemas.protocol import CareProtocol, Composition, StepType
+from app.schemas.protocol import CareProtocol, Composition, SlotType, StepType
 
 ROOT = Path(__file__).resolve().parents[2]
 FILES = sorted((ROOT / "data" / "protocols").glob("PR-*.json"))
@@ -151,6 +151,51 @@ def test_body_invariants():
         CareProtocol.model_validate(
             {**doc, "duration_minutes": {"default": 30, "min": 5, "max": 20}}
         )
+
+
+def test_every_protocol_carries_an_execution_spec():
+    """FE 플레이어가 읽을 실행 명세 — 화면 명세(session_ui)나 슬롯별 재생 · 선택 · 대본 중 하나.
+
+    월요일 초안(시트에서 만든 뼈대)만 남은 활동이 없어야 한다. C 파트는 scratch/prNN의 실행 계약을
+    content_spec.session_ui로 옮겼다.
+    """
+    for p in LOADED.values():
+        extra = p.content_spec.model_extra or {}
+        slot_specs = [
+            key
+            for slot in p.content_spec.slots
+            for key in ("render", "selection", "scripts", "text")
+            if key in (slot.model_extra or {})
+        ]
+        assert "session_ui" in extra or slot_specs, p.protocol_id
+
+
+def test_writing_activities_tell_what_to_write():
+    """글쓰기 슬롯에는 지시문이 있다 — 슬롯 scripts(PR-12 · 18)나 화면 명세의 entry.prompt(PR-19).
+
+    PR-18은 대조 조건도 같은 시간 글을 썼고 지시문만 달랐다(E14) — 지시문이 없으면 처치가 아니다.
+    """
+    for p in LOADED.values():
+        session_ui = (p.content_spec.model_extra or {}).get("session_ui", {})
+        for slot in p.content_spec.slots:
+            if slot.slot is not SlotType.WRITING_PROMPT:
+                continue
+            scripts = (slot.model_extra or {}).get("scripts", [])
+            prompts = [s["text"] for s in scripts if s.get("required") and s.get("text")]
+            assert prompts or session_ui.get("entry", {}).get("prompt"), p.protocol_id
+
+
+def test_guide_audio_is_a_recording_or_read_by_the_browser():
+    """안내 음성은 녹음하지 않는다 — 녹음 음원(PR-21 검수 자산)이 없으면 FE가 대본을
+    speechSynthesis로 읽는다."""
+    for p in LOADED.values():
+        for slot in p.content_spec.slots:
+            if slot.slot is not SlotType.GUIDE_AUDIO:
+                continue
+            spec = slot.model_extra or {}
+            recorded = spec.get("selection", {}).get("provider") == "CURATED_ASSET_LIBRARY"
+            browser = spec.get("generation", {}).get("provider") == "BROWSER_SPEECH_SYNTHESIS"
+            assert recorded or browser, p.protocol_id
 
 
 def test_drafts_are_marked_for_review():

@@ -194,6 +194,20 @@ def test_invalid_measure_answers_never_reach_the_graph():
     assert client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()["step"] == "RUN"
 
 
+def test_report_takes_one_to_three_notice_words():
+    client = client_for()
+    sid = start(client)
+    client.post(f"/sessions/{sid}/measure", json=PRE_S2)
+    for bad in (["차분", "피곤", "답답", "멍함"], ["가" * 21], [" "]):  # 4개 · 20자 초과 · 빈 칸
+        res = client.post(f"/sessions/{sid}/report", json={"completed": True, "notice_words": bad})
+        assert res.status_code == 422, bad
+    report = {"completed": True, "notice_words": [" 차분 ", "조금 피곤"]}
+    assert client.post(f"/sessions/{sid}/report", json=report).json()["step"] == "MEASURE"
+    graph = client.app.state.session_graph
+    values = asyncio.run(graph.aget_state({"configurable": {"thread_id": sid}})).values
+    assert values["report"].notice_words == ["차분", "조금 피곤"]  # 서버에 남는다
+
+
 def test_decision_outside_the_options_is_refused():
     # S1 · 이어폰 없는 카페 · 5분 — 후보가 PR-15 하나라 활동 변경이 선택지에 없다
     cafe = reading(

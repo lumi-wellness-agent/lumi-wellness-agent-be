@@ -7,7 +7,8 @@ Protocol DB 테이블은 두지 않는다(발표 범위). 프로토콜은 검수
   시간을, delivered_media()로 검색·검증할 매체를 정하고, check_plan이 get_protocol()로 후검증한다.
   intake의 환경 질문 판정(intake_rules.top_activity)과 replan의 활동 변경 가능 여부도 같은
   plan_candidates()를 본다 — 셋이 다른 후보를 보면 묻는 질문 · 고르는 활동 · 선택지가 어긋난다.
-- prepare(app/agent/nodes/executor.py)는 get_protocol()로 steps · guide를 읽는다.
+- prepare(app/agent/nodes/executor.py)는 get_protocol()로 steps · guide · content_spec을 읽고,
+  NOTICE 단계가 있으면 stage_module()의 화면 명세를 함께 싣는다.
 """
 
 from collections.abc import Iterable
@@ -40,6 +41,13 @@ def load_protocols() -> dict[str, CareProtocol]:
 
 def get_protocol(protocol_id: str) -> CareProtocol | None:
     return load_protocols().get(protocol_id)
+
+
+def stage_module() -> CareProtocol | None:
+    """단계 모듈(PR-16 감정에 이름 붙이기) — 다른 활동의 NOTICE 단계를 그린다. 후보가 아니다."""
+    return next(
+        (p for p in load_protocols().values() if p.composition is Composition.STAGE_MODULE), None
+    )
 
 
 def goal_grade_rank(protocol: CareProtocol, goal: CareGoal) -> tuple[int, ...]:

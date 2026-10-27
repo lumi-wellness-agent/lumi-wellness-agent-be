@@ -1,0 +1,233 @@
+{
+  "coloring/pr14_mandala_1": {
+    "url": "/assets/coloring/pr14/mandala-1.svg",
+    "title": "만다라 도안 1",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-1",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 169,
+      "outline_id": "outline",
+      "view_box": "0 0 1920 1920",
+      "file_bytes": 132498,
+      "sha256": "F8CFFE524868B2D750DF7F041E5777EECFFD32416CC7298106EFC45B5DC1881E",
+      "origin": "scratch/pr14/assets/processed-images/mandala-1.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr14_mandala_2": {
+    "url": "/assets/coloring/pr14/mandala-2.svg",
+    "title": "만다라 도안 2",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-2",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 137,
+      "outline_id": "outline",
+      "view_box": "0 0 1920 1920",
+      "file_bytes": 141701,
+      "sha256": "4804C58DF08DCAA6B9273E48E270B1441DE72FF75637087F067B22910417C761",
+      "origin": "scratch/pr14/assets/processed-images/mandala-2.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr14_mandala_3": {
+    "url": "/assets/coloring/pr14/mandala-3.svg",
+    "title": "만다라 도안 3",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-3",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 147,
+      "outline_id": "outline",
+      "view_box": "0 0 1920 1920",
+      "file_bytes": 134454,
+      "sha256": "D0943F7492C4ABB972DA7D4A414C5EF1B57B5CD8F6B16E4D16F1E9D65B5F714C",
+      "origin": "scratch/pr14/assets/processed-images/mandala-3.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr14_mandala_4": {
+    "url": "/assets/coloring/pr14/mandala-4.svg",
+    "title": "만다라 도안 4",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-4",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 449,
+      "outline_id": "outline",
+      "view_box": "0 0 504 512",
+      "file_bytes": 143207,
+      "sha256": "988B74856D8E19DEF59943251C036F98F9782AA7A6F5DEA1CA33381464D9C711",
+      "origin": "scratch/pr14/assets/processed-images/mandala-4.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr14_mandala_5": {
+    "url": "/assets/coloring/pr14/mandala-5.svg",
+    "title": "만다라 도안 5",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-5",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 72,
+      "outline_id": "outline",
+      "view_box": "0 0 512 512",
+      "file_bytes": 27760,
+      "sha256": "40492B32EA0CA55B6E9FB48CB71E86C860CFA449BD7E2D389A0361A29E2C531E",
+      "origin": "scratch/pr14/assets/processed-images/mandala-5.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr14_mandala_6": {
+    "url": "/assets/coloring/pr14/mandala-6.svg",
+    "title": "만다라 도안 6",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "mandala-6",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 225,
+      "outline_id": "outline",
+      "view_box": "0 0 512 512",
+      "file_bytes": 101589,
+      "sha256": "1B8A4B0F7192087DF651FAEA9F4E4BF06690A617BDBE0CDA5301E1F01F286A9D",
+      "origin": "scratch/pr14/assets/processed-images/mandala-6.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr15_nature_1": {
+    "url": "/assets/coloring/pr15/nature-1.svg",
+    "title": "자연 도안 1",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "nature-1",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 42,
+      "outline_id": "outline",
+      "view_box": "0 0 512 512",
+      "file_bytes": 29378,
+      "sha256": "224A2D10D2BDD45F6958638DEEF773CF7857242BA4D5F4E08B942CC57AC31543",
+      "origin": "scratch/pr15/assets/processed_images/nature-1.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr15_nature_3": {
+    "url": "/assets/coloring/pr15/nature-3.svg",
+    "title": "자연 도안 3",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "nature-3",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 56,
+      "outline_id": "outline",
+      "view_box": "0 0 612 408",
+      "file_bytes": 22600,
+      "sha256": "17B7100C6706DA0F7E9DA62D8A63E93BE95FD62E6F57F0A5B12ABA6C6926F1DA",
+      "origin": "scratch/pr15/assets/processed_images/nature-3.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr15_nature_5": {
+    "url": "/assets/coloring/pr15/nature-5.svg",
+    "title": "자연 도안 5",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "nature-5",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 61,
+      "outline_id": "outline",
+      "view_box": "0 0 612 612",
+      "file_bytes": 34491,
+      "sha256": "423022D73ED356180AEA903C7743DEEDAC546DD69E8A9D0BA9EC04CEBE820B8A",
+      "origin": "scratch/pr15/assets/processed_images/nature-5.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr15_nature_6": {
+    "url": "/assets/coloring/pr15/nature-6.svg",
+    "title": "자연 도안 6",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "nature-6",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 51,
+      "outline_id": "outline",
+      "view_box": "0 0 612 612",
+      "file_bytes": 36886,
+      "sha256": "3346F82AC67C978C205326A1681E53AFA2FE9222D41D97E6B7E61A6CBE59513E",
+      "origin": "scratch/pr15/assets/processed_images/nature-6.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  },
+  "coloring/pr15_nature_7": {
+    "url": "/assets/coloring/pr15/nature-7.svg",
+    "title": "자연 도안 7",
+    "creator": null,
+    "provider": "CURATED_ASSET_LIBRARY",
+    "source_url": null,
+    "license": null,
+    "verification": "PENDING_CONTENT_REVIEW",
+    "metadata": {
+      "design_id": "nature-7",
+      "format": "SVG",
+      "region_attribute": "data-region-id",
+      "region_count": 27,
+      "outline_id": "outline",
+      "view_box": "0 0 612 612",
+      "file_bytes": 26415,
+      "sha256": "1B2294B39F2054AE590644BBCBF981D38748E2F8CA7DCDBA6F5644EC63B3C537",
+      "origin": "scratch/pr15/assets/processed_images/nature-7.svg (C 파트 전처리 SVG, #51)",
+      "provenance_note": "원본 이미지의 출처·라이선스가 적혀 있지 않다 — 확인 전까지 PENDING_CONTENT_REVIEW"
+    }
+  }
+}

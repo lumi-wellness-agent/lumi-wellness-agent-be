@@ -82,9 +82,106 @@
           "tts": "ALLOWED",
           "llm_rewrite": "FORBIDDEN"
         },
-        "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)"
+        "note": "E14 2.3.1의 실험 조건 지시문(Maslow 1971 기반)을 옮겼다. 대조 조건도 같은 20분을 썼고 주제(남은 하루 일정 · 신고 있는 신발 · 자기 방 묘사)만 달랐다 — 지시문이 곧 처치라 뜻을 바꾸지 않는다",
+        "scripts": [
+          {
+            "id": "IPE_PROMPT",
+            "phase": "WRITING",
+            "required": true,
+            "text": "살면서 가장 멋졌던 경험, 가장 행복했던 순간, 황홀했던 순간, 벅차올랐던 순간을 생각해 보세요. 사랑에 빠졌을 때, 음악을 들을 때, 책이나 그림이 갑자기 마음을 사로잡았을 때, 또는 무언가를 만들어 내던 멋진 순간일 수도 있습니다. 그런 경험이나 순간을 하나 고르세요. 그 순간에 있는 자신을, 그 경험에 얽힌 느낌과 감정까지 모두 떠올려 보세요. 이제 그 경험을 되도록 자세히 써 보세요. 그때 들었던 느낌과 생각, 감정을 담아 주세요. 그 감정을 최대한 다시 느껴 보세요.",
+            "source_text": "Think of the most wonderful experience or experiences in your life, happiest moments, ecstatic moments, moments of rapture, perhaps from being in love, or from listening to music, or suddenly “being hit” by a book or painting or from some great creative moment. Choose one such experience or moment. Try to imagine yourself at that moment, including all the feelings and emotions associated with the experience. Now write about the experience in as much detail as possible trying to include the feelings, thoughts, and emotions that were present at the time. Please try your best to re-experience the emotions involved.",
+            "source_ref": "E14 p.6 — 2.3.1 Writing instructions(실험 조건)"
+          },
+          {
+            "id": "IPE_REPEAT_NOTE",
+            "phase": "WRITING",
+            "required": false,
+            "text": "지난번과 같은 경험을 써도 되고, 새로운 경험을 골라도 됩니다.",
+            "source_text": "You may either write about the same experience as yesterday, or you may choose a new one.",
+            "source_ref": "E14 p.6 — 2·3일차 지시문",
+            "note": "같은 사용자가 이 활동을 두 번째 이상 할 때 IPE_PROMPT 뒤에 붙인다"
+          }
+        ]
       }
-    ]
+    ],
+    "session_ui": {
+      "status": "PROPOSED",
+      "source": "scratch/pr18/pr18-runtime.json — C 파트 실행 계약(#51)을 옮겼다",
+      "state_flow": [
+        "INTRO",
+        "WRITING",
+        "PAUSED",
+        "COMPLETED",
+        "STOPPED"
+      ],
+      "timer": {
+        "target_seconds": 900,
+        "research_reference_seconds": 1200,
+        "display_mode": "HIDDEN_INTERNAL",
+        "show_progress": false,
+        "show_remaining_time": false,
+        "start_trigger": "first_text_input",
+        "record_started_at": true,
+        "record_elapsed_seconds": true,
+        "user_pause_control": false,
+        "refresh_pauses_timer": true,
+        "resume_trigger": "next_text_input",
+        "auto_stop_on_target": false
+      },
+      "prompt": {
+        "status": "SOURCE_TRANSLATED",
+        "script_id": "IPE_PROMPT",
+        "source_must_be_verified": true
+      },
+      "input": {
+        "required_for_completion": true,
+        "minimum_characters": 300,
+        "count_for_validation_only": true,
+        "allow_edit": true,
+        "allow_delete": true,
+        "max_length": 5000,
+        "normalize_whitespace": true,
+        "start_on_first_input": true
+      },
+      "completion": {
+        "requires_minimum_characters": true,
+        "requires_user_confirmation": true,
+        "content_quality_evaluation": false,
+        "duration_required": false
+      },
+      "persistence": {
+        "storage": "localStorage",
+        "key": "lumi.pr18.writing.v1",
+        "autosave_debounce_ms": 500,
+        "restore_running_as": "PAUSED",
+        "restore_fields": [
+          "writing_text",
+          "elapsed_seconds",
+          "activity_completed"
+        ],
+        "refresh_log": "internal_only",
+        "refresh_count_user_visible": false,
+        "browser_close_status": "STOPPED",
+        "unexpected_error_status": "STOPPED",
+        "completion_idempotency": true
+      },
+      "internal_log": {
+        "enabled": true,
+        "record_refresh_events": true,
+        "record_error_type_and_message": true,
+        "include_writing_text": false,
+        "show_error_details_to_user": false
+      },
+      "privacy": {
+        "server_text_storage": false,
+        "allow_export": true,
+        "allow_delete": true
+      },
+      "test_modes": [
+        30,
+        60
+      ]
+    }
   },
   "grades": {
     "AFFECT": {
@@ -216,13 +313,16 @@
   "review": {
     "status": "DRAFT",
     "open_items": [
-      "초안: scripts/scaffold_protocols.py가 시트에서 만들었다. steps · content_spec · guide 문안 검수 필요",
+      "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr18의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
       "grades.AFFECT: 등급 셀이 E15를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
       "시트의 측정 도구 ['INS-PANAS']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
-      "시트 비고: 건강 효과(의료 방문↓)는 3개월 후 지표라 세션 설명에 쓰지 않음"
+      "시트 비고: 건강 효과(의료 방문↓)는 3개월 후 지표라 세션 설명에 쓰지 않음",
+      "글쓰기 지시문은 E14 2.3.1 실험 조건 지시문(Maslow 1971 기반)을 옮겼다(WRITING_PROMPT scripts IPE_PROMPT, 2026-10-27). 한국어 문구는 팀이 검수한다 — 뜻이 바뀌면 대조 조건(일정 · 신발 · 방 묘사 글쓰기)과 구분이 흐려진다",
+      "서비스 권장 15분(session_ui.timer.target_seconds 900)과 duration_minutes.default 20(연구)이 다르다 — 플래너는 20분으로 계획하고 FE 화면에는 시간을 보이지 않는다",
+      "scratch/pr18/pr18-runtime.json에 privacy 키가 두 번 있었다 — JSON이 읽는 뒤쪽 값(allow_export · allow_delete true)을 옮겼고, DESIGN.md의 '제외: 삭제·내보내기' 문장과 다르다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-18, 근거 arm 4행",
     "reviewed_by": null,
-    "updated_at": "2026-10-26"
+    "updated_at": "2026-10-27"
   }
 }

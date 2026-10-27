@@ -281,14 +281,14 @@
           "script_rewrite": false
         },
         "generation": {
-          "method": "RECORDED_VOICE_OR_TTS_FROM_APPROVED_TEXT",
+          "method": "TTS_FROM_APPROVED_TEXT",
           "status": "SPEC_ONLY",
           "language": "ko-KR",
           "voice_direction": "차분하고 또렷한 한국어, 동일 화자, 자연스러운 속도",
           "background_music": false,
           "background_ambience": false,
           "llm_rewrite": false,
-          "provider": null,
+          "provider": "BROWSER_SPEECH_SYNTHESIS",
           "voice_id": null,
           "clips": [
             {
@@ -493,9 +493,10 @@
     "status": "DRAFT",
     "open_items": [
       "P18 원본 음성 대본 미확보; LUMI 대본은 별도 제작이며 효과 동등성 미검증",
-      "실제 음성 생성 및 각 시점 간 겹침, 총 20분, 마지막 음성 종료 확인 필요",
+      "speechSynthesis로 읽을 때 각 시점 간 겹침, 총 20분, 마지막 음성 종료 확인 필요",
       "타이머·음파 UI·중단 처리 및 측정 노드 연동은 별도 구현 필요",
-      "근거 등급 및 측정 항목 적합성 팀 검토"
+      "근거 등급 및 측정 항목 적합성 팀 검토",
+      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-08, 근거 arm 1행",
     "reviewed_by": null,
