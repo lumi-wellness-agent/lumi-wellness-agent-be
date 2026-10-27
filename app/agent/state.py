@@ -37,7 +37,7 @@ class IntakeResult(BaseModel):
 
     - Goal: 이번 세션에서 개선할 결과 지표(S1 반추 · S2 긴장·스트레스 · S3 주의·피로). 사용자가
       고르는 니즈가 아니라 개념 정의(원문) · 단서표와 상황 단서로 추론한다. 측정
-      척도 · 후보 · 평가를 정한다.
+      목표별 척도 매핑은 후속 연결 대상이며, 현재 MVP는 공통 SAM만 측정한다.
     - State: 지금 상황(사건 전·후 · 오래 집중한 뒤 · 계기 없음). 대화로 정하고 Goal 추론의 단서가
       된다.
     - Context: 여건(장소 · 이어폰 · 시간). 칩으로 받고, 후보 활동을 거른다(environment).
@@ -155,7 +155,7 @@ class OutcomeEvaluation(BaseModel):
     round: int
     # 현재 MVP는 SAM valence·arousal 변화만 기록한다. 목표 지표의 직접 측정은 아님
     deltas: dict[str, float]
-    improved: bool | None  # None = 세션 내 판정 기준 없음(evaluator.IMPROVEMENT_RULE)
+    improved: bool | None  # SAM 기반 탐색 방향 지표. 목표 효과를 검증한 판정은 아님. None = 판정 불가
     completed: bool
 
 
