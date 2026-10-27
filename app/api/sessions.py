@@ -44,7 +44,7 @@ from app.agent.nodes.planner import PlanRejected
 from app.agent.state import ReplanDecision, SessionReport
 from app.schemas.care import CareRequest
 from app.schemas.intake import IntakeAnswer, IntakeQuestion
-from app.schemas.measure import GOAL_SCALE, InstrumentId, Measurement
+from app.schemas.measure import InstrumentId, Measurement
 
 log = logging.getLogger(__name__)
 
@@ -134,25 +134,19 @@ def end_payload(values: dict) -> dict:
             }
             for r in values.get("rounds", [])
         ],
-        "goal_scale": goal_scale_change(values),
+        "sam_change": sam_change(values),
     }
 
 
-def goal_scale_change(values: dict) -> dict | None:
-    """목표 척도의 세션 변화(끝 − 사전). 끝값은 종료 측정(STAI-6 · BSRI)이고, 라운드마다 재는 척도
-    (S3 MFVAS)는 마지막 사후값이다(nodes/evaluator.py — 세션 Δ는 API 응답에서 계산한다)."""
-    scale = GOAL_SCALE[values["intake"].goal]
-    if scale is None:
-        return None
-    pre = _find(values.get("pre", []), scale)
+def sam_change(values: dict) -> dict | None:
+    """MVP의 시작·종료 SAM 차이. affect 변화량이며 목표 구성개념의 점수는 아니다."""
+    instrument_id = InstrumentId.SAM
+    pre = _find(values.get("pre", []), instrument_id)
     end = values.get("final")
-    if end is None or end.instrument_id != scale:
-        rounds = values.get("rounds", [])
-        end = _find(rounds[-1].post, scale) if rounds else None
-    if pre is None or end is None:
+    if pre is None or end is None or end.instrument_id is not instrument_id:
         return None
     return {
-        "instrument_id": scale.value,
+        "instrument_id": instrument_id.value,
         "pre": pre.scores,
         "end": end.scores,
         "delta": deltas_between([pre], [end]),
@@ -303,9 +297,8 @@ async def _waiting_at(request: Request, session_id: str, nodes: Collection[str])
 
 
 def _check_measure(payload: dict, answers: dict[str, dict[str, float]]) -> None:
-    """측정 응답을 노드와 같은 채점 함수로 미리 검사한다 — 빠진 도구 · 문항, 범위 밖 값이면 422."""
-    for presented in payload["instruments"]:
-        key = presented["instrument_id"]
+    """필수 응답 목록만 노드와 같은 채점 함수로 미리 검사한다 — 빠진 문항·범위 밖 값이면 422."""
+    for key in payload["required_instrument_ids"]:
         if key not in answers:
             raise _error(422, "INVALID_ANSWER", f"{key} 응답이 없습니다.")
         try:
