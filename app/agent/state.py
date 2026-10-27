@@ -29,7 +29,7 @@ class GoalEvidence(BaseModel):
 class SessionEnd(StrEnum):
     """측정·활동 전에 세션을 끝낸 이유."""
 
-    SAFETY = "SAFETY"  # 자유 입력 답이 안전 검사에 걸렸다 → 활동 대신 도움 안내
+    SAFETY = "SAFETY"  # ① 상황 읽기가 안전 신호를 봤다(처음 입력 · 글 답) → 활동 대신 도움 안내
 
 
 class IntakeResult(BaseModel):

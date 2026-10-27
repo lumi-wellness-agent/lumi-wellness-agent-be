@@ -7,10 +7,10 @@
           → (END 경로) measure_final ⏸ → END
     confirm에서 활동 변경·추가 세션을 고르면 plan으로 돌아간다(라운드 2–3회).
 
-    intake_read   ① LLM — State(사용자 상태 · 사건 · 반복 단서) + 검색어   nodes/intake.py
+    intake_read   ① LLM — 안전 · 관련성 · State + 검색어. 안전 신호면 END  nodes/intake.py
     intake_goal   ③ LLM 목표 추론(S1·S2·S3, 단서표)                       nodes/intake.py
     intake_context ④ 코드 — 추천을 바꾸는 환경 칸만 묻는다                 nodes/intake.py
-    intake_ask    ⏸ 질문(시점 · 재질문 · 환경 칩). 자유 입력이 안전 검사에 걸리면 END
+    intake_ask    ⏸ 질문(입구 되묻기 · 시점 · 재질문 · 환경 칩). 글 답은 intake_read로
     intake_finish 코드 — 기본값 · 환경 조건                                 nodes/intake.py
     measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
   ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
@@ -66,11 +66,11 @@ def build_graph(
     builder.add_node("confirm", confirm)
     builder.add_node("measure_final", measure_final)
     builder.add_edge(START, "intake_read")
-    builder.add_conditional_edges("intake_read", route_after_read, ["intake_ask", "intake_goal"])
     builder.add_conditional_edges(
-        "intake_ask",
-        route_after_ask,
-        ["intake_ask", "intake_read", "intake_goal", "intake_finish", END],
+        "intake_read", route_after_read, ["intake_ask", "intake_goal", END]
+    )
+    builder.add_conditional_edges(
+        "intake_ask", route_after_ask, ["intake_ask", "intake_read", "intake_goal", "intake_finish"]
     )
     builder.add_edge("intake_goal", "intake_context")
     builder.add_conditional_edges(

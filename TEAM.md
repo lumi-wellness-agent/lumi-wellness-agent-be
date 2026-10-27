@@ -112,7 +112,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
 | 후보 프로토콜 | `protocols.plan_candidates()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
-| 세션 종료 | `final`(목표 척도). intake는 자유 입력 답이 안전 검사에 걸릴 때만 닫는다(`ended = SAFETY`). 목표 단서가 없으면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
+| 세션 종료 | `final`(목표 척도). intake는 ① 상황 읽기(LLM)가 처음 입력이나 글 답에서 안전 신호를 볼 때만 닫는다(`ended = SAFETY`). 목표 단서가 없거나 되묻기에서 '그냥 시작할게요'면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 
 ## 작업 순서 (10/26 월 ~ 10/29 목)
 

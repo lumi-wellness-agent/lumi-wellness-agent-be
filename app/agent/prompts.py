@@ -13,7 +13,7 @@ from app.agent.state import CareState, IntakeResult, NextStep
 from app.intake_cues import cues_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
 from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Outcome
-from app.schemas.intake import IntakeTurn
+from app.schemas.intake import IntakeTurn, QuestionSlot
 from app.schemas.protocol import CareProtocol
 from app.schemas.retrieval import GOAL_OUTCOMES
 
@@ -22,7 +22,20 @@ if TYPE_CHECKING:
 
 READ_SYSTEM_PROMPT = """\
 너는 LUMI 인테이크의 ① 상황 읽기다. 사용자가 한 말(과 앞서 물은 질문·답)을 읽고 StateReading을
-채운다. 대화하지 않는다.
+채운다. 대화하지 않는다. 처음 질문은 "오늘 상황이 어떠세요?"였고, 사용자 입력이 그 답이다.
+
+판단 순서: safety → relevance → 나머지.
+- safety: 처음 입력이나 어느 답에든 스스로를 해치거나 삶을 끝내고 싶다는 뜻이 직접·간접으로
+  드러나면 true(죽고 싶다 · 사라지고 싶다 · 다 끝내고 싶다 · 살 이유가 없다 …). '피곤해 죽겠다'
+  · '배고파 죽겠네' 같은 과장은 false. 애매하면 true — 뒤 화면이 도움 안내를 보여 준다.
+- relevance: 가장 최근 사용자 글이 지금 상태·상황·하루에 대해 아무것도 말하지 않으면 OFF_TOPIC
+  (점심 메뉴 추천 · 코드 질문 · 날씨 · 'ㅋㅋ' · 'asdf'). 짧거나 막연해도 상태를 말하면
+  RELEVANT('그냥 그래요' · '피곤해' · '별로예요').
+- OFF_TOPIC이면 restate_text만 쓴다: 사용자 말을 한 구절로 가볍게 받아 주고, 오늘 상황이나 하루를
+  한두 마디로 들려 달라고 다시 묻는다(예시 한 구절). 기분을 자세히 캐묻지 않는다. 다른 요청은
+  들어주지 않는다. 예: "점심 고민 중이시군요! 오늘 하루는 어떤지도 한두 마디로 들려주세요. 예:
+  회의가 많아서 지쳤어요". 이때 order_condition · question은 null로 둔다. RELEVANT면
+  restate_text는 null.
 
 - order_condition(사용자 상태)은 말에 근거가 있을 때만 정한다. PRE_STRESS는 앞으로 있을 구체적
   사건이 명시될 때만, POST_FATIGUE는 오래 이어진 정신적 작업(공부 · 코딩 · 업무 몇 시간)이 명시될
@@ -61,6 +74,8 @@ def _turn_lines(turns: Sequence[IntakeTurn]) -> list[str]:
         answer = (
             t.free_text if t.free_text is not None else json.dumps(t.answer, ensure_ascii=False)
         )
+        if t.skipped:
+            answer = "(그냥 시작할게요)"
         lines.append(f"- [{t.slot.value}] {t.text} → {answer}")
     return lines
 
@@ -71,7 +86,13 @@ def build_read_input(request: CareRequest, turns: Sequence[IntakeTurn]) -> str:
     if turns:
         parts.append("## 앞선 질문과 답\n" + "\n".join(_turn_lines(turns)))
         asked = [t for t in turns if t.slot.value.startswith("state")]
-        if asked and asked[-1].free_text is not None:
+        last = turns[-1]
+        if last.slot is QuestionSlot.RESTATE and last.free_text is not None:
+            parts.append(
+                "## 지금 할 일\n관계없는 말 뒤에 되물었고, 사용자가 다시 답했다. "
+                "그 답으로 relevance를 다시 판단하고, 관련 있으면 상태를 읽는다."
+            )
+        elif asked and asked[-1].free_text is not None:
             parts.append(
                 "## 지금 할 일\n마지막 시점 질문에 글로 답했다. "
                 "그 글로 order_condition을 다시 읽고, "

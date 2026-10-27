@@ -54,6 +54,7 @@ graph TD;
 	__start__ --> intake_read;
 	intake_read -.-> intake_ask;
 	intake_read -.-> intake_goal;
+	intake_read -.-> __end__;
 	intake_ask -.-> intake_read;
 	intake_ask -.-> intake_goal;
 	intake_ask -.-> intake_finish;
@@ -79,10 +80,10 @@ graph TD;
 
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
-| `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 시점 질문 초안을 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
-| `intake_goal` | intake ③ Goal (LLM) | 단서표(`data/intake_cues.json`) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. State 두 질문이 모두 '잘 모르겠어요'거나 단서가 없으면 S2(`goal_source = DEFAULT`). ② 개념 정의 근거(paper_id · 문장)는 JSON을 받으면 붙인다 | `nodes/intake.py` |
+| `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 질문 초안을 낸다. 안전 신호면 세션 종료(`ended = SAFETY`). 처음 입력이 관계없으면 사용자 말에 맞춘 입구 되묻기(`restate`)를 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 단서표(`data/intake_cues.json`) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S2(`goal_source = DEFAULT`). ② 개념 정의 근거(paper_id · 문장)는 JSON을 받으면 붙인다 | `nodes/intake.py` |
 | `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
-| `intake_ask` ⏸ | intake 질문 | 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지. 시점 질문에 '잘 모르겠어요'면 고정 재질문. 자유 입력 답이 안전 검사에 걸리면 세션 종료(`ended = SAFETY`). payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
+| `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
 | `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
@@ -149,8 +150,8 @@ interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니�
 
 | 요청 | 그래프 | 응답 |
 | --- | --- | --- |
-| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤 | 질문(`IntakeQuestion`) 또는 측정 문항 |
-| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회). 자유 입력 답이 안전 검사에 걸리면 `ended = SAFETY`로 끝 | 질문 · 측정 문항 · 또는 종료(SAFETY) |
+| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | 질문(`IntakeQuestion`) · 측정 문항 · 또는 종료(SAFETY) |
+| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S2로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | 질문 · 측정 문항 · 또는 종료(SAFETY) |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
 | `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
@@ -351,8 +352,14 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
   조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
   "지금은 어려워요"(활동 변경)를 함께 보여 줘야 합니다.
-- intake 안전 검사는 질문에 대한 자유 입력 답에만 겁니다(규칙 기반, `intake_rules.safety_hit`). 처음
-  입력 문장은 검사하지 않습니다. 걸리면 세션을 끝내고(`ended = SAFETY`) FE가 도움 안내를 보여 줍니다.
+- intake 안전 판단은 ① 상황 읽기(LLM)의 `safety` 칸 하나입니다. 처음 입력과 모든 글 답(되묻기 · 시점
+  질문)이 ①을 다시 지나므로 모두 판단됩니다. 정규식 단어 목록은 표현이 다양해 놓치는 것이 많아 쓰지
+  않습니다. 걸리면 세션을 끝내고(`ended = SAFETY`) FE가 도움 안내를 보여 줍니다. LLM 판단은 실제 문장으로
+  `make plan-trial`에서 확인해야 합니다.
+- intake 입구: 처음 질문 "오늘 상황이 어떠세요?"는 FE 시작 화면에 고정입니다. 답이 관계없으면(메뉴 · 코드 ·
+  아무 글자) 사용자 말에 맞춘 되묻기(`slot = restate`, 보기 없음, `skip_label` '그냥 시작할게요')가 관련 있는
+  답이 올 때까지 돕니다. 질문 3회 예산은 관련 있는 답 뒤부터 셉니다. 시점 질문에 관계없는 글로 답하면 단서
+  없음으로 보고 넘어갑니다(되묻지 않음).
 - 후보가 모자랄 때 푸는 순서. 지금은 사용자 상태 → 환경이고 시간은 풀지 않습니다(`protocols.RELAX_STEPS`).
   plan · intake 환경 질문 판정 · replan 선택지가 같은 조회(`protocols.plan_candidates`)를 봅니다. 환경을 풀면
   계획의 `environment_gaps`(AUDIO · SCREEN · QUIET · OUTDOORS)로 FE가 "소리가 나와요" 같은 안내를 띄워야
