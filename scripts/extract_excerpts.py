@@ -12,6 +12,8 @@
   이미 JSON에 있는 키는 건너뛴다(--force로 다시). 결과는 키별로 병합해 쓴다.
 - 검토 목록은 --review CSV(기본 evidence_excerpts_review.csv, gitignore) — confidence가
   HIGH가 아니거나 coverage가 낮은 레코드. 사람이 p값 · N 같은 숫자를 PDF와 대조한다.
+- `_verified`가 있는 항목은 사람이 쪽 이미지와 대조해 교정한 것이라 --force로도 덮어쓰지 않는다
+  (--include-verified일 때만 다시 고른다).
 """
 
 from __future__ import annotations
@@ -70,6 +72,9 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=4, help="동시 LLM 호출 수")
     parser.add_argument("--force", action="store_true", help="JSON에 있는 키도 다시 고른다")
     parser.add_argument("--include-ocr", action="store_true", help="OCR로 읽은 논문도 쓴다")
+    parser.add_argument(
+        "--include-verified", action="store_true", help="쪽 이미지로 교정한 항목도 다시 고른다"
+    )
     parser.add_argument("--dry-run", action="store_true", help="LLM 없이 입력 크기와 캐시 유무만")
     args = parser.parse_args()
 
@@ -87,6 +92,9 @@ def main() -> int:
     todo, skipped = [], []
     for record in records:
         if only and record.key not in only:
+            continue
+        if "_verified" in existing.get(record.key, {}) and not args.include_verified:
+            skipped.append(f"{record.key}: 쪽 이미지 대조 완료(--include-verified)")
             continue
         if record.key in existing and not args.force:
             skipped.append(f"{record.key}: 이미 있음")

@@ -5,8 +5,7 @@
     .venv/bin/python scripts/parse_papers.py --all               # manifest의 PDF 76편 전부
 
 - PDF 경로는 data/manifest.csv의 pdf_path(Research_paper 저장소 기준). fulltext_status가
-  IMAGE_PDF면 OCR을 켠다(--no-ocr로 끈다). 엔진은 macOS면 Apple Vision, 아니면 RapidOCR
-  (--ocr-engine mac|rapid).
+  IMAGE_PDF면 Docling 대신 쪽 스캔 이미지를 RapidOCR로 직접 읽는다(parse.ocr_pdf, --no-ocr로 끈다).
 - 캐시는 Research_paper/LUMI_R_C_Research_2026-10-22/01_fulltext/<paper_id>.json · .md — 비공개
   저장소다. 이미 있으면 건너뛴다(--force로 덮어씀). 한 편에 CPU로 10~60초 걸린다.
 - `.[ingestion]` extras(docling)가 필요하다: .venv/bin/pip install -e ".[ingestion]"
@@ -52,7 +51,6 @@ def main() -> int:
     parser.add_argument("--research-root", type=Path, help="Research_paper 경로(기본: 형제 폴더)")
     parser.add_argument("--force", action="store_true", help="캐시가 있어도 다시 파싱")
     parser.add_argument("--no-ocr", action="store_true", help="IMAGE_PDF도 OCR 없이(텍스트층만)")
-    parser.add_argument("--ocr-engine", choices=parse.OCR_ENGINES, help="기본: macOS면 mac")
     parser.add_argument(
         "--reindex", action="store_true", help="Docling 없이 캐시로 .md만 다시 쓴다(규칙 변경 뒤)"
     )
@@ -96,16 +94,19 @@ def main() -> int:
         todo.append((pid, pdf, row["fulltext_status"] == "IMAGE_PDF" and not args.no_ocr))
 
     print(f"파싱 {len(todo)}편 → {cache_dir}", flush=True)
-    converters: dict[bool, object] = {}
+    converters: dict[str, object] = {}
     failed: list[str] = []
     for i, (pid, pdf, ocr) in enumerate(todo, 1):
         started = time.perf_counter()
         try:
-            if ocr not in converters:
-                converters[ocr] = parse.make_converter(ocr=ocr, engine=args.ocr_engine)
-            paper = parse.parse_pdf(
-                pid, pdf, converter=converters[ocr], ocr=ocr, engine=args.ocr_engine
-            )
+            if ocr:
+                if "ocr" not in converters:
+                    converters["ocr"] = parse.make_ocr_engine()
+                paper = parse.ocr_pdf(pid, pdf, engine=converters["ocr"])
+            else:
+                if "docling" not in converters:
+                    converters["docling"] = parse.make_converter()
+                paper = parse.parse_pdf(pid, pdf, converter=converters["docling"])
             parse.save_cache(cache_dir, paper)
         except Exception as exc:  # noqa: BLE001 — 한 편이 실패해도 나머지는 계속
             failed.append(pid)
@@ -113,7 +114,7 @@ def main() -> int:
             continue
         chars = " ".join(f"{k}={v}" for k, v in sorted(paper.chars_by_section().items()))
         elapsed = time.perf_counter() - started
-        mode = f"OCR({parse.ocr_engine(args.ocr_engine)}) " if ocr else ""
+        mode = f"OCR({paper.tool}) " if ocr else ""
         print(f"[{i}/{len(todo)}] {pid}: {paper.pages}p {elapsed:.0f}s {mode}{chars}")
         sys.stdout.flush()
     if failed:

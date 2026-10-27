@@ -36,6 +36,11 @@ dropped}`와 `_source` · `_confidence` · `_note`다. `text`는 Docling으로 �
 `LUMI_R_C_Research_2026-10-22/01_fulltext/`에 두고 여기에는 짧은 인용만 둔다. 검토 목록은
 `evidence_excerpts_review.csv`(gitignore)다.
 
+스캔 PDF(P05 · P26)는 OCR 텍스트에서 고른 초안을 사람이 쪽 이미지와 대조해 교정했다. 이런 항목에는
+`_verified`(대조한 쪽)와 `_corrections`(고친 것)가 있고, `extract_excerpts.py`는 `--force`로도 덮어쓰지 않는다
+(`--include-verified`일 때만 다시 고른다). OCR 초안은 숫자 아래첨자 · 소수점을 놓치고, 실험이 여럿인 논문에서
+모델이 다른 실험의 문단을 가져오기도 해서(P05-E2) 대조 없이 쓰지 않는다.
+
 ## manifest.csv — 논문 82편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·
