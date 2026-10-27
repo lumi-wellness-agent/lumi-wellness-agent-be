@@ -8,7 +8,8 @@ state에 Pydantic 모델과 Enum을 그대로 둔다. LangGraph의 기본 직렬
 
 서버는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장한다. 서버리스에서는 한 세션의
 요청을 서로 다른 인스턴스가 받으므로 프로세스 메모리에 둘 수 없다. 테이블은 라이브러리의
-setup()이 만든다(`make checkpoint-setup`). public 스키마는 Data API로 노출되므로 스키마를 따로 둔다.
+setup()이 만든다(`make checkpoint-setup`). Data API는 꺼 두었지만 켜면 public 스키마가 노출되므로
+스키마를 따로 둔다.
 
 라이브러리는 테이블 이름에 스키마를 붙이지 않는다. 그래서 search_path로 `langgraph`를 가리키는데,
 transaction 모드 풀러에서는 SET이 다음 트랜잭션까지 남지 않아 연결 옵션(`-c search_path=`)으로

@@ -388,10 +388,12 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 | `user_consents` · `care_sessions` · `care_rounds` · `care_texts` | 동의와 세션 기록(「인증 · 세션 기록」). 행은 `auth.users`를 따라 지워진다 |
 | `langgraph.checkpoints` 등 4개 | 세션 체크포인트. `make checkpoint-setup`이 만들고, 적용한 버전을 `checkpoint_migrations`에 남긴다 |
 
-`public` 스키마의 테이블은 Data API로 노출되므로 RLS를 켜고 정책은 두지 않았습니다. publishable 키로는
-읽고 쓸 수 없고, 테이블 소유자인 `postgres` 역할로 접속하는 백엔드에는 영향이 없습니다.
+이 프로젝트는 Supabase Data API(`/rest/v1`)를 처음부터 꺼 두었습니다. BE는 Postgres에 직접 붙고 FE는
+Supabase Auth만 쓰므로 필요하지 않습니다. 그래서 publishable 키로는 어떤 테이블에도 닿지 않습니다(호출하면
+503 `PGRST002`). 나중에 켜더라도 노출되지 않도록 `public` 스키마의 테이블은 RLS를 켜고 정책은 두지
+않았습니다. 테이블 소유자인 `postgres` 역할로 접속하는 백엔드에는 영향이 없습니다.
 
-체크포인트 테이블은 Data API에 노출되지 않는 `langgraph` 스키마에 둡니다. 라이브러리가 테이블 이름에
+체크포인트 테이블은 Data API를 켜도 노출되지 않는 `langgraph` 스키마에 둡니다. 라이브러리가 테이블 이름에
 스키마를 붙이지 않아, 체크포인터 풀이 연결 옵션 `-c search_path=langgraph`로 스키마를 가리킵니다.
 트랜잭션 모드에서는 `SET`이 다음 트랜잭션까지 남지 않지만, Shared pooler(Supavisor)는 search_path마다
 풀을 따로 두어 이 옵션을 유지합니다. Dedicated pooler(PgBouncer)로 바꾸면 이 부분을 다시 확인합니다.
