@@ -7,11 +7,11 @@
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
 
 - 발표 리허설과 RAG 평가셋 질의 수집용이다. 세션 그래프의 intake · plan 노드를 그대로 부르므로
-  check_plan 재질의, 근거 재검증(keep_usable_evidence), 공급자 폴백까지 운영과 같다. 측정·실행
-  interrupt는 거치지 않는다.
+  후보 → 선택(LLM) → 검색 → 검증 → 설명(LLM) 절차, check_plan 재질의, 공급자 폴백까지 운영과 같다.
+  측정·실행 interrupt는 거치지 않는다.
 - LLM(.env의 OPENAI_API_KEY · ANTHROPIC_API_KEY)을 실제로 불러 비용이 든다. 근거 DB는 읽기만 한다.
   DB는 --database-url, 없으면 .env의 DATABASE_URL.
-- --queries는 search_evidence 호출(질의 · 필터 · 결과 ID)과 최종 계획의 프로토콜을 JSONL로 덧붙인다.
+- --queries는 검색 호출(질의 · 필터 · 결과 ID)과 최종 계획의 프로토콜을 JSONL로 덧붙인다.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import time
 from pathlib import Path
@@ -35,7 +36,7 @@ from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.llm import with_fallback  # noqa: E402
 from app.agent.nodes.intake import make_intake_node, make_llm_intaker  # noqa: E402
-from app.agent.nodes.planner import make_agent_planner, make_plan_node  # noqa: E402
+from app.agent.nodes.planner import LlmPlanner, PlanRejected, make_plan_node  # noqa: E402
 from app.agent.state import (  # noqa: E402
     CarePlan,
     NextStep,
@@ -77,7 +78,7 @@ class Usage(BaseCallbackHandler):
 
 
 class Recorder:
-    """도구 본체(hybrid.search · validation.validate)를 감싸 인자와 결과를 남긴다."""
+    """검색·검증 본체(hybrid.search · validation.validate)를 감싸 인자와 결과를 남긴다."""
 
     def __init__(self) -> None:
         self.searches: list[dict] = []
@@ -137,15 +138,12 @@ def previous_round(protocol_id: str, goal: CareGoal) -> Round:
 
 
 async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder) -> dict:
-    settings = get_settings()
     usage = Usage()
-    planner_models = chat_models(settings, max_tokens=4096)
-    for _, model in planner_models:
+    models = chat_models(get_settings())
+    for _, model in models:
         model.callbacks = [usage]
-    planner = with_fallback([(n, make_agent_planner(m)) for n, m in planner_models])
-    intaker = with_fallback(
-        [(n, make_llm_intaker(m)) for n, m in chat_models(settings, max_tokens=1024)]
-    )
+    planner = LlmPlanner(models)
+    intaker = with_fallback([(n, make_llm_intaker(m)) for n, m in models])
     state: dict = {"request": request}
     state |= await make_intake_node(intaker)(state)
     intake = state["intake"]
@@ -164,7 +162,12 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     recorder.validations.clear()
     started = time.perf_counter()
     plan_node = make_plan_node(planner)
-    plan: CarePlan = (await plan_node(state, Runtime(context=AgentContext(db_pool=pool))))["plan"]
+    try:
+        out = await plan_node(state, Runtime(context=AgentContext(db_pool=pool)))
+    except PlanRejected as exc:
+        print(f"계획 실패: {exc}")
+        return {"scenario": name, "rejected": str(exc)}
+    plan: CarePlan = out["plan"]
     elapsed = time.perf_counter() - started
     keys = ("medium", "intervention_order", "outcomes", "record_type")
     for s in recorder.searches:
@@ -184,7 +187,7 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
         "goal": _value(intake.goal),
         "intervention_order": _value(intake.order_condition),
         "protocol_id": activity.protocol_id,
-        "evidence_record_ids": activity.evidence_record_ids,
+        "evidence_record_ids": cited,
         "searches": list(recorder.searches),
     }
 
@@ -199,8 +202,12 @@ async def main() -> None:
     parser.add_argument("--change-from", help="직전 라운드에서 활동 변경을 고른 프로토콜 ID")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--database-url", help="근거 DB. 없으면 .env의 DATABASE_URL")
-    parser.add_argument("--queries", type=Path, help="search_evidence 기록을 덧붙일 JSONL")
+    parser.add_argument("--queries", type=Path, help="검색 기록을 덧붙일 JSONL")
     args = parser.parse_args()
+
+    # 선택 이유·질의(plan 노드 INFO 로그)를 같이 보여 준다
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+    logging.getLogger("app.agent.nodes.planner").setLevel(logging.INFO)
 
     names = args.scenarios or ([] if args.text else ["S1", "S2"])
     requests = [(n, SCENARIOS[n]) for n in names]

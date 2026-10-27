@@ -3,9 +3,9 @@
 Protocol DB 테이블은 두지 않는다(발표 범위). 프로토콜은 검수된 정적 콘텐츠라 저장소에 함께 배포하고
 시작할 때 한 번 읽는다. 테이블이 필요해지면 이 모듈의 함수 시그니처를 유지한 채 바꾼다.
 
-- get_care_protocols Tool(app/agent/tools/protocol.py)은 candidates()의 compact()를 LLM에 준다.
+- plan(app/agent/nodes/planner.py)은 candidates()의 compact()를 LLM에 주고, planned_minutes()로
+  시간을, delivered_media()로 검색·검증할 매체를 정하고, check_plan이 get_protocol()로 후검증한다.
 - prepare(app/agent/nodes/executor.py)는 get_protocol()로 steps · guide를 읽는다.
-- check_plan(app/agent/nodes/planner.py)은 get_protocol()로 검수 ID · 목표 · 순서 · 시간을 확인한다.
 """
 
 from collections.abc import Iterable
@@ -73,6 +73,16 @@ def candidates(
     return sorted(
         picked, key=lambda p: (p.goal is not goal, goal_grade_rank(p, goal), p.protocol_id)
     )
+
+
+def planned_minutes(protocol: CareProtocol, available: int | None) -> int:
+    """활동 시간. 프로토콜 기본값(근거가 있는 용량)을 쓰되 쓸 수 있는 시간을 넘기지 않고, 최소 시간
+    아래로는 줄이지 않는다(그러면 check_plan이 가용 시간 초과로 거른다)."""
+    duration = protocol.duration_minutes
+    minutes = duration.default if available is None else min(duration.default, available)
+    if duration.min is not None:
+        minutes = max(minutes, duration.min)
+    return max(1, round(minutes))
 
 
 def delivered_media(protocol: CareProtocol, content_type: ContentType) -> list[Medium]:

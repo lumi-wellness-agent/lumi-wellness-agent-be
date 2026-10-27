@@ -392,11 +392,16 @@ class CareProtocol(ProtocolEvidenceSection):
         return goal in self.goals
 
     def allows_order(self, order: InterventionOrder | None) -> bool:
-        """허용 사용자 상태. 빈 목록은 제한 없음. NO_INDUCTION(일상 반복)이면 어느 상태에도 쓴다."""
+        """허용 사용자 상태. 빈 목록은 제한 없음. NO_INDUCTION은 양쪽 다 '어느 쪽이든'이다 —
+        프로토콜의 NO_INDUCTION(일상 반복)은 어느 상태의 사용자에게나 쓰고, 특별한 계기가 없는
+        사용자(NO_INDUCTION)는 어느 프로토콜이든 쓴다. 근거 쪽 retrieval.ORDER_COMPATIBILITY와 같은
+        정책이다.
+        """
         if order is None or not self.intervention_order:
             return True
-        return order in self.intervention_order or (
-            InterventionOrder.NO_INDUCTION in self.intervention_order
+        return (
+            order in self.intervention_order
+            or InterventionOrder.NO_INDUCTION in (order, *self.intervention_order)
         )
 
     def fits_minutes(self, minutes: int | None) -> bool:

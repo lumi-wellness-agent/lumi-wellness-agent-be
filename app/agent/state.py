@@ -53,12 +53,12 @@ class IntakeResult(BaseModel):
 class PlannedActivity(BaseModel):
     """계획에 넣은 활동 하나. 실행 절차는 검수된 Care Protocol(data/protocols)에서 온다."""
 
-    protocol_id: str = Field(description="검수된 Care Protocol의 ID (get_care_protocols 결과)")
+    protocol_id: str = Field(description="검수된 Care Protocol의 ID (후보 목록에서 고른다)")
     minutes: int = Field(gt=0, description="활동 시간(분). 프로토콜의 duration_minutes 범위 안")
     evidence_record_ids: list[int] = Field(
         default_factory=list,
-        description="validate_evidence에서 usable=true인 Evidence Record ID. "
-        "supports_goal=true인 것을 앞에 둔다",
+        description="검증을 통과한(usable) 근거의 Evidence Record ID. 목표를 지지하는 것이 앞. "
+        "코드가 채운다",
     )
 
 
@@ -67,8 +67,8 @@ class CarePlan(BaseModel):
 
     activity: PlannedActivity
     rationale: str = Field(
-        description="활동 선택 이유 2~3문장 — 사용자 상태, 고른 이유, 근거(저자·연도·지표)와 한계. "
-        "Reference 카드의 바탕이 된다"
+        description="추천 이유 2~3문장 — 사용자 상태, 고른 이유, 근거(저자·연도·지표)와 한계. "
+        "사용자에게 보인다. Reference 카드의 사실(출처·플래그)은 evidence_record_ids에서 만든다"
     )
 
 

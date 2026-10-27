@@ -15,7 +15,7 @@ from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
 from app.agent.nodes.intake import route_after_intake
-from app.agent.nodes.planner import PlanRejected, check_plan
+from app.agent.nodes.planner import ActivityChoice, PlanRejected, check_plan
 from app.agent.nodes.replanner import route_after_confirm
 from app.agent.state import (
     ActivityContent,
@@ -59,15 +59,22 @@ class FakeIntaker:
 
 
 class FakePlanner:
-    """계획을 차례로 돌려주고, 호출마다 (지난 라운드 수, 거부 사유)를 남긴다."""
+    """계획의 활동을 차례로 고르고, choose 호출마다 (지난 라운드 수, 거부 사유)를 남긴다.
+
+    시간은 코드가 정한다(protocols.planned_minutes). 근거 검색은 DB 풀이 없어 0건이다.
+    """
 
     def __init__(self, *plans: CarePlan):
         self.plans = list(plans)
         self.calls: list[tuple[int, list[str]]] = []
 
-    async def __call__(self, state, context, problems):
+    async def choose(self, state, candidates, problems):
         self.calls.append((len(state.get("rounds", [])), list(problems)))
-        return self.plans.pop(0)
+        protocol_id = self.plans.pop(0).activity.protocol_id
+        return ActivityChoice(protocol_id=protocol_id, search_query="-", reason="-")
+
+    async def explain(self, state, choice, protocol, evidence):
+        return "-"
 
 
 def run(graph, value):
@@ -199,23 +206,27 @@ def test_plan_is_retried_once_with_problems_then_rejected():
     with pytest.raises(PlanRejected, match="S2 목표용이 아니다"):
         run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
     assert planner.calls[0] == (0, [])
-    assert planner.calls[1][1] == check_plan(invalid, {"intake": S2_INTAKE})
+    assert planner.calls[1][1] == ["PR-09는 후보 목록에 없다", "PR-09는 S2 목표용이 아니다"]
+
+
+def activity(protocol_id: str, minutes: int = 5):
+    return plan(protocol_id, minutes).activity
 
 
 def test_check_plan_rules():
     state = {"intake": S2_INTAKE}
-    assert check_plan(BREATHING, state) == []
-    assert check_plan(plan("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
-    assert "단계 모듈" in check_plan(plan("PR-16", 1), state)[0]
-    assert any("최대 20" in p for p in check_plan(plan("PR-06", 25), state))
-    assert any("최소 5" in p for p in check_plan(plan("PR-06", 3), state))
-    assert any("가용 시간 15분" in p for p in check_plan(plan("PR-07", 20), state))
+    assert check_plan(BREATHING.activity, state) == []
+    assert check_plan(activity("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
+    assert "단계 모듈" in check_plan(activity("PR-16", 1), state)[0]
+    assert any("최대 20" in p for p in check_plan(activity("PR-06", 25), state))
+    assert any("최소 5" in p for p in check_plan(activity("PR-06", 3), state))
+    assert any("가용 시간 15분" in p for p in check_plan(activity("PR-07", 20), state))
     # PR-01은 POST_STRESS·POST_FATIGUE만 허용 — PRE_STRESS 사용자에게는 맞지 않는다
-    assert any("허용 상태" in p for p in check_plan(PHOTO, state))
+    assert any("허용 상태" in p for p in check_plan(PHOTO.activity, state))
     post_stress = {
         "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS})
     }
-    assert check_plan(PHOTO, post_stress) == []
+    assert check_plan(PHOTO.activity, post_stress) == []
     # 활동 변경을 골랐으면 같은 프로토콜을 다시 넣을 수 없다
     changed = Round(
         plan=BREATHING,
@@ -231,8 +242,9 @@ def test_check_plan_rules():
         ),
         next_step=NextStep.CHANGE_ACTIVITY,
     )
-    assert any("같은 프로토콜" in p for p in check_plan(BREATHING, {**state, "rounds": [changed]}))
-    assert check_plan(plan("PR-07", 15), {**state, "rounds": [changed]}) == []
+    with_round = {**state, "rounds": [changed]}
+    assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
+    assert check_plan(activity("PR-07", 15), with_round) == []
 
 
 def test_routes():
