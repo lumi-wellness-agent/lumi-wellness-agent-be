@@ -1,11 +1,10 @@
 """③ Outcome Evaluator — 라운드의 사전·사후 변화를 잰다. LLM을 쓰지 않는다.
 
 Δ = 사후 − 사전(round_pre: 첫 라운드는 measure_pre 값, 다음 라운드는 직전 사후값). 도구별 scores
-키를 하나로 합친다 — SAM valence · arousal, S3는 MFVAS fatigue · concentration · energy도(키가
-겹치지 않는다).
-improved는 목표별 임시 규칙 — S1은 쾌(valence)↑, S2는 각성(arousal)↓, S3는 피로(fatigue)↓.
-사전·종료에만 재는 목표 척도(STAI-6 · BSRI)의 세션 Δ는 measure_final 뒤 API 응답에서 pre와
-final로 계산한다.
+키를 하나로 합친다 — 현재 MVP는 SAM valence · arousal만 기록한다.
+improved는 실험적 방향 지표다 — S1은 쾌(valence)↑, S2는 각성(arousal)↓를 참고한다.
+두 방향 모두 목표 구성개념을 직접 측정한 값은 아니다. S3는 SAM으로 피로를 직접 측정할 수 없어
+판정하지 않는다. 종료 시점의 SAM 변화는 API 응답에 함께 제공한다.
 결과는 Session Outcome DB에 저장한다(테이블 미정 — 사용자 데이터 스키마가 다음 계약).
 """
 
@@ -17,7 +16,7 @@ from app.schemas.measure import Measurement
 IMPROVEMENT_RULE: dict[CareGoal, tuple[str, int] | None] = {
     CareGoal.S1: ("valence", +1),
     CareGoal.S2: ("arousal", -1),
-    CareGoal.S3: ("fatigue", -1),  # MFVAS 한 문항. 임시 도구라 판정도 임시다
+    CareGoal.S3: None,  # SAM에는 피로 점수가 없어 개선 판정 불가
 }
 
 
