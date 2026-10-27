@@ -563,7 +563,8 @@ def test_change_is_not_offered_when_no_other_activity_fits():
     assert confirm["options"] == ["END", "ADDITIONAL_SESSION"]
     assert confirm["proposal"]["recommended"] == "END"
     assert (
-        confirm["proposal"]["reason"] == "SAM 기분 지표가 개선 방향을 보이지 않았다(탐색 지표) — 지금 여건에서 바꿀 활동이 없다"
+        confirm["proposal"]["reason"]
+        == "SAM 기분 지표가 개선 방향을 보이지 않았다(탐색 지표) — 지금 여건에서 바꿀 활동이 없다"
     )
 
 
