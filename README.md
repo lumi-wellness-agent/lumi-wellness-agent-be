@@ -198,12 +198,16 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 
 | code | 상태 | 언제 |
 | --- | --- | --- |
-| `SESSION_NOT_FOUND` | 404 | 없는 세션 |
+| `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
+| `CONSENT_REQUIRED` | 403 | 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
+| `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
+| `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
 | `INVALID_ANSWER` | 422 | 측정 응답에 빠진 도구·문항이나 범위 밖 값, 지금 질문이 아닌 답이나 받지 않는 칸·값·직접 입력, `options`에 없는 결정 |
 | `PLAN_REJECTED` | 422 | 계획 실패. `retryable`이면 `retry`로 다시 고른다(후보가 없으면 아니다) |
 | `LLM_UNAVAILABLE` | 503 | 모델 호출이 모두 실패했다(`retryable`) |
 | `AGENT_UNAVAILABLE` | 503 | LLM 키가 없어 세션 그래프를 조립하지 않았다 |
+| `AUTH_UNAVAILABLE` | 503 | `SUPABASE_URL`이 없거나, Supabase의 공개 키(JWKS)를 받지 못했거나, 로그인 세션을 확인하지 못했다 |
 
 재개 값은 그래프에 넣기 전에 API가 검증합니다. interrupt 뒤에서 노드가 예외를 내면 LangGraph가 그 재개
 값을 체크포인트에 남겨, 같은 interrupt를 다시 재개해도 처음 값으로 실패합니다(interrupt id를 지정해도
@@ -213,7 +217,53 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 
 체크포인터는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장합니다(`app/agent/checkpoint.py`).
 요청마다 다른 서버(서버리스 인스턴스)가 받아도 같은 세션을 이어 갑니다. `DATABASE_URL`이 비어 있으면
-`InMemorySaver`를 써서, 서버를 다시 띄우면 진행 중인 세션이 사라집니다.
+`InMemorySaver`를 써서, 서버를 다시 띄우면 진행 중인 세션이 사라집니다. 끝난 세션의 체크포인트는 바로
+지웁니다(아래 「인증 · 세션 기록」).
+
+### 인증 · 세션 기록 (`app/auth.py` · `app/records.py`)
+
+FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰을 모든 세션 API 요청에
+`Authorization: Bearer <토큰>`으로 붙입니다. BE는 `SUPABASE_URL` 프로젝트의 공개 키(JWKS, ES256)로 서명을
+검증하고 만료 · `aud`(`authenticated`) · `iss`를 보며, `sub`가 사용자 ID(`auth.users.id`)입니다. 익명 로그인
+토큰은 받지 않습니다. `SUPABASE_URL`이 비어 있으면 세션 API는 인증 없이 열리지 않고 503입니다. 세션은 만든
+사용자만 보고, 남의 세션은 없는 세션과 같은 404입니다.
+
+서명이 맞아도 로그인 세션이 끝났으면 거절합니다(401 `SESSION_REVOKED`). 토큰의 `session_id`를 같은 DB의
+`auth.sessions`에서 요청마다 기본키로 확인합니다 — 로그아웃 · 다른 기기 전체 로그아웃 · 탈퇴하면 Supabase가
+그 행을 지우므로, 액세스 토큰의 만료(기본 1시간)를 기다리지 않고 바로 막힙니다. 토큰을 갱신해도
+`session_id`는 같습니다. `auth` 스키마는 Supabase가 관리하므로 `id` · `not_after`만 보고, 확인하지 못하면
+503으로 막습니다. `DATABASE_URL` 없이 띄운 서버는 세션을 확인하지 않습니다.
+
+탈퇴는 `DELETE /me`(204)입니다. Supabase Auth 사용자 행(`auth.users`)을 지우면 Supabase의 로그인 세션 · 연동
+계정 · MFA와 아래 기록 · 원문 · 동의가 모두 `on delete cascade`로 함께 지워지고(2026-10-28 운영 DB 제약 확인),
+그 사용자의 체크포인트도 지웁니다. 되돌릴 수 없으니 FE가 확인 화면을 띄우고, 204를 받으면 브라우저에 남은
+세션을 지우고(`supabase.auth.signOut({ scope: "local" })`) 첫 화면으로 갑니다.
+
+동의는 둘입니다. FE가 로그인 뒤 `GET /me/consent`를 보고 `agreed`가 false면 동의 화면을 띄우고
+`PUT /me/consent`로 보냅니다.
+
+| 동의 | 본문 | 담는 것 | 없으면 |
+| --- | --- | --- | --- |
+| 세션 기록(필수) | `"records": true` | 상황 분류 · 질문 slot과 칩 답 · 측정값 · 활동 · 결과. 심리 상태 측정값이 들어 있어 민감정보로 보고 따로 받는다 | `POST /sessions`가 403(`CONSENT_REQUIRED`). false로는 보낼 수 없다 |
+| 원문 보관(선택) | `"raw_text": true` | 처음 입력 · 직접 쓴 답과 그 질문 문장 · PR-16 감정 단어 · 멈춘 이유, 그 글에서 나온 글(intake의 사건 · 표현 · 요약 · 판단 이유, 추천 이유) | 원문을 남기지 않는다. false로 바꾸면 남긴 원문을 바로 지운다 |
+
+동의 문구는 FE에 있고 BE는 버전(`records.CONSENT_VERSION`)만 맞춥니다 — 문구를 바꾸면 버전을 올리고,
+사용자는 다시 동의해야 세션을 시작합니다. 세션 API가 요청마다 그래프가 멈춘 뒤의 상태로 기록을 다시 씁니다.
+
+| 테이블 | 내용 |
+| --- | --- |
+| `user_consents` | 사용자당 한 행 — 필수 동의 버전 · 시각, 원문 동의 |
+| `care_sessions` | 세션 하나(id = thread_id) — 멈춘 자리(`step` · `node`), 목표, 환경 칩, intake 분류 값(`records.INTAKE_FIELDS`), 질문 slot과 칩 답, 사전 · 종료 측정, 끝난 이유와 END payload |
+| `care_rounds` | 끝난 라운드 — 활동 · 시간 · 근거 ID · 푼 조건, 완료 여부, 사전 · 사후 측정과 변화, 권고 단계 · 선택지 · 사용자 선택 |
+| `care_texts` | 원문(원문 동의한 사용자만) — 세션당 한 행, 보관 기한 `expires_at`(기본 90일, `TEXT_RETENTION_DAYS`) |
+
+- SAFETY로 끝난 세션은 끝난 사실(`end_reason`)만 남깁니다 — 칩 · 분류 값 · 원문을 지웁니다(테이블 제약이 지킵니다).
+- 세션이 끝나면 원문이 든 체크포인트를 바로 지우고, 그 뒤의 `GET /sessions/{id}`는 `care_sessions.end_summary`로 답합니다.
+- 정리 작업 `GET /internal/cleanup`(Vercel Cron, 매일 03:00 KST, `CRON_SECRET`)이 기한이 지난 원문, 24시간
+  (`SESSION_IDLE_HOURS`) 넘게 쉰 미완료 세션의 체크포인트(세션은 만료 — 410), 기록이 없는 체크포인트(인증 전
+  세션 · 지운 사용자)를 지웁니다.
+- 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
+  동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
 
 ## 시작하기
 
@@ -245,9 +295,10 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 ## 데이터베이스 (Supabase)
 
 1. Supabase 프로젝트에 마이그레이션을 이름 순서대로 적용합니다 — `supabase/migrations/20261021000000_init_evidence.sql`,
-   `supabase/migrations/20261026000000_evidence_contracts.sql`. 대시보드 SQL Editor에 붙여 실행하거나
-   `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은 `papers`·`evidence_records`가 비어 있을 때만
-   적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다.
+   `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`.
+   대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은
+   `papers`·`evidence_records`가 비어 있을 때만 적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다. 세 번째
+   파일은 세션 기록 테이블이고 `auth.users`(Supabase Auth)를 참조합니다.
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
@@ -288,6 +339,7 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 | --- | --- |
 | `papers` | 논문 한 편 = `data/manifest.csv` 한 행. `id`는 R/C 마스터 ID(`rc_id`)이고 36편 시트의 옛 ID는 `legacy_36_id`에 둔다(조인 키 아님). `study_design`·`fulltext_status`는 manifest 값 그대로, DOI가 없으면 `url`로 원문을 가리킨다 |
 | `evidence_records` | 실험 단위 Evidence Record. 원문 구간(`content`), 메타데이터(`metadata` jsonb), 임베딩(`vector(1536)`)과 만든 모델(`embedding_model`). (`paper_id`, `experiment_id`, `section`, `chunk_idx`)마다 한 행 |
+| `user_consents` · `care_sessions` · `care_rounds` · `care_texts` | 동의와 세션 기록(「인증 · 세션 기록」). 행은 `auth.users`를 따라 지워진다 |
 | `langgraph.checkpoints` 등 4개 | 세션 체크포인트. `make checkpoint-setup`이 만들고, 적용한 버전을 `checkpoint_migrations`에 남긴다 |
 
 `public` 스키마의 테이블은 Data API로 노출되므로 RLS를 켜고 정책은 두지 않았습니다. publishable 키로는
@@ -299,18 +351,22 @@ prepare를 꺼 두어 세 방식 모두 같은 코드로 동작합니다. LangGr
 풀을 따로 두어 이 옵션을 유지합니다. Dedicated pooler(PgBouncer)로 바꾸면 이 부분을 다시 확인합니다.
 
 DB 테스트(`tests/agent/test_checkpoint.py`·`tests/retrieval/test_hybrid_db.py`·
-`tests/agent/test_validation_db.py`)는 `TEST_DATABASE_URL`이 있을 때만 돌고, CI에서는 건너뜁니다.
+`tests/agent/test_validation_db.py`·`tests/api/test_records_db.py`)는 `TEST_DATABASE_URL`이 있을 때만 돌고, CI에서는 건너뜁니다.
 체크포인터는 세션을 시작한 풀과 다른 풀에서 세션을 이어 가는지 봅니다. 근거 검색·검증은
 `evidence_records`를 fixture 16건으로 바꾼 트랜잭션(`tests/evidence_db.py`) 안에서 필터·키워드·RRF와
-판정을 보고 끝에 되돌립니다(적재해 둔 근거는 남습니다). 로컬 Postgres는 Supabase처럼 `extensions`
-스키마를 search_path에 넣은 뒤 마이그레이션을 적용합니다.
+판정을 보고 끝에 되돌립니다(적재해 둔 근거는 남습니다). 세션 기록도 대역 그래프로 세션을 끝까지 돌려 쓴 행을
+트랜잭션 안에서 보고 되돌립니다. 로컬 Postgres는 Supabase처럼 `extensions` 스키마를 search_path에 넣고,
+`auth.users` · `auth.sessions`를 흉내 낸 뒤 마이그레이션을 적용합니다.
 
 ```bash
 docker run -d --name lumi-pg -e POSTGRES_PASSWORD=postgres -p 54329:5432 pgvector/pgvector:pg17
 psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema extensions' \
   -c 'alter database postgres set search_path = "$user", public, extensions' \
+  -c 'create schema auth' -c 'create table auth.users (id uuid primary key)' \
+  -c 'create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users on delete cascade, not_after timestamptz)' \
   -f supabase/migrations/20261021000000_init_evidence.sql \
-  -f supabase/migrations/20261026000000_evidence_contracts.sql
+  -f supabase/migrations/20261026000000_evidence_contracts.sql \
+  -f supabase/migrations/20261027000000_care_records.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
@@ -356,6 +412,8 @@ FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나�
 | `DATABASE_URL` | Transaction pooler(포트 6543) | 서버리스 함수라서(위 연결 방식 표). 로컬 `.env`의 Session pooler 주소와 포트만 다르다 |
 | `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | `.env`와 같은 값 | 폴백 키는 비워 둬도 된다 |
 | `PIXABAY_API_KEY` · `FREESOUND_API_KEY` · `AI_HORDE_API_KEY` | `.env`와 같은 값 | A 콘텐츠 공급자. 비운 공급자는 호출하지 않는다 |
+| `SUPABASE_URL` | `https://<ref>.supabase.co` | 로그인 토큰 검증(JWKS). 비우면 세션 API가 503 |
+| `CRON_SECRET` | 긴 임의 문자열 | Vercel Cron이 정리 작업(`vercel.json` `crons`, 매일 18:00 UTC = 03:00 KST)을 부를 때 `Authorization: Bearer`로 보낸다. Hobby는 하루 한 번까지 |
 
 환경 변수는 Vercel 프로젝트의 Settings → Environment Variables에 넣고, 바꾼 뒤에는 다시 배포해야 반영됩니다.
 배포한 뒤 `https://<배포 주소>/health/db`가 200이면 DB 연결·확장·체크포인트 테이블이 준비된 것입니다.
@@ -399,7 +457,6 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   사전·라운드마다 재고 피로↓로 판정합니다. 주의 용량은 재지 않습니다(근거의 S3 1차 지표 ATTENTION은 과제) — 사용자
   데이터로 문항 신뢰도를 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
 - STAI-6(Mind Garden)·BSRI 문항 사용 허가와 한국어판. 확인 전에는 문항 원문을 넣지 않습니다.
-- Session Outcome DB(측정값·라운드) 테이블 — 사용자 식별 방식과 함께 정합니다. Care Protocol은 JSON 파일로 둡니다.
 - intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
   조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
@@ -416,20 +473,24 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   plan · intake 환경 질문 판정 · replan 선택지가 같은 조회(`protocols.plan_candidates`)를 봅니다. 환경을 풀면
   계획의 `environment_gaps`(AUDIO · SCREEN · QUIET · OUTDOORS)로 FE가 "소리가 나와요" 같은 안내를 띄워야
   합니다. 2026-10-27 프로토콜에서 실제로 푸는 경우는 S3 + 사건 전(사용자 상태)뿐입니다.
-- 세션 API 인증 — Supabase Auth(Google · Kakao) 토큰 검증과 세션 소유자 확인. 위 Session Outcome DB와 함께 넣습니다.
-- 세션 기록의 원문(첫 문장 · 자유 입력 답)은 별도 동의를 받은 사용자만, 분석 테이블과 다른 테이블에 보관 기한을
-  두고 저장합니다. SAFETY로 끝난 세션은 원문 없이 끝난 사실만 남기고, 끝난 세션의 체크포인트(원문이 들어 있다)도
-  지웁니다.
+- 동의 문구(FE)와 그 검토. 지금은 세션 기록(측정값 포함)을 민감정보로 보고 필수 동의로, 원문 보관을 선택 동의로
+  받습니다. 원문 보관 기한은 90일(`TEXT_RETENTION_DAYS`)입니다.
+- 탈퇴 전 재인증. 지금은 FE의 확인 화면뿐이라, 탈취된 토큰으로도 탈퇴할 수 있습니다. 소셜 로그인을 한 번 더
+  거치게 할지는 FE와 함께 정합니다.
 
 ## 디렉터리
 
 ```text
 app/
-├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀과 Postgres 체크포인터를 연다 · 세션 그래프 · CORS)
-├─ config.py            .env 설정 (DB · LLM/임베딩 · A 콘텐츠 공급자 키와 제한 시간)
+├─ main.py              FastAPI 앱 (DATABASE_URL이 있으면 DB 풀 · Postgres 체크포인터 · 기록 저장소 · 세션 그래프 · 토큰 검증기 · CORS)
+├─ config.py            .env 설정 (DB · LLM/임베딩 · A 콘텐츠 공급자 키와 제한 시간 · Supabase · 기록 기한)
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
+├─ auth.py              로그인 토큰 검증 — Supabase JWKS(ES256) · 로그인 세션 확인(auth.sessions) · current_user
+├─ records.py           세션 기록 — 동의 · 세션 · 라운드 · 원문 행과 저장소(Postgres · 메모리) · 정리 작업
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
-├─ api/sessions.py      세션 API — interrupt 재개 · step · SSE/JSON 응답
+├─ api/sessions.py      세션 API — 인증 · 소유자 확인 · interrupt 재개 · step · SSE/JSON 응답 · 기록
+├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 탈퇴 (DELETE /me)
+├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더
 ├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
@@ -466,7 +527,7 @@ scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
-vercel.json             Vercel 배포 설정 (리전 icn1)
+vercel.json             Vercel 배포 설정 (리전 icn1 · 정리 작업 cron)
 tests/
 ├─ agent/               그래프 흐름 · Planner 배선 · 검증 규칙(대본 모델) · 검증 DB 조회
 ├─ intake/ measure/ protocols/   역할별 테스트 (TEAM.md)

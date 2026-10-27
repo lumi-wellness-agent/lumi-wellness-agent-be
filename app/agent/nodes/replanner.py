@@ -78,6 +78,7 @@ def confirm(state: CareState) -> dict:
         post=state["post"],
         evaluation=state["evaluation"],
         next_step=decision.next_step,
+        proposal=state["proposal"],
     )
     update: dict = {"next_step": decision.next_step, "rounds": [finished]}
     if decision.next_step is not NextStep.END:

@@ -16,6 +16,11 @@ POST는 Accept: text/event-stream이면 SSE(session → progress … → result,
 아니면 JSON(result와 같은 본문)으로 답한다. 둘 다 run_events 하나에서 나온다. FE는 응답 전에 LLM이
 도는 호출 — POST /sessions · answer · 사전 measure · decision · retry — 만 SSE로 받는다.
 
+모든 요청에 Supabase 로그인 토큰이 필요하다(app/auth.py). 세션은 만든 사용자만 본다 — 남의 세션은
+없는 세션과 같은 404다. 새 세션은 지금 버전의 기록 동의(PUT /me/consent)가 있어야 연다. 요청마다
+그래프가 멈춘 뒤의 상태로 기록(app/records.py)을 다시 쓰고, 세션이 끝나면 원문이 든 체크포인트를
+지운다 — 그 뒤의 GET은 기록에 남긴 END payload로 답한다.
+
 재개 값은 그래프에 넣기 전에 검증한다. interrupt 뒤에서 노드가 예외를 내면 LangGraph는 그 재개
 값을 남겨 두고, 다음 재개도 같은 값으로 다시 실패한다(interrupt id를 지정해도 같다 — 2026-10-27
 확인). 그래서 측정 응답은 노드와 같은 채점 함수(instruments.score)로, intake 답은 같은 규칙
@@ -26,7 +31,7 @@ import asyncio
 import json
 import logging
 import uuid
-from collections.abc import AsyncIterator, Collection
+from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from enum import StrEnum
 from typing import Any
 
@@ -35,13 +40,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command, StateSnapshot
 
-from app import instruments
+from app import instruments, records
 from app.agent import intake_rules
 from app.agent.context import AgentContext
 from app.agent.llm import LlmExhaustedError
 from app.agent.nodes.evaluator import deltas_between
 from app.agent.nodes.planner import PlanRejected
 from app.agent.state import ReplanDecision, SessionReport
+from app.auth import CurrentUser
+from app.records import SessionRecord, SessionStore
 from app.schemas.care import CareRequest
 from app.schemas.intake import IntakeAnswer, IntakeQuestion
 from app.schemas.measure import GOAL_SCALE, InstrumentId, Measurement
@@ -87,6 +94,13 @@ def _graph(request: Request) -> CompiledStateGraph:
             503, "AGENT_UNAVAILABLE", "세션 그래프를 조립하지 않았습니다. LLM 키를 확인하세요."
         )
     return graph
+
+
+def _store(request: Request) -> SessionStore:
+    store = getattr(request.app.state, "session_store", None)
+    if store is None:
+        raise _error(503, "AGENT_UNAVAILABLE", "세션 기록 저장소를 열지 않았습니다.")
+    return store
 
 
 def _context(request: Request) -> AgentContext:
@@ -166,13 +180,21 @@ def _find(measurements: list[Measurement], instrument_id: InstrumentId) -> Measu
 # ── 실행 → 이벤트 ─────────────────────────────────────────────────────────────────────────
 
 
+Finish = Callable[[dict, dict], Awaitable[None]]
+
+
 async def run_events(
-    graph: CompiledStateGraph, session_id: str, value: Any, context: AgentContext
+    graph: CompiledStateGraph,
+    session_id: str,
+    value: Any,
+    context: AgentContext,
+    finish: Finish | None = None,
 ) -> AsyncIterator[tuple[str, dict]]:
     """그래프를 다음 interrupt(또는 끝)까지 돌리며 (이벤트, 데이터)를 낸다.
 
     progress는 노드가 끝날 때 {"node"}, plan 안 단계가 시작될 때 {"node", "step"}(custom)이다.
-    마지막은 result — 멈춘 자리(session_view)다.
+    마지막은 result — 멈춘 자리(session_view)다. finish(상태, 멈춘 자리)는 result를 내기 전에 부른다
+    (기록 쓰기 · 끝난 세션의 체크포인트 삭제).
     """
     config = _config(session_id)
     async for mode, chunk in graph.astream(
@@ -184,7 +206,23 @@ async def run_events(
         for node in chunk:
             if node != "__interrupt__":
                 yield "progress", {"node": node}
-    yield "result", session_view(session_id, await graph.aget_state(config))
+    snapshot = await graph.aget_state(config)
+    view = session_view(session_id, snapshot)
+    if finish is not None:
+        await finish(snapshot.values, view)
+    yield "result", view
+
+
+def recorder(graph: CompiledStateGraph, store: SessionStore, record: SessionRecord) -> Finish:
+    """멈춘 뒤의 상태로 기록을 다시 쓴다. 끝났으면 원문이 든 체크포인트를 지운다 — 기록을 먼저 남겨
+    지운 뒤의 GET도 END payload(end_summary)로 답한다."""
+
+    async def finish(values: dict, view: dict) -> None:
+        await store.save(record, values, view)
+        if view["step"] == Step.END:
+            await graph.checkpointer.adelete_thread(record.id)
+
+    return finish
 
 
 def _mapped(exc: Exception) -> tuple[int, dict] | None:
@@ -268,11 +306,13 @@ async def with_heartbeat(events: AsyncIterator[Any], interval: float) -> AsyncIt
         task.cancel()
 
 
-async def _respond(request: Request, session_id: str, value: Any, status_code: int = 200):
-    events = run_events(_graph(request), session_id, value, _context(request))
+async def _respond(request: Request, record: SessionRecord, value: Any, status_code: int = 200):
+    graph = _graph(request)
+    finish = recorder(graph, _store(request), record)
+    events = run_events(graph, record.id, value, _context(request), finish)
     if "text/event-stream" in request.headers.get("accept", ""):
         return StreamingResponse(
-            _sse_stream(session_id, events),
+            _sse_stream(record.id, events),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -282,11 +322,30 @@ async def _respond(request: Request, session_id: str, value: Any, status_code: i
 # ── 재개 전 검사 ──────────────────────────────────────────────────────────────────────────
 
 
-async def _current(request: Request, session_id: str) -> dict:
-    snapshot = await _graph(request).aget_state(_config(session_id))
-    if snapshot.created_at is None:
+async def _owned(request: Request, session_id: str, user_id: uuid.UUID) -> SessionRecord:
+    """요청한 사용자의 세션 기록. 없거나 남의 세션이면 404 — 남의 세션이 있는지도 알리지 않는다."""
+    _graph(request)  # 그래프가 없으면 기록을 보기 전에 503
+    store = _store(request)
+    try:
+        uuid.UUID(session_id)
+    except ValueError:
+        record = None
+    else:
+        record = await store.session(session_id)
+    if record is None or record.user_id != user_id:
         raise _error(404, "SESSION_NOT_FOUND", "세션이 없습니다.")
-    return session_view(session_id, snapshot)
+    return record
+
+
+async def _current(request: Request, record: SessionRecord) -> dict:
+    """지금 멈춘 자리. 끝난 세션은 기록의 END payload로, 쉬다 만료된 세션은 410."""
+    if record.end_summary is not None:
+        return _view(record.id, Step.END, None, record.end_summary)
+    snapshot = await _graph(request).aget_state(_config(record.id))
+    if record.expired or snapshot.created_at is None:
+        message = "오래 쉬어 이어 갈 수 없는 세션입니다. 새로 시작하세요."
+        raise _error(410, "SESSION_EXPIRED", message)
+    return session_view(record.id, snapshot)
 
 
 def _mismatch(view: dict) -> HTTPException:
@@ -294,12 +353,15 @@ def _mismatch(view: dict) -> HTTPException:
     return _error(409, "STEP_MISMATCH", message, step=view["step"], node=view["node"])
 
 
-async def _waiting_at(request: Request, session_id: str, nodes: Collection[str]) -> Any:
-    """세션이 nodes 중 하나의 interrupt에서 기다리면 그 payload를, 아니면 409를 낸다."""
-    view = await _current(request, session_id)
+async def _waiting_at(
+    request: Request, session_id: str, user_id: uuid.UUID, nodes: Collection[str]
+) -> tuple[SessionRecord, Any]:
+    """세션이 nodes 중 하나의 interrupt에서 기다리면 (기록, payload)를, 아니면 409를 낸다."""
+    record = await _owned(request, session_id, user_id)
+    view = await _current(request, record)
     if view["step"] in (Step.END, Step.STALLED) or view["node"] not in nodes:
         raise _mismatch(view)
-    return view["payload"]
+    return record, view["payload"]
 
 
 def _check_measure(payload: dict, answers: dict[str, dict[str, float]]) -> None:
@@ -327,54 +389,72 @@ def _check_answer(payload: dict, answer: IntakeAnswer) -> None:
 
 
 @router.post("", status_code=201)
-async def start_session(body: CareRequest, request: Request):
-    """새 세션 — intake를 돌려 첫 interrupt(질문이 필요하면 질문, 아니면 사전 측정)에서 멈춘다."""
-    return await _respond(request, str(uuid.uuid4()), {"request": body}, status_code=201)
+async def start_session(body: CareRequest, request: Request, user: CurrentUser):
+    """새 세션 — intake를 돌려 첫 interrupt(질문이 필요하면 질문, 아니면 사전 측정)에서 멈춘다.
+
+    지금 버전의 기록 동의가 없으면 403(CONSENT_REQUIRED) — FE가 동의 화면을 띄운다.
+    """
+    _graph(request)  # 그래프가 없으면 기록을 쓰기 전에 503
+    store = _store(request)
+    consent = await store.consent(user.id)
+    if consent is None or not consent.current:
+        message = "세션 기록 동의가 필요합니다."
+        raise _error(403, "CONSENT_REQUIRED", message, version=records.CONSENT_VERSION)
+    record = SessionRecord(id=str(uuid.uuid4()), user_id=user.id)
+    await store.create(record.id, user.id, body)
+    return await _respond(request, record, {"request": body}, status_code=201)
 
 
 @router.get("/{session_id}")
-async def get_session(session_id: str, request: Request) -> dict:
+async def get_session(session_id: str, request: Request, user: CurrentUser) -> dict:
     """지금 멈춘 자리. 새로고침하거나 스트림이 끊겼을 때 FE가 화면을 다시 그린다."""
-    return await _current(request, session_id)
+    return await _current(request, await _owned(request, session_id, user.id))
 
 
 @router.post("/{session_id}/answer")
-async def submit_answer(session_id: str, answer: IntakeAnswer, request: Request):
+async def submit_answer(session_id: str, answer: IntakeAnswer, request: Request, user: CurrentUser):
     """intake 질문의 답 — 고른 보기의 set을 합친 answer, 또는 직접 쓴 text(안전 검사를 거친다)."""
-    payload = await _waiting_at(request, session_id, {"intake_ask"})
+    record, payload = await _waiting_at(request, session_id, user.id, {"intake_ask"})
     _check_answer(payload, answer)
-    return await _respond(request, session_id, Command(resume=answer.model_dump(mode="json")))
+    return await _respond(request, record, Command(resume=answer.model_dump(mode="json")))
 
 
 @router.post("/{session_id}/measure")
-async def submit_measure(session_id: str, answers: dict[str, dict[str, float]], request: Request):
+async def submit_measure(
+    session_id: str, answers: dict[str, dict[str, float]], request: Request, user: CurrentUser
+):
     """측정 응답 {instrument_id: {item_id: value}} — 사전 · 사후 · 종료 측정 모두 여기로 온다."""
-    payload = await _waiting_at(request, session_id, MEASURE_NODES)
+    record, payload = await _waiting_at(request, session_id, user.id, MEASURE_NODES)
     _check_measure(payload, answers)
-    return await _respond(request, session_id, Command(resume=answers))
+    return await _respond(request, record, Command(resume=answers))
 
 
 @router.post("/{session_id}/report")
-async def submit_report(session_id: str, report: SessionReport, request: Request):
+async def submit_report(
+    session_id: str, report: SessionReport, request: Request, user: CurrentUser
+):
     """활동을 마쳤거나 멈췄다. 점수는 받지 않는다 — 다음 응답이 사후 측정 문항이다."""
-    await _waiting_at(request, session_id, {"run_session"})
-    return await _respond(request, session_id, Command(resume=report.model_dump(mode="json")))
+    record, _ = await _waiting_at(request, session_id, user.id, {"run_session"})
+    return await _respond(request, record, Command(resume=report.model_dump(mode="json")))
 
 
 @router.post("/{session_id}/decision")
-async def submit_decision(session_id: str, decision: ReplanDecision, request: Request):
+async def submit_decision(
+    session_id: str, decision: ReplanDecision, request: Request, user: CurrentUser
+):
     """제안에 대한 사용자 선택. 활동 변경 · 추가 세션이면 다음 라운드를 계획한다."""
-    payload = await _waiting_at(request, session_id, {"confirm"})
+    record, payload = await _waiting_at(request, session_id, user.id, {"confirm"})
     if decision.next_step.value not in payload["options"]:
         message = f"{decision.next_step.value}는 지금 고를 수 없습니다."
         raise _error(422, "INVALID_ANSWER", message)
-    return await _respond(request, session_id, Command(resume=decision.model_dump(mode="json")))
+    return await _respond(request, record, Command(resume=decision.model_dump(mode="json")))
 
 
 @router.post("/{session_id}/retry")
-async def retry_session(session_id: str, request: Request):
+async def retry_session(session_id: str, request: Request, user: CurrentUser):
     """STALLED 세션을 멈춘 노드부터 다시 돌린다 — plan 재선택, 끊긴 스트림."""
-    view = await _current(request, session_id)
+    record = await _owned(request, session_id, user.id)
+    view = await _current(request, record)
     if view["step"] != Step.STALLED:
         raise _mismatch(view)
-    return await _respond(request, session_id, None)
+    return await _respond(request, record, None)
