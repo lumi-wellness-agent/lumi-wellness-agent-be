@@ -486,7 +486,13 @@ def test_routes():
         slot=QuestionSlot.STATE,
         turn=1,
         text="?",
-        groups=[{"key": "state", "select": "single", "options": [{"label": "a", "set": {}}]}],
+        groups=[
+            {
+                "key": "state",
+                "select": "single",
+                "options": [{"label": "a", "set": {}}, {"label": "b", "set": {}}],
+            }
+        ],
         allow_free_text=True,
     )
     assert route_after_read({"pending_question": question}) == "intake_ask"
