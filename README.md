@@ -8,8 +8,10 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 현재는 에이전트 아키텍처 v2의 뼈대 단계입니다. 그래프 배선(intake → 사전 측정 → 계획 → 실행 대기 →
 사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 4개의
 계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
-적재해 하이브리드 검색·검증이 돌고, intake·plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
-통과했습니다(`make plan-trial`). Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
+적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
+통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
+질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다 — 실제 모델 확인과 개념 정의 근거(②)는
+아직입니다. Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
 [TEAM.md](TEAM.md)에 있습니다.
 
 ## 구조
@@ -34,7 +36,11 @@ config:
 ---
 graph TD;
 	__start__([<p>__start__</p>]):::first
-	intake(intake)
+	intake_read(intake_read)
+	intake_ask(intake_ask)
+	intake_goal(intake_goal)
+	intake_context(intake_context)
+	intake_finish(intake_finish)
 	measure_pre(measure_pre)
 	plan(plan)
 	prepare(prepare)
@@ -45,13 +51,20 @@ graph TD;
 	confirm(confirm)
 	measure_final(measure_final)
 	__end__([<p>__end__</p>]):::last
-	__start__ --> intake;
+	__start__ --> intake_read;
+	intake_read -.-> intake_ask;
+	intake_read -.-> intake_goal;
+	intake_ask -.-> intake_read;
+	intake_ask -.-> intake_goal;
+	intake_ask -.-> intake_finish;
+	intake_goal --> intake_context;
+	intake_context -.-> intake_ask;
+	intake_context -.-> intake_finish;
+	intake_finish --> measure_pre;
 	confirm -.-> __end__;
 	confirm -.-> measure_final;
 	confirm -.-> plan;
 	evaluate --> replan;
-	intake -.-> __end__;
-	intake -.-> measure_pre;
 	measure_post --> evaluate;
 	measure_pre --> plan;
 	plan --> prepare;
@@ -66,7 +79,11 @@ graph TD;
 
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
-| `intake` | intake (LLM 호출 1회) | 자유 텍스트를 `IntakeResult`(목표 S1·S2·S3 · 순서 조건 · 시간·장소·제약 · 안전 신호)로 분류한다. 점수는 추정하지 않는다. FE 칩 값이 분류보다 우선하고 빈 슬롯은 기본값. 안전 신호·목표 미정이면 세션을 열지 않는다 | `nodes/intake.py` |
+| `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 개념 정의 검색어와 시점 질문 초안을 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 단서표(`data/intake_cues.json`) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. State 두 질문이 모두 '잘 모르겠어요'거나 단서가 없으면 S2(`goal_source = DEFAULT`). ② 개념 정의 근거(paper_id · 문장)는 JSON을 받으면 붙인다 | `nodes/intake.py` |
+| `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
+| `intake_ask` ⏸ | intake 질문 | 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지. 시점 질문에 '잘 모르겠어요'면 고정 재질문. 자유 입력 답이 안전 검사에 걸리면 세션 종료(`ended = SAFETY`). payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
+| `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
 | `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계·안내 문구로 `ActivityContent`를 준비한다(이미지·음성·Reference 카드는 예정) | `nodes/executor.py` |
@@ -81,7 +98,7 @@ graph TD;
 `Command(resume=값)`을 받으면 그 자리부터 이어서 돕니다. interrupt가 있는 노드는 재개될 때 처음부터
 다시 실행되므로, 콘텐츠 생성처럼 비용이 드는 일은 앞 노드(`prepare`)에서 끝내 state에 남깁니다.
 
-| 목표 | 원하는 변화 | 목표 척도 | 주 활동 노드 |
+| 목표(개선할 결과 지표) | 원하는 변화 | 목표 척도 | 주 활동 노드 |
 | --- | --- | --- | --- |
 | S1 반추 완화 | 반복적으로 떠오르는 생각에서 잠시 벗어나기 | BSRI | PR-09 마음챙김 / PR-21 이미지+명상(실험) / PR-15 컬러링(실험) |
 | S2 긴장·스트레스 완화 | 스트레스와 긴장감 완화 | STAI-6 | PR-06 호흡 / PR-02 영상+자연음 / PR-01 자연 사진 … |
@@ -102,8 +119,10 @@ graph TD;
 - **LangGraph — 세션 그래프 전체.** Replanning → Planner 순환, 사용자 선택에 따른 분기, 사용자가
   활동을 마치거나 동의할 때까지 멈췄다가 이어 가는 interrupt가 필요합니다. 상태가 체크포인터에 남아
   HTTP 요청이 나뉘어도 세션이 이어집니다.
-- **LangChain — intake와 plan의 구조화 출력.** LLM 호출은 세 곳 모두 `with_structured_output`(json_schema)
-  한 번씩입니다 — intake의 `IntakeResult`, plan의 활동 선택 `ActivityChoice`, 추천 이유 `PlanRationale`.
+- **LangChain — intake와 plan의 구조화 출력.** LLM 호출은 네 곳 모두 `with_structured_output`(json_schema)
+  한 번씩입니다 — intake의 상황 읽기 `StateReading`과 목표 추론 `GoalInference`, plan의 활동 선택
+  `ActivityChoice`, 추천 이유 `PlanRationale`. intake의 질문 여부 · 보기 검증 · 답 병합 · 종료는 코드다
+  (`app/agent/intake_rules.py`) — 질문을 몇 번 해도 LLM은 2회이고, 시점 질문에 글로 답할 때만 한 번 더 읽는다.
   plan은 고정 절차입니다: 코드가 후보를 목표 1차 지표 등급 순으로 정렬해 주면 LLM이 하나를 고르고
   (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 매체 · 사용자 상태 · 목표 지표로 근거를
   검색·검증해 usable만 남기고, LLM이 그 근거로 추천 이유를 씁니다. 처음에는 `create_agent` Tool
@@ -129,7 +148,8 @@ interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니�
 
 | 요청 | 그래프 | 응답 |
 | --- | --- | --- |
-| `POST /sessions` — `CareRequest` | 새 thread → intake → `measure_pre`에서 멈춤 (안전 신호·목표 미정이면 `ended`로 끝) | 측정 문항 |
+| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤 | 질문(`IntakeQuestion`) 또는 측정 문항 |
+| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤 (질문 합계 3회). 자유 입력 답이 안전 검사에 걸리면 `ended = SAFETY`로 끝 | 질문 · 측정 문항 · 또는 종료(SAFETY) |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
 | `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
@@ -325,6 +345,14 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 - STAI-6(Mind Garden)·BSRI 문항 사용 허가와 한국어판. 확인 전에는 문항 원문을 넣지 않습니다.
 - Session Outcome DB(측정값·라운드) 테이블 — 사용자 식별 방식과 함께 정합니다. Care Protocol은 JSON 파일로 둡니다.
 - 세션 API (설계안은 위에)
+- intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
+  이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
+  조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
+  "지금은 어려워요"(활동 변경)를 함께 보여 줘야 합니다.
+- intake 안전 검사는 질문에 대한 자유 입력 답에만 겁니다(규칙 기반, `intake_rules.safety_hit`). 처음
+  입력 문장은 검사하지 않습니다. 걸리면 세션을 끝내고(`ended = SAFETY`) FE가 도움 안내를 보여 줍니다.
+- intake 질문 판정의 장소·오디오 필터는 임시로 `intake_rules.fits_environment`에 있습니다. 후보 조회
+  (`protocols.candidates`)에 필터가 들어오면 그것으로 바꿉니다.
 
 ## 디렉터리
 
@@ -334,7 +362,8 @@ app/
 ├─ config.py            .env 설정 (DB · LLM/임베딩 · A 콘텐츠 공급자 키와 제한 시간)
 ├─ db.py                Supabase Postgres 커넥션 풀 (pgvector 타입 등록)
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
-├─ schemas/             care(요청·프로필) · measure(측정) · evidence · protocol(활동 노드) · retrieval(도구 출력)
+├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval
+├─ intake_cues.py       intake 단서표 — data/intake_cues.json 로더 · 상태 단서
 ├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
 ├─ protocols.py         활동 노드 — data/protocols 로더 · 후보 조회 · LLM용 압축본
 ├─ agent/               LUMI Care Agent (LangGraph)
@@ -345,6 +374,7 @@ app/
 │  ├─ context.py        실행 컨텍스트 — AgentContext(DB 풀) · PlannerContext(plan 단계가 읽는 세션 값)
 │  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
 │  ├─ prompts.py        intake · Planner 프롬프트와 입력 메시지
+│  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드
@@ -357,6 +387,7 @@ data/
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
 ├─ manifest.csv         논문 83편 매니페스트
+├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 └─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)

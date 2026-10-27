@@ -9,13 +9,13 @@
 
 - **라운드당 활동 노드 1개.** 플래너는 검수된 프로토콜(`data/protocols/*.json`)에서 고를 뿐 조합하지 않는다.
   조합은 `VALIDATED_MULTIMODAL` 프로토콜 자체로만 제공한다(PR-02 · 10 · 12).
-- **LLM은 두 노드뿐이다.** `intake`(구조화 출력 1회)와 `plan`(구조화 출력 2회 — 활동 선택 · 추천 이유). plan의 후보·검색·검증과
-  측정·평가·재계획은 코드다.
+- **LLM은 두 곳뿐이다.** intake(구조화 출력 2회 — 상황 읽기 · 목표 추론, 글 답이면 읽기 1회 더)와 `plan`(구조화 출력
+  2회 — 활동 선택 · 추천 이유). intake의 질문 여부·보기 검증·답 병합과 plan의 후보·검색·검증, 측정·평가·재계획은 코드다.
 - **측정은 RAG가 아니다.** 척도는 `data/instruments/*.json`에 있고 LLM은 문항을 만들거나 바꾸거나 점수를
   계산하지 않는다. LLM 번역 금지 — 번역·타당화된 문항만 쓴다.
 - **근거는 막지 않는다.** 검증은 출처 실재 · 중재 관련 · 지표 측정 세 가지만 차단하고, AI 생성·조합 콘텐츠는
   `ADAPTED_STIMULUS`로 Reference 카드에 밝힌다(`app/schemas/retrieval.py`).
-- **발표 범위에서 뺀 것.** intake의 칩 되묻기 루프(빈 슬롯은 요청의 칩 값 → 기본값), Docling·LLM 원문 추출
+- **발표 범위에서 뺀 것.** Docling·LLM 원문 추출
   파이프라인(근거 arm 시트 65행을 적재), 콘텐츠 생성(이미지·음성), Protocol DB 테이블(JSON 파일 로더).
 
 ## 구조
@@ -23,8 +23,9 @@
 ```text
 POST /sessions …(API는 통합 담당이 붙인다)
   ↓
-intake          LLM 호출 1회 → IntakeResult(goal · order_condition · minutes · place · constraints · safety)
-  ↓             안전 신호 · 목표 미정이면 세션을 열지 않는다(ended = SAFETY | NO_GOAL)
+intake          ① 상황 읽기(LLM) → State · 검색어 (시점이 불명확하면 질문 ⏸, 최대 2회)
+  ↓             ③ 목표 추론(LLM, 단서표) → Goal S1·S2·S3 (② 개념 정의 근거는 JSON을 받으면)
+  ↓             ④ 추천을 바꾸는 환경 칸만 칩 질문 ⏸ → 기본값 · 환경 조건 (질문 합계 3회)
 measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
   ↓
 plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
@@ -84,9 +85,10 @@ C = PR-11 12 14 15 16 18 19(보행·컬러링·글쓰기·NOTICE). 같은 논문
 
 | 파일 | 할 일 |
 | --- | --- |
-| `app/agent/prompts.py` `INTAKE_SYSTEM_PROMPT` `build_intake_input` | 분류 규칙 다듬기. 점수 추정 금지, 2턴 이내, 안전 신호 |
-| `app/agent/nodes/intake.py` | `make_llm_intaker`(구조화 출력, OpenAI json_schema)를 실제 키로 돌려 본다. 칩 값 우선·기본값 규칙은 `resolve()` |
-| `app/agent/state.py` `IntakeResult` | 필드 `description`이 LLM이 읽는 설명이다. 필드를 바꾸면 통합 담당과 먼저 맞춘다 |
+| `app/agent/prompts.py` `READ_SYSTEM_PROMPT` `GOAL_SYSTEM_PROMPT` | 상황 읽기 · 목표 추론 규칙. 점수 추정 금지, 사건을 자세히 묻지 않는다 |
+| `app/agent/intake_rules.py` | 질문 여부(State 2회 · 합계 3회) · 보기 검증 · 답 병합(요청 칩 > 칩 답 > 문장) · 환경 질문 판정 · 목표 · 기본값. `StateReading` · `GoalInference` 필드 설명이 LLM이 읽는 설명이다 |
+| `data/intake_cues.json` | 단서표(표현 단서 · 경계 · 요약 출처)와 상태 단서. ③이 이것만으로 돈다(② 개념 정의 JSON 전까지) |
+| `app/schemas/intake.py` | FE와 주고받는 질문·답 JSON. 키를 바꾸면 FE와 먼저 맞춘다 |
 | `tests/intake/` | `make test-intake`. 실제 호출 결과는 `tests/intake/`에 녹화본(JSON)으로 남긴다 |
 
 ### plan (통합 담당 겸임)
@@ -101,15 +103,16 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 
 | 항목 | 정의 | 위치 |
 | --- | --- | --- |
-| `CareRequest` | `text` + 칩(`goal` `minutes_available` `place`) + `profile` | `app/schemas/care.py` |
-| `IntakeResult` | intake의 구조화 출력. 칩 값이 분류보다 우선 | `app/agent/state.py` |
+| `CareRequest` | `text` + 환경 칩(`setting` `earphones` `minutes_available`) + `profile`. `Place`는 코드가 setting에서 정한다 | `app/schemas/care.py` |
+| `IntakeResult` | Goal(goal · secondary_goal · goal_source · target_outcomes · goal_evidence[paper_id, sentence]) · State(order_condition · 사건 · 반복 단서) · Context(setting · place · earphones · minutes · environment) · end_reason | `app/agent/state.py` |
+| intake 질문 interrupt | `IntakeQuestion{type, question_id, slot, turn, max_turns, text, groups[{key, select, options[{label, set}]}], allow_free_text}` ↔ `IntakeAnswer{question_id, answer \| text}` | `app/schemas/intake.py` |
 | `Measurement` · `GOAL_SCALE` | 도구 × 시점 × 라운드, `answers` · `scores` | `app/schemas/measure.py` |
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
 | 후보 프로토콜 | `protocols.candidates()` → `compact()` 목록. 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
-| 세션 종료 | `ended = SAFETY | NO_GOAL` (intake), `final`(목표 척도) | `app/agent/state.py` |
+| 세션 종료 | `final`(목표 척도). intake는 자유 입력 답이 안전 검사에 걸릴 때만 닫는다(`ended = SAFETY`). 목표 단서가 없으면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 
 ## 작업 순서 (10/26 월 ~ 10/29 목)
 

@@ -32,6 +32,7 @@ from app.agent.state import (
     ActivityContent,
     CarePlan,
     ContentStep,
+    GoalEvidence,
     IntakeResult,
     NextStep,
     OutcomeEvaluation,
@@ -42,8 +43,26 @@ from app.agent.state import (
     SessionReport,
 )
 from app.config import get_settings
-from app.schemas.care import CareGoal, CareRequest, ContentType, Place, UserProfile
-from app.schemas.evidence import InterventionOrder
+from app.schemas.care import (
+    CareGoal,
+    CareRequest,
+    ContentType,
+    Environment,
+    Place,
+    Setting,
+    UserProfile,
+)
+from app.schemas.evidence import InterventionOrder, Outcome
+from app.schemas.intake import (
+    GoalSource,
+    IntakeEndReason,
+    IntakeQuestion,
+    IntakeTurn,
+    QuestionGroup,
+    QuestionOption,
+    QuestionSlot,
+    SelectMode,
+)
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 
 SCHEMA = "langgraph"
@@ -56,9 +75,21 @@ STATE_TYPES = (
     CareGoal,
     ContentType,
     Place,
+    Setting,
+    Environment,
     IntakeResult,
-    InterventionOrder,
+    GoalEvidence,
     SessionEnd,
+    IntakeEndReason,
+    Outcome,
+    InterventionOrder,
+    GoalSource,
+    IntakeQuestion,
+    IntakeTurn,
+    QuestionGroup,
+    QuestionOption,
+    QuestionSlot,
+    SelectMode,
     Measurement,
     InstrumentId,
     Timepoint,
