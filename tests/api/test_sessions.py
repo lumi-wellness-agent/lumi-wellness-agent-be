@@ -122,6 +122,10 @@ def test_s2_session_runs_to_end_over_json():
     body = client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()
     assert body["step"] == "RUN"
     assert body["payload"]["plan"]["activity"]["protocol_id"] == "PR-06"
+    # "왜 추천했나요?" — 계획과 함께 온다. 대역에는 근거 DB가 없어 검증된 근거가 없다고 밝힌다
+    card = body["payload"]["plan"]["reference_card"]
+    assert (card["protocol_id"], card["goal"]["goal"]) == ("PR-06", "S2")
+    assert "NO_VERIFIED_EVIDENCE" in card["badges"]
 
     body = client.post(f"/sessions/{sid}/report", json={"completed": True}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "POST")

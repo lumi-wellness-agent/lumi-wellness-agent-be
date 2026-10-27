@@ -183,6 +183,14 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     print(f"        {plan.rationale}")
     tokens = f"{usage.input:,}/{usage.output:,}"
     print(f"        {elapsed:.1f}s · 모델 호출 {usage.calls}회 · 토큰 {tokens}")
+    if card := plan.reference_card:
+        arms = [
+            f"{e.experiment_id or e.paper.paper_id}({'지지' if e.supports_goal else '참고'})"
+            for e in card.evidence
+        ]
+        print(f"card    {[b.value for b in card.badges]} · 근거 {arms or '없음'}")
+        for limit in card.limits[1:]:  # 첫 문장은 모든 카드에 같은 고지
+            print(f"        - {limit}")
     return {
         "scenario": name,
         "text": request.text,

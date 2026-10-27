@@ -11,8 +11,9 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
 통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
 질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다. 목표 추론은 R1 논문의 원문 개념 정의(②)를
-함께 보고, 추론한 목표의 정의를 근거로 남깁니다. 세션 API는 대역 모델로 흐름을 테스트했고(인증 · 세션 기록은 아직), Reference 카드와 콘텐츠
-생성은 아직입니다. 누가 무엇을 채우는지는 [TEAM.md](TEAM.md)에 있습니다.
+함께 보고, 추론한 목표의 정의를 근거로 남깁니다. 세션 API는 Supabase 로그인 · 게스트 체험 · 세션 기록과 함께
+운영에 올라가 있고, plan이 계획마다 Reference 카드를 만듭니다. 콘텐츠 생성은 아직입니다. 누가 무엇을 채우는지는
+[TEAM.md](TEAM.md)에 있습니다.
 
 ## 구조
 
@@ -86,8 +87,8 @@ graph TD;
 | `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
-| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다 | `nodes/planner.py` |
-| `prepare` | ② Care Session Executor | 프로토콜의 단계 · 안내 문구 · 실행 명세(`content_spec`)와 자산(사진 · 영상 · 음원 · 컬러링 도안)으로 `ActivityContent`를 준비한다(음성 합성 · Reference 카드는 예정) | `nodes/executor.py` |
+| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다. 검증한 근거로 Reference 카드를 만든다(코드, 「Reference 카드」) | `nodes/planner.py` |
+| `prepare` | ② Care Session Executor | 프로토콜의 단계 · 안내 문구 · 실행 명세(`content_spec`)와 자산(사진 · 영상 · 음원 · 컬러링 도안)으로 `ActivityContent`를 준비한다(음성 합성은 예정) | `nodes/executor.py` |
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
 | `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로↓ | `nodes/evaluator.py` |
@@ -163,7 +164,7 @@ docstring에 있습니다.
 
 응답 본문은 `{session_id, step, node, payload}`입니다. `step`은 멈춘 노드로 정합니다 — `intake_ask` →
 `ASK`(질문 `IntakeQuestion`, `app/schemas/intake.py`), `measure_*` → `MEASURE`(`payload.measure`가 `PRE` ·
-`POST` · `FINAL`), `run_session` → `RUN`(계획 · 콘텐츠), `confirm` → `CONFIRM`(평가 · 제안 · `options`), 끝 →
+`POST` · `FINAL`), `run_session` → `RUN`(계획과 그 Reference 카드 · 콘텐츠), `confirm` → `CONFIRM`(평가 · 제안 · `options`), 끝 →
 `END`. 노드 이름이 API 계약이라 바꾸면 세션 API도 고칩니다. `END`의 `payload.reason`은 `DONE`이거나 intake가
 세션을 끝낸 이유(`SAFETY`)이고, `DONE`이면 라운드 요약과 목표 척도의 세션 변화(`goal_scale` — 끝 − 사전,
 S3는 마지막 사후값)를 싣습니다. 노드가 실패했거나 스트림이 끊겨 interrupt 사이에 멈추면 `STALLED`이고
@@ -288,6 +289,28 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 - 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
   동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
 
+### Reference 카드 (`app/agent/reference_card.py`)
+
+"왜 추천했나요?"에 답하는 카드입니다. plan 노드가 계획마다 만들어 `CarePlan.reference_card`에 싣고, FE는 `RUN`
+payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/card.py`). LLM을 쓰지 않고 추천 이유(`rationale`)
+문장에 기대지 않습니다 — 카드의 사실은 모두 검증을 통과한 근거(검색 결과 + 판정), 프로토콜, intake 결과에서
+옵니다. 연구 결과를 진단 · 치료 효과로 넓히지 않습니다.
+
+| 칸 | 내용 |
+| --- | --- |
+| `protocol_id` · `name` · `minutes` · `composition` | 고른 활동 |
+| `badges` | 화면 배지(`CardBadge`) — `EXPERIMENTAL` · `LIMITED_EVIDENCE` · `NO_VERIFIED_EVIDENCE` · `CONFLICTING_EVIDENCE` · `ADAPTED_STIMULUS` · `AI_IMAGE_UNVERIFIED` · `RELAXED_ORDER` · `RELAXED_ENVIRONMENT` · `DEFAULT_GOAL` · `PROVISIONAL_MEASURE`. 문구 · 색은 FE가 정하고 설명 문장은 `limits` · `goal.notes`에 있다 |
+| `goal` | 목표와 라벨, 정한 방식(`INFERRED` · `DEFAULT` · `CHIP`)과 판단 이유, **목표 근거**(추론한 목표 · 부목표의 개념 정의 원문 · 개념 · 쪽 · 논문), 근거가 보는 1차 지표, LUMI가 재는 척도(`measured_by`, 임시 도구면 `provisional`), `notes`(기본 목표 · S3 "주의 용량은 재지 않는다" · 임시 척도) |
+| `grades` | 이 활동의 목표 1차 지표별 근거 등급(프로토콜 시트, A–D · — · 미확인) |
+| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문), 검증 6항목(`checks`, 자세히 보기용). 목표를 지지하는 것이 앞 |
+| `limits` | 카드 끝 한계 문장 — 고정 고지, 배지마다 한 문장(프로토콜 작성자의 `reference_card_note`가 있으면 그것으로), 프로토콜의 대상 메모 |
+
+- `EXPERIMENTAL`은 `composition`이 `EXPERIMENTAL`이거나 프로토콜 `user_facing_flags`가 그 목표에서 실험적이라고 할 때,
+  `ADAPTED_STIMULUS`는 프로토콜이 각색(대본 · 음원)을 밝혔거나 목표를 지지하는 근거가 모두 다른 자극일 때,
+  `AI_IMAGE_UNVERIFIED`는 사용자가 AI 생성 이미지를 골라 제공 매체에 들어갈 때 답니다.
+- S3는 근거의 1차 지표(주의 과제)와 LUMI가 재는 것(정신 피로 VAS, 팀이 만든 임시 도구)이 달라 `goal.notes`에 밝힙니다.
+- 근거 DB가 없거나 검증을 통과한 근거가 없으면 `evidence`가 비고 `NO_VERIFIED_EVIDENCE`가 붙습니다.
+
 ## 시작하기
 
 Python 3.12 이상이 필요합니다.
@@ -308,7 +331,7 @@ make run                # http://127.0.0.1:8000/health
 | `make graph` | 세션 그래프를 Mermaid로 출력 |
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
-| `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
+| `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
 | `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl`의 질의로 Hit@K · Recall@K · MRR을 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `build`가 케이스를 다시 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
@@ -518,7 +541,7 @@ app/
 ├─ api/sessions.py      세션 API — 인증 · 소유자 확인 · interrupt 재개 · step · SSE/JSON 응답 · 기록
 ├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 탈퇴 (DELETE /me)
 ├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
-├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval
+├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval · card(Reference 카드)
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더
 ├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
 ├─ protocols.py         활동 노드 — data/protocols 로더 · 후보 조회 · LLM용 압축본
@@ -533,7 +556,7 @@ app/
 │  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
-│  └─ reference_card.py Reference 카드
+│  └─ reference_card.py Reference 카드 — 검증한 근거 · 프로토콜 · intake로 만든다(LLM 없음)
 ├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 (Executor가 쓴다)
 ├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공
 ├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)

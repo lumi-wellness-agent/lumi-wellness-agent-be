@@ -57,7 +57,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
 | 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
-| 수 | `app/agent/reference_card.py` | Reference 카드 — 계획의 근거 ID · 검증 플래그(ADAPTED_STIMULUS · CONFLICTING_EVIDENCE) · 프로토콜 composition(EXPERIMENTAL)에서 만든다. rationale 문장에 기대지 않는다 |
+| 수 | `app/agent/reference_card.py` | Reference 카드 — 됐다(README 「Reference 카드」). plan이 검증한 근거 · 프로토콜(composition · user_facing_flags · reference_card_note) · intake(목표 근거)로 만들고 rationale 문장에 기대지 않는다. 프로토콜 담당은 카드에 보일 메모를 `reference_card_note`로 적는다 |
 | 수 | `app/api/sessions.py` | 세션 API — `sessions` · `answer` · `measure` · `report` · `decision` · `retry` · `GET`, SSE · JSON, CORS(README 「세션 API」), 인증(Supabase Auth — Google · Kakao, 비로그인은 기록하지 않는 게스트 체험) · 동의 · 세션 기록 · 탈퇴(README 「인증 · 세션 기록」)는 됐다. 남은 것: FE |
 | 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
 
