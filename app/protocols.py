@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas.care import CareGoal, ContentType
+from app.schemas.care import CareGoal, ContentType, Environment
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.protocol import CareProtocol, Composition, Grade, SlotType
 from app.schemas.retrieval import GOAL_OUTCOMES
@@ -53,12 +53,16 @@ def candidates(
     *,
     order: InterventionOrder | None = None,
     minutes: int | None = None,
+    environment: Environment | None = None,
     exclude: Iterable[str] = (),
 ) -> list[CareProtocol]:
     """목표에 맞는 검수 프로토콜. 단계 모듈과 exclude(직전 라운드에서 바꾸기로 한 활동)는 뺀다.
 
     주 목표가 앞, 부 목표가 뒤이고, 같은 쪽에서는 목표 1차 지표 등급이 높은 순이다. 플래너(LLM)는
     목록의 앞쪽을 고르는 경향이 있어, 등급 순으로 두어야 근거가 강한 활동이 먼저 고려된다.
+
+    environment를 주면 활동 노드의 eligibility(소리 · 화면 · 조용한 곳 · 야외)로 거른다. 플래너와
+    intake(어떤 환경 질문이 추천을 바꾸는지 — nodes/intake.context_groups)가 같은 함수를 쓴다.
     """
     excluded = set(exclude)
     picked = [
@@ -69,6 +73,7 @@ def candidates(
         and p.serves(goal)
         and p.allows_order(order)
         and p.fits_minutes(minutes)
+        and p.fits_environment(environment)
     ]
     return sorted(
         picked, key=lambda p: (p.goal is not goal, goal_grade_rank(p, goal), p.protocol_id)

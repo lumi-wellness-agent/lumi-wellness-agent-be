@@ -24,7 +24,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.schemas.care import CareGoal
+from app.schemas.care import CareGoal, Environment
 from app.schemas.evidence import (
     DESIGN_LABELS,
     GRADED_OUTCOMES,
@@ -403,6 +403,21 @@ class CareProtocol(ProtocolEvidenceSection):
             order in self.intervention_order
             or InterventionOrder.NO_INDUCTION in (order, *self.intervention_order)
         )
+
+    def fits_environment(self, environment: Environment | None) -> bool:
+        """eligibility(needs · quiet_required · place)와 사용자 환경. 모르는 조건(None)으로는 거르지
+        않는다 — 소리를 못 듣는다고 확인됐을 때만 AUDIO 활동을 뺀다."""
+        if environment is None:
+            return True
+        needs = set(self.eligibility.needs)
+        if "AUDIO" in needs and environment.audio is False:
+            return False
+        if "SCREEN" in needs and environment.screen is False:
+            return False
+        if self.eligibility.quiet_required and environment.quiet is False:
+            return False
+        outdoors = "OUTDOORS" in needs or self.eligibility.place == "OUTDOOR"
+        return not (outdoors and environment.outdoor is False)
 
     def fits_minutes(self, minutes: int | None) -> bool:
         if minutes is None:

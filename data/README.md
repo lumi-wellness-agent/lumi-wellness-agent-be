@@ -42,6 +42,24 @@ dropped}`와 `_source` · `_confidence` · `_note`다. `text`는 Docling으로 �
 (`--include-verified`일 때만 다시 고른다). OCR 초안은 숫자 아래첨자 · 소수점을 놓치고, 실험이 여럿인 논문에서
 모델이 다른 실험의 문단을 가져오기도 해서(P05-E2) 대조 없이 쓰지 않는다.
 
+## construct_definitions.json — intake 목표 추론의 개념 정의 카드
+
+목표 S1 반추 · S2 긴장·스트레스 · S3 주의·피로마다 정의 · 사용자 표현 단서 · 경계(헷갈리는 목표와 가르는 기준)를
+팀이 R1(상태 분석) 논문을 읽고 요약해 둔 것이다. 원문 인용이 아니다. 원문 구간은 `sources[].anchor`(원문
+문장의 첫머리)로 가리키고, `scripts/seed_definitions.py`가 파싱 캐시에서 그 문단을 찾아
+`evidence_records`(record_type `DEFINITION`)로 적재한다. intake가 그 레코드를 검색해 근거 ID로 남긴다.
+
+| 목표 | 출처(anchor가 든 논문) |
+| --- | --- |
+| S1 | P12 반복적 부정 사고 정의 · N26 반추 정의 · N25 상태 반추 정의 |
+| S2 | N07 상태 불안(STAI 단축형) · N04 스트레스 증상 정의 · N01 정서 원형 모형 |
+| S3 | P06 주의 피로(지속된 정신적 노력) · N27 정신 피로 정의 |
+| 경계 | P06 주의 피로와 스트레스는 다르지만 함께 나타난다 |
+
+`state_hints`는 사용자 상태가 목표를 어느 쪽으로 기울이는지다(규칙이 아니라 단서). 피로 후 → S3(강:
+P06 이론 + 피로 유도 실험이 주의를 쟀다), 스트레스 후 → S1 · S2(반복 사고 단서로 가른다: P33은 발표 뒤
+반추를 쟀다), 스트레스 전 → S2(약: 근거 arm 1건), 계기 없음 → 없음.
+
 ## manifest.csv — 논문 83편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·

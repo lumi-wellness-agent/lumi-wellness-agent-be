@@ -1,0 +1,47 @@
+{
+ "_about": "intake 목표 추론의 개념 정의 카드. definition · cues · boundary는 팀이 원문을 읽고 쓴 요약(한국어)이고 원문 인용이 아니다. 원문 구간은 sources[].anchor가 든 문단을 scripts/seed_definitions.py가 파싱 캐시에서 찾아 evidence_records(record_type DEFINITION)로 적재한다. anchor는 원문 문장의 첫머리(공백·하이픈 정규화 후 대조).",
+ "goals": {
+  "S1": {
+   "name": "반추",
+   "outcome": "RUMINATION",
+   "definition": "부정적인 생각이나 장면이 의도와 상관없이 반복해서 떠오르고 그 생각에 머무는 상태. 지나간 일을 곱씹는 반추와 앞일을 되풀이해 걱정하는 것을 함께 반복적 부정 사고로 본다. 상태 반추는 특정 사건에 반응해 일시적으로 켜지는 반복적·자기 초점 사고다.",
+   "cues": ["계속 생각나요", "머릿속에서 안 떠나요", "자꾸 곱씹어요", "그 장면이 반복돼요", "생각이 멈추지 않아요"],
+   "boundary": "긴장이 함께 있어도 핵심 호소가 반복되는 생각이면 S1. 반추와 부정 정서는 서로를 강화해 함께 나타나기 쉽다(N26) — 둘 다 보이면 주 S1, 부 S2.",
+   "sources": [
+    {"paper_id": "P12", "anchor": "Repetitive negative thinking (RNT) is a transdiagnostic process"},
+    {"paper_id": "N26", "anchor": "Rumination is a common form of repetitive negative thinking"},
+    {"paper_id": "N25", "anchor": "State rumination is a temporary activation of repetitive"}
+   ]
+  },
+  "S2": {
+   "name": "긴장·스트레스",
+   "outcome": "SUBJECTIVE_STRESS",
+   "definition": "지금 이 순간 긴장되고 초조하며 불안한, 불쾌하고 각성이 높은 상태. 상태 불안은 지속적인 성향이 아니라 순간의 느낌이고, 스트레스 증상은 긴장·초조·신경과민·불안으로 나타난다.",
+   "cues": ["떨려요", "긴장돼요", "불안해요", "초조해요", "가슴이 두근거려요", "스트레스 받아요"],
+   "boundary": "정서 원형 모형에서 불쾌 + 높은 각성(N01). 반복되는 생각이 중심이면 S1, 오래 집중한 뒤 지친 것이 중심이면 S3. 스트레스 증상 정의(N04)에는 생각이 많아 잠들지 못함도 들어 있어 S1과 겹친다.",
+   "sources": [
+    {"paper_id": "N07", "anchor": "measures state anxiety (how one feels at the moment)"},
+    {"paper_id": "N04", "anchor": "Stress means a situation in which a person feels tense"},
+    {"paper_id": "N01", "anchor": "emotions are organized in a circular arrangement"}
+   ]
+  },
+  "S3": {
+   "name": "주의·피로",
+   "outcome": "ATTENTION",
+   "definition": "오래 이어진 정신적 노력(의도적 집중) 뒤에 집중이 잘 안 되고 머리가 지친 상태. 의도적 주의는 노력이 드는 자원이라 오래 쓰면 소진된다(주의 피로). 정신 피로는 주관적 피로감과 수행 저하로 나타난다.",
+   "cues": ["머리가 멍해요", "집중이 안 돼요", "몇 시간째 공부했어요", "하루 종일 일했어요", "머리가 무거워요"],
+   "boundary": "주의 피로와 스트레스는 다른 개념이지만 함께 나타나기 쉽다(P06). 원인이 지속된 정신적 노력이면 S3, 위협·압박이면 S2.",
+   "sources": [
+    {"paper_id": "P06", "anchor": "More formally, any prolonged mental effort leads"},
+    {"paper_id": "N27", "anchor": "Mental fatigue represents a psychobiological state"}
+   ]
+  }
+ },
+ "state_hints": [
+  {"order_condition": "POST_FATIGUE", "lean": ["S3"], "strength": "STRONG", "sources": ["P06"], "note": "지속된 집중 뒤 → 주의 피로(이론). 피로를 유도한 실험(N19 · P03)은 주의를 쟀다"},
+  {"order_condition": "POST_STRESS", "lean": ["S1", "S2"], "strength": "SPLIT", "sources": ["P33"], "note": "사건 직후는 반추(P33 발표 뒤 반추)와 긴장이 모두 가능 — 반복 사고 단서로 가른다"},
+  {"order_condition": "PRE_STRESS", "lean": ["S2"], "strength": "WEAK", "sources": [], "note": "앞둔 사건 → 긴장 쪽. 근거 arm 1건뿐이라 약하게만 기울인다"},
+  {"order_condition": "NO_INDUCTION", "lean": [], "strength": "NONE", "sources": [], "note": "계기 없음 — 기울이지 않는다"}
+ ],
+ "boundary_source": {"paper_id": "P06", "anchor": "although the contributions of directed attention and stress are distinct"}
+}

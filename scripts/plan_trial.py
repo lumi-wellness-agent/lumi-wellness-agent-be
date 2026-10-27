@@ -6,9 +6,10 @@
     .venv/bin/python scripts/plan_trial.py --text "하루 종일 집중했더니 머리가 멍해요"
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
 
-- 발표 리허설과 RAG 평가셋 질의 수집용이다. 세션 그래프의 intake · plan 노드를 그대로 부르므로
-  후보 → 선택(LLM) → 검색 → 검증 → 설명(LLM) 절차, check_plan 재질의, 공급자 폴백까지 운영과 같다.
-  측정·실행 interrupt는 거치지 않는다.
+- 발표 리허설과 RAG 평가셋 질의 수집용이다. intake는 질문 없이 한 번에 돈다(nodes/intake.intake_once
+  — 상황 읽기 → 개념 정의 검색 → 목표 추론 → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
+  plan 노드는 그대로 부르므로 후보 → 선택(LLM) → 검색 → 검증 → 설명(LLM) 절차, check_plan 재질의,
+  공급자 폴백까지 운영과 같다. 측정·실행 interrupt는 거치지 않는다.
 - LLM(.env의 OPENAI_API_KEY · ANTHROPIC_API_KEY)을 실제로 불러 비용이 든다. 근거 DB는 읽기만 한다.
   DB는 --database-url, 없으면 .env의 DATABASE_URL.
 - --queries는 검색 호출(질의 · 필터 · 결과 ID)과 최종 계획의 프로토콜을 JSONL로 덧붙인다.
@@ -34,8 +35,7 @@ from langgraph.runtime import Runtime  # noqa: E402
 from app.agent import validation  # noqa: E402
 from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
-from app.agent.llm import with_fallback  # noqa: E402
-from app.agent.nodes.intake import make_intake_node, make_llm_intaker  # noqa: E402
+from app.agent.nodes.intake import LlmIntaker, intake_once  # noqa: E402
 from app.agent.nodes.planner import LlmPlanner, PlanRejected, make_plan_node  # noqa: E402
 from app.agent.state import (  # noqa: E402
     CarePlan,
@@ -143,19 +143,21 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     for _, model in models:
         model.callbacks = [usage]
     planner = LlmPlanner(models)
-    intaker = with_fallback([(n, make_llm_intaker(m)) for n, m in models])
-    state: dict = {"request": request}
-    state |= await make_intake_node(intaker)(state)
-    intake = state["intake"]
+    intaker = LlmIntaker(models)
+    intake, would_ask = await intake_once(intaker, request, pool)
+    state: dict = {"request": request, "intake": intake}
     print(f"\n== {name} {request.text!r} ({request.profile.content_type.value})")
     defaulted = f" · 기본값 {intake.missing_slots}" if intake.missing_slots else ""
+    secondary = f"(+{_value(intake.secondary_goal)})" if intake.secondary_goal else ""
     print(
-        f"intake  {_value(intake.goal)} · {_value(intake.order_condition)} · {intake.minutes}분 · "
-        f"{_value(intake.place)}{defaulted}"
+        f"intake  {_value(intake.goal)}{secondary} [{_value(intake.goal_source)}"
+        f" 근거 {intake.goal_evidence_ids}] · {_value(intake.order_condition)} · "
+        f"{intake.minutes}분 · "
+        f"{_value(intake.location) or _value(intake.place)}{defaulted}"
     )
-    if state.get("ended"):
-        print(f"세션을 열지 않음: {state['ended'].value}")
-        return {"scenario": name, "ended": state["ended"].value}
+    print(f"        {intake.goal_reason or '-'}")
+    if would_ask:
+        print(f"        세션이었다면 물었을 것: {would_ask}")
     if args.change_from:
         state["rounds"] = [previous_round(args.change_from, intake.goal)]
     recorder.searches.clear()

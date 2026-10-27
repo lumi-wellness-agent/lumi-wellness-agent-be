@@ -2,12 +2,16 @@
 
 에이전트 아키텍처 v2를 그대로 옮겼다(`make graph`로 Mermaid 출력).
 
-    START → intake → measure_pre ⏸ → plan → prepare → run_session ⏸ → measure_post ⏸
-          → evaluate → replan → confirm ⏸ → (END 경로) measure_final ⏸ → END
-    intake에서 안전 신호·목표 미정이면 세션을 열지 않고 END.
+    START → intake(read → goal → context → finish, 질문 ⏸ 최대 3회) → measure_pre ⏸ → plan
+          → prepare → run_session ⏸ → measure_post ⏸ → evaluate → replan → confirm ⏸
+          → (END 경로) measure_final ⏸ → END
     confirm에서 활동 변경·추가 세션을 고르면 plan으로 돌아간다(라운드 2–3회).
 
-    intake        LLM 호출 1회(구조화 출력), 에이전트 아님      nodes/intake.py
+    intake_read   ① LLM — State(사용자 상태 · 사건 · 반복 단서) + 검색어   nodes/intake.py
+    intake_goal   ② 개념 정의 검색 + ③ LLM 목표 추론(S1·S2·S3)            nodes/intake.py
+    intake_context ④ 코드 — 추천을 바꾸는 환경 칸만 묻는다                 nodes/intake.py
+    intake_ask    ⏸ 질문(시점 · 재질문 · 환경 칩)                           nodes/intake.py
+    intake_finish 코드 — 기본값 · 환경 조건                                 nodes/intake.py
     measure_pre   코드 ⏸ SAM + 목표 척도                         nodes/measure.py
   ① plan          Adaptive Care Planning (고정 절차, LLM 2회)   nodes/planner.py
   ② prepare       콘텐츠 준비                                     nodes/executor.py
@@ -28,22 +32,36 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agent.context import AgentContext
+from app.agent.definitions import find_definitions
 from app.agent.nodes.evaluator import evaluate
 from app.agent.nodes.executor import prepare_session, run_session
-from app.agent.nodes.intake import Intaker, make_intake_node, route_after_intake
+from app.agent.nodes.intake import (
+    DefinitionFinder,
+    Intaker,
+    make_intake_nodes,
+    route_after_ask,
+    route_after_context,
+    route_after_read,
+)
 from app.agent.nodes.measure import measure_final, measure_post, measure_pre
 from app.agent.nodes.planner import Planner, make_plan_node
 from app.agent.nodes.replanner import confirm, replan, route_after_confirm
-from app.agent.state import CareState, IntakeResult
-from app.schemas.care import CareRequest
+from app.agent.state import CareState
 
 
 def build_graph(
-    planner: Planner, intaker: Intaker, checkpointer: BaseCheckpointSaver | None = None
+    planner: Planner,
+    intaker: Intaker,
+    checkpointer: BaseCheckpointSaver | None = None,
+    find: DefinitionFinder = find_definitions,
 ) -> CompiledStateGraph:
-    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py)."""
+    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py).
+
+    find는 개념 정의 검색(테스트는 대역을 넣는다 — DB 풀이 없으면 원래도 빈 목록이다).
+    """
     builder = StateGraph(CareState, context_schema=AgentContext)
-    builder.add_node("intake", make_intake_node(intaker))
+    for name, node in make_intake_nodes(intaker, find).items():
+        builder.add_node(name, node)
     builder.add_node("measure_pre", measure_pre)
     builder.add_node("plan", make_plan_node(planner))
     builder.add_node("prepare", prepare_session)
@@ -53,8 +71,16 @@ def build_graph(
     builder.add_node("replan", replan)
     builder.add_node("confirm", confirm)
     builder.add_node("measure_final", measure_final)
-    builder.add_edge(START, "intake")
-    builder.add_conditional_edges("intake", route_after_intake, ["measure_pre", END])
+    builder.add_edge(START, "intake_read")
+    builder.add_conditional_edges("intake_read", route_after_read, ["intake_ask", "intake_goal"])
+    builder.add_conditional_edges(
+        "intake_ask", route_after_ask, ["intake_read", "intake_goal", "intake_finish"]
+    )
+    builder.add_edge("intake_goal", "intake_context")
+    builder.add_conditional_edges(
+        "intake_context", route_after_context, ["intake_ask", "intake_finish"]
+    )
+    builder.add_edge("intake_finish", "measure_pre")
     builder.add_edge("measure_pre", "plan")
     builder.add_edge("plan", "prepare")
     builder.add_edge("prepare", "run_session")
@@ -75,10 +101,14 @@ class _UnconfiguredPlanner:
         raise RuntimeError("Planner의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
 
 
-async def _unconfigured_intaker(request: CareRequest) -> IntakeResult:
-    raise RuntimeError("intake의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+class _UnconfiguredIntaker:
+    async def read(self, *args):
+        raise RuntimeError("intake의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
+
+    async def infer_goal(self, *args):
+        raise RuntimeError("intake의 LLM을 아직 조립하지 않았습니다(app/agent/assembly.py)")
 
 
 if __name__ == "__main__":
     # make graph: 문서·발표용 Mermaid. 그리기만 하므로 LLM을 부르지 않는다
-    print(build_graph(_UnconfiguredPlanner(), _unconfigured_intaker).get_graph().draw_mermaid())
+    print(build_graph(_UnconfiguredPlanner(), _UnconfiguredIntaker()).get_graph().draw_mermaid())

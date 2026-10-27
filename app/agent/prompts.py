@@ -1,7 +1,8 @@
 """intake · Planner 프롬프트와 입력 메시지. 문구는 각 담당이 다듬는다(intake 담당 · plan 담당).
 
 LLM이 읽는 사용 설명서는 구조화 출력 모델의 Field(description)에도 있다
-(app/agent/state.py의 IntakeResult, app/agent/nodes/planner.py의 ActivityChoice · PlanRationale).
+(app/agent/intake_rules.py의 StateReading · GoalInference, app/agent/nodes/planner.py의
+ActivityChoice · PlanRationale).
 """
 
 import json
@@ -9,42 +10,106 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app.agent.state import CareState, IntakeResult, NextStep
+from app.constructs import cards_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
 from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Outcome
+from app.schemas.intake import IntakeTurn
 from app.schemas.protocol import CareProtocol
 from app.schemas.retrieval import GOAL_OUTCOMES
 
 if TYPE_CHECKING:
+    from app.agent.intake_rules import DefinitionHit
     from app.agent.nodes.planner import ActivityChoice, CitedEvidence
 
-INTAKE_SYSTEM_PROMPT = """\
-너는 LUMI의 인테이크 분류기다. 사용자가 한 말을 읽고 IntakeResult를 채운다. 대화하지 않는다.
+READ_SYSTEM_PROMPT = """\
+너는 LUMI 인테이크의 ① 상황 읽기다. 사용자가 한 말(과 앞서 물은 질문·답)을 읽고 StateReading을
+채운다. 대화하지 않는다.
 
-- goal: 원하는 변화. 반복되는 생각에서 벗어나고 싶으면 S1, 긴장·스트레스를 풀고 싶으면 S2,
-  오래 집중해 머리가 피로하면 S3. 둘 이상이 섞이거나 알 수 없으면 null.
-- order_condition: 스트레스 상황이 앞에 있으면 PRE_STRESS(발표·면접 직전), 방금 겪었으면
-  POST_STRESS, 오래 집중한 뒤면 POST_FATIGUE, 특별한 계기가 없으면 NO_INDUCTION. 모르면 null.
-- minutes · place: 말한 것만 적는다. 말하지 않았으면 null — 추측하지 않는다.
-- constraints: 활동에 영향을 주는 제약(이명, 멀미, 눈 피로, 소리를 틀 수 없는 상황 …).
-- safety: 자해·자살 생각, 위기, 학대처럼 세션 대신 안전 안내가 필요하면 true.
-- 점수나 척도 응답을 추정하거나 만들지 않는다. 측정은 다음 단계가 척도로 한다.
-- summary: 사용자 상태를 한 줄로.
-"""
+- order_condition(사용자 상태)은 말에 근거가 있을 때만 정한다. PRE_STRESS는 앞으로 있을 구체적
+  사건이 명시될 때만, POST_FATIGUE는 오래 이어진 정신적 작업(공부 · 코딩 · 업무 몇 시간)이 명시될
+  때만. 모르면 null이고, 그때만 question(시점 질문 초안)을 낸다.
+- 질문은 사건을 자세히 묻지 않고 시점·원인만 묻는다. 힘든 경험을 글로 길게 쓰게 하면 그 자체가
+  중재가 되어 다음 측정이 흐려진다. 감정의 세기(얼마나 힘든지)는 묻지 않는다 — 측정이 한다.
+- 앞선 시점 질문에 글로 답했는데도 지친 원인이 압박·사건인지 오래 이어진 집중인지 갈리면
+  stress_fatigue_ambiguous = true, question.followup = true로 재질문 초안을 내고, 보기마다
+  goal_hint(S2 = 압박·사건, S3 = 오래 이어진 집중)를 붙인다.
+- rumination_cue: 같은 생각·장면이 반복된다는 표현이 있으면 true.
+- location · earphones · minutes는 말에 나온 것만. 추측하지 않는다.
+- search_query는 영어 심리학 용어로 — 뒤 단계가 개념 정의 논문에서 찾는다.
+- 점수나 척도 응답을 추정하거나 만들지 않는다."""
+
+GOAL_SYSTEM_PROMPT = """\
+너는 LUMI 인테이크의 ③ 목표 추론이다. 이번 세션에서 개선할 결과 지표를 S1 · S2 · S3 중에서 정한다.
+목표는 사용자가 고르는 니즈가 아니라, 사용자 상태가 어느 개념 정의에 해당하는지에 대한 판단이다.
+
+판단 순서:
+1. 사용자가 바라는 변화를 직접 말했으면(생각 좀 멈추고 싶어요 · 긴장을 풀고 싶어요) 가장 강한
+   단서다.
+2. 개념 카드의 정의 · 단서와 사용자 표현을 대조한다. 반복되는 생각이 중심이면 S1, 긴장·초조·떨림이
+   중심이면 S2, 오래 이어진 정신적 노력 뒤 지침·멍함이 중심이면 S3.
+3. 상태 단서(state_hints)로 기울인다 — 피로 후는 S3 쪽으로 강하게, 스트레스 후는 반복 사고 단서가
+   있으면 S1 · 없으면 S2, 스트레스 전은 S2 쪽으로 약하게. 규칙이 아니라 단서다.
+4. S1 · S2가 함께 보이면 주 S1 · 부 S2. S2 · S3가 함께 보이면 원인으로 — 오래 이어진 집중이면 S3,
+   사건·압박이면 S2. 재질문 답의 goal_hint가 있으면 따른다.
+5. 단서가 하나도 없으면 has_cues = false.
+
+- evidence_ids에는 아래 '개념 정의 근거' 목록의 ID만 쓴다. 목록이 비었으면 []다.
+- 진단하지 않는다. reason은 어떤 표현이 어느 정의에 맞았는지 한 문장으로."""
 
 
-def build_intake_input(request: CareRequest) -> str:
-    """intake에 보내는 사용자 메시지. FE 칩으로 받은 값은 그대로 쓰라고 함께 싣는다."""
+def _turn_lines(turns: Sequence[IntakeTurn]) -> list[str]:
+    lines = []
+    for t in turns:
+        answer = (
+            t.free_text if t.free_text is not None else json.dumps(t.answer, ensure_ascii=False)
+        )
+        lines.append(f"- [{t.slot.value}] {t.text} → {answer}")
+    return lines
+
+
+def build_read_input(request: CareRequest, turns: Sequence[IntakeTurn]) -> str:
+    """① 상황 읽기의 사용자 메시지 — 처음 입력과 앞선 질문·답."""
     parts = [f"## 사용자 입력\n{request.text}"]
-    chips = {
-        "goal": request.goal.value if request.goal else None,
-        "minutes_available": request.minutes_available,
-        "place": request.place.value if request.place else None,
-    }
-    given = {k: v for k, v in chips.items() if v is not None}
-    if given:
-        lines = "\n".join(f"- {k}: {v}" for k, v in given.items())
-        parts.append(f"## 사용자가 직접 고른 값(그대로 쓴다)\n{lines}")
+    if turns:
+        parts.append("## 앞선 질문과 답\n" + "\n".join(_turn_lines(turns)))
+        asked = [t for t in turns if t.slot.value.startswith("state")]
+        if asked and asked[-1].free_text is not None:
+            parts.append(
+                "## 지금 할 일\n마지막 시점 질문에 글로 답했다. "
+                "그 글로 order_condition을 다시 읽고, "
+                "그래도 압박 때문인지 오래 집중한 탓인지 갈리면 재질문(followup) 초안을 낸다."
+            )
     return "\n\n".join(parts)
+
+
+def build_goal_input(
+    request: CareRequest, intake: IntakeResult, hits: Sequence["DefinitionHit"]
+) -> str:
+    """③ 목표 추론의 사용자 메시지 — 입력 · 상황 · 개념 카드 · 검색된 개념 정의 근거."""
+    state = [
+        f"- 사용자 상태: {intake.order_condition.value if intake.order_condition else '미상'}",
+        f"- 사건: {intake.event or '-'}",
+        f"- 반복 사고 단서: {'있음' if intake.rumination_cue else '없음'}",
+        f"- 사용자 표현: {', '.join(intake.cues) or '-'}",
+        f"- 재질문 목표 단서: {', '.join(g.value for g in intake.goal_hint) or '-'}",
+        f"- 요약: {intake.summary or '-'}",
+    ]
+    if hits:
+        evidence = "\n".join(
+            f"- [{h.evidence_record_id}] {h.paper_id} {h.authors or ''} ({h.year or '-'})"
+            f" · {h.goal.value if h.goal else '경계'} 정의\n  {h.excerpt}"
+            for h in hits
+        )
+    else:
+        evidence = "검색된 근거가 없다. 개념 카드만으로 판단하고 evidence_ids는 []다."
+    return "\n\n".join(
+        [
+            f"## 사용자 입력\n{request.text}",
+            "## 상황(① 상황 읽기)\n" + "\n".join(state),
+            "## 개념 카드(팀 요약)\n" + cards_json(),
+            "## 개념 정의 근거(논문 원문)\n" + evidence,
+        ]
+    )
 
 
 # ── Planner — 고정 절차의 LLM 호출 2회(활동 선택 · 추천 이유). 절차는 nodes/planner.py ──────────
@@ -105,11 +170,21 @@ def outcome_names(outcomes: Sequence[Outcome]) -> str:
 def _state_lines(request: CareRequest, intake: IntakeResult) -> list[str]:
     goal = f"{intake.goal.value} — {GOAL_NAMES[intake.goal]}" if intake.goal else "미정"
     order = intake.order_condition
+    secondary = intake.secondary_goal
+    env = intake.environment
+    conditions = [
+        name
+        for name, ok in (("소리", env.audio), ("조용한 곳", env.quiet), ("화면", env.screen))
+        if ok is False
+    ]
     return [
-        f"- 목표: {goal}",
+        f"- 목표: {goal}"
+        + (f" (부목표 {secondary.value} — {GOAL_NAMES[secondary]})" if secondary else ""),
         f"- 사용자 상태: {ORDER_NAMES[order] + f'({order.value})' if order else '미상'}",
         f"- 쓸 수 있는 시간: {intake.minutes or '미상'}분",
-        f"- 장소: {intake.place.value if intake.place else '미상'}",
+        f"- 장소: {intake.place.value if intake.place else '미상'}"
+        + (f" · {intake.location.value}" if intake.location else ""),
+        f"- 지금 쓸 수 없는 것: {', '.join(conditions) or '없음'}",
         f"- 제약: {', '.join(intake.constraints) or '없음'}",
         f"- 이미지 제공: {IMAGE_DELIVERY[request.profile.content_type]}",
         f"- 요약: {intake.summary or '-'}",

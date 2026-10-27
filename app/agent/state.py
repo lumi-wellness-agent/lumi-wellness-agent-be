@@ -13,41 +13,44 @@ from typing import Annotated, Any, NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
-from app.schemas.care import CareGoal, CareRequest, Place
+from app.schemas.care import CareGoal, CareRequest, Environment, Location, Place
 from app.schemas.evidence import InterventionOrder
+from app.schemas.intake import GoalSource, IntakeQuestion, IntakeTurn
 from app.schemas.measure import Measurement
 
 
 class IntakeResult(BaseModel):
-    """intake의 구조화 출력. LLM은 분류만 하고 점수는 추정하지 않는다."""
+    """intake의 결과 — Goal · State · Context. 코드가 단계마다 채우고, 점수는 추정하지 않는다.
 
-    goal: CareGoal | None = Field(
-        default=None,
-        description="S1 반복적 생각에서 벗어나기 · S2 긴장·스트레스 완화 · S3 주의·피로 회복. "
-        "모호하면 null",
-    )
-    order_condition: InterventionOrder | None = Field(
-        default=None,
-        description="PRE_STRESS 스트레스가 예정됨(발표·면접 직전) · POST_STRESS 스트레스를 겪은 뒤 "
-        "· "
-        "POST_FATIGUE 오래 집중한 뒤 · NO_INDUCTION 특별한 유도 없음. 모르면 null",
-    )
-    minutes: int | None = Field(
-        default=None, gt=0, description="쓸 수 있는 시간(분). 말하지 않았으면 null"
-    )
-    place: Place | None = Field(default=None, description="INDOOR · OUTDOOR. 말하지 않았으면 null")
-    constraints: list[str] = Field(
-        default=[], description="활동 제약 — 이명, 멀미, 눈 피로, 소리를 틀 수 없음 …"
-    )
-    safety: bool = Field(default=False, description="자해·위기 등 안전 신호가 있으면 true")
-    safety_note: str | None = Field(default=None, description="안전 신호의 근거 한 줄")
-    missing_slots: list[str] = Field(
-        default=[],
-        description="채우지 못한 슬롯 이름(goal · minutes · place). 코드가 기본값으로 메운다",
-    )
-    summary: str | None = Field(
-        default=None, description="사용자 상태 한 줄 요약(플래너·Reference 카드용)"
-    )
+    - Goal: 이번 세션에서 개선할 결과 지표(S1 반추 · S2 긴장·스트레스 · S3 주의·피로). 사용자가
+      고르는 니즈가 아니라 개념 정의 근거와 상황 단서로 추론한다. 측정 척도 · 후보 · 평가를 정한다.
+    - State: 지금 상황(사건 전·후 · 오래 집중한 뒤 · 계기 없음). 대화로 정하고 Goal 추론의 단서가
+      된다.
+    - Context: 여건(장소 · 이어폰 · 시간). 칩으로 받고, 후보 활동을 거른다(environment).
+    """
+
+    # Goal
+    goal: CareGoal | None = None
+    secondary_goal: CareGoal | None = None  # 함께 보인 다른 목표(S1·S2 혼합 등). 측정은 goal만
+    goal_source: GoalSource | None = None
+    goal_evidence_ids: list[int] = []  # 판단에 쓴 개념 정의 레코드(evidence_records DEFINITION)
+    goal_reason: str | None = None  # 판단 근거 한 줄(Reference 카드 · 평가용)
+    # State
+    order_condition: InterventionOrder | None = None
+    event: str | None = None  # 사건·계기 짧게(발표 · 시험공부 …). 자세히 묻지 않는다
+    rumination_cue: bool = False  # 같은 생각·장면이 반복된다는 표현이 있다
+    goal_hint: list[CareGoal] = []  # 재질문 답이 가리킨 목표(스트레스 vs 피로)
+    cues: list[str] = []  # 판단에 쓴 사용자 표현(최대 3개)
+    # Context
+    location: Location | None = None
+    earphones: bool | None = None
+    environment: Environment = Environment()
+    minutes: int | None = Field(default=None, gt=0)
+    place: Place | None = None  # location에서 정한다(OUTDOOR → OUTDOOR, 그 밖 → INDOOR)
+    constraints: list[str] = []  # 이명 · 멀미 · 눈 피로 … (문장에서 읽은 것)
+    # 기타
+    missing_slots: list[str] = []  # 기본값으로 메운 칸 — FE가 "소리가 나와요" 같은 안내를 띄운다
+    summary: str | None = None  # 상태 한 줄 요약(플래너 · Reference 카드용)
 
 
 class PlannedActivity(BaseModel):
@@ -60,6 +63,12 @@ class PlannedActivity(BaseModel):
         description="검증을 통과한(usable) 근거의 Evidence Record ID. 목표를 지지하는 것이 앞. "
         "코드가 채운다",
     )
+
+
+def default_environment() -> Environment:
+    """장소를 끝내 모를 때의 가정 — 혼자 조용히 소리를 들을 수 있다. 활동 시작 화면이 "소리가
+    나와요" 안내와 "지금은 어려워요"(활동 변경)를 함께 보여 주는 조건이다(missing_slots)."""
+    return Environment(audio=True, quiet=True, screen=True, outdoor=False)
 
 
 class CarePlan(BaseModel):
@@ -158,21 +167,15 @@ class Round(BaseModel):
     next_step: NextStep
 
 
-class SessionEnd(StrEnum):
-    """intake가 세션을 열지 않고 끝낸 이유."""
-
-    SAFETY = "SAFETY"  # 안전 신호 → 세션 대신 안전 안내
-    NO_GOAL = (
-        "NO_GOAL"  # 목표를 정하지 못함 → FE가 목표 칩을 보여 주고 request.goal을 채워 다시 시작
-    )
-
-
 class CareState(TypedDict):
     """세션 하나(LangGraph thread 하나)의 상태. 라운드마다 plan~next_step을 덮어쓴다."""
 
-    request: CareRequest  # 사용자 자유 입력 + 칩 + 프로필
-    intake: NotRequired[IntakeResult]  # 목표 · 순서 조건 · 슬롯
-    ended: NotRequired[SessionEnd]
+    request: CareRequest  # 사용자 자유 입력 + 환경 칩 + 프로필
+    intake: NotRequired[IntakeResult]  # Goal · State · Context. intake 단계마다 갱신된다
+    # intake 진행 — 질문과 답(쌓인다), 대기 중인 질문, 개념 정의 검색어
+    intake_turns: NotRequired[Annotated[list[IntakeTurn], operator.add]]
+    pending_question: NotRequired[IntakeQuestion | None]
+    search_query: NotRequired[str]
     pre: NotRequired[list[Measurement]]  # 세션 시작 측정(SAM + 목표 척도)
     # 이번 라운드가 비교할 측정(SAM, S3는 + MFVAS). 첫 라운드는 pre에서 고른다
     round_pre: NotRequired[list[Measurement]]

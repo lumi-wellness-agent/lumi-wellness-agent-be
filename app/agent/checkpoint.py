@@ -38,12 +38,28 @@ from app.agent.state import (
     PlannedActivity,
     ReplanProposal,
     Round,
-    SessionEnd,
     SessionReport,
 )
 from app.config import get_settings
-from app.schemas.care import CareGoal, CareRequest, ContentType, Place, UserProfile
+from app.schemas.care import (
+    CareGoal,
+    CareRequest,
+    ContentType,
+    Environment,
+    Location,
+    Place,
+    UserProfile,
+)
 from app.schemas.evidence import InterventionOrder
+from app.schemas.intake import (
+    GoalSource,
+    IntakeQuestion,
+    IntakeTurn,
+    QuestionGroup,
+    QuestionOption,
+    QuestionSlot,
+    SelectMode,
+)
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 
 SCHEMA = "langgraph"
@@ -56,9 +72,17 @@ STATE_TYPES = (
     CareGoal,
     ContentType,
     Place,
+    Location,
+    Environment,
     IntakeResult,
     InterventionOrder,
-    SessionEnd,
+    GoalSource,
+    IntakeQuestion,
+    IntakeTurn,
+    QuestionGroup,
+    QuestionOption,
+    QuestionSlot,
+    SelectMode,
     Measurement,
     InstrumentId,
     Timepoint,
