@@ -155,7 +155,8 @@ class OutcomeEvaluation(BaseModel):
     round: int
     # 현재 MVP는 SAM valence·arousal 변화만 기록한다. 목표 지표의 직접 측정은 아님
     deltas: dict[str, float]
-    improved: bool | None  # SAM 기반 탐색 방향 지표. 목표 효과를 검증한 판정은 아님. None = 판정 불가
+    # SAM 기반 탐색 방향 지표. 목표 효과를 검증한 판정은 아님.
+    improved: bool | None  # None = 판정 불가
     completed: bool
 
 
