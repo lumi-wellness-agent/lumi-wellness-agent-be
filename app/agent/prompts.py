@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app.agent.state import CareState, IntakeResult, NextStep
-from app.intake_cues import cues_json
+from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
 from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Outcome
 from app.schemas.intake import IntakeTurn, QuestionSlot
@@ -47,7 +47,6 @@ READ_SYSTEM_PROMPT = """\
   goal_hint(S2 = 압박·사건, S3 = 오래 이어진 집중)를 붙인다.
 - rumination_cue: 같은 생각·장면이 반복된다는 표현이 있으면 true.
 - setting · earphones · minutes는 말에 나온 것만. 추측하지 않는다.
-- search_query는 영어 심리학 용어로 — 뒤 단계가 개념 정의 논문에서 찾는다.
 - 점수나 척도 응답을 추정하거나 만들지 않는다."""
 
 GOAL_SYSTEM_PROMPT = """\
@@ -57,8 +56,9 @@ GOAL_SYSTEM_PROMPT = """\
 판단 순서:
 1. 사용자가 바라는 변화를 직접 말했으면(생각 좀 멈추고 싶어요 · 긴장을 풀고 싶어요) 가장 강한
    단서다.
-2. 단서표의 단서 · 경계와 사용자 표현을 대조한다. 반복되는 생각이 중심이면 S1, 긴장·초조·떨림이
-   중심이면 S2, 오래 이어진 정신적 노력 뒤 지침·멍함이 중심이면 S3.
+2. 개념 정의(원문)로 S1 · S2 · S3가 각각 무엇을 가리키는지 잡고, 단서표의 단서 · 경계와 사용자
+   표현을 대조한다. 반복되는 생각이 중심이면 S1, 긴장·초조·떨림이 중심이면 S2, 오래 이어진 정신적
+   노력 뒤 지침·멍함이 중심이면 S3.
 3. 상태 단서(state_hints)로 기울인다 — 피로 후는 S3 쪽으로 강하게, 스트레스 후는 반복 사고 단서가
    있으면 S1 · 없으면 S2, 스트레스 전은 S2 쪽으로 약하게. 규칙이 아니라 단서다.
 4. S1 · S2가 함께 보이면 주 S1 · 부 S2. S2 · S3가 함께 보이면 원인으로 — 오래 이어진 집중이면 S3,
@@ -102,10 +102,7 @@ def build_read_input(request: CareRequest, turns: Sequence[IntakeTurn]) -> str:
 
 
 def build_goal_input(request: CareRequest, intake: IntakeResult) -> str:
-    """③ 목표 추론의 사용자 메시지 — 입력 · 상황 · 단서표.
-
-    개념 정의 JSON(②)이 오면 근거를 더한다.
-    """
+    """③ 목표 추론의 사용자 메시지 — 입력 · 상황 · 개념 정의(원문) · 단서표(팀 요약)."""
     state = [
         f"- 사용자 상태: {intake.order_condition.value if intake.order_condition else '미상'}",
         f"- 사건: {intake.event or '-'}",
@@ -118,6 +115,7 @@ def build_goal_input(request: CareRequest, intake: IntakeResult) -> str:
         [
             f"## 사용자 입력\n{request.text}",
             "## 상황(① 상황 읽기)\n" + "\n".join(state),
+            "## 개념 정의(원문)\n" + definitions_json(),
             "## 단서표(팀 요약)\n" + cues_json(),
         ]
     )

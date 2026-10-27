@@ -74,7 +74,6 @@ def reading(**update) -> StateReading:
         "setting": None,
         "earphones": None,
         "minutes": None,
-        "search_query": "state anxiety tense",
         "summary": "-",
         "question": None,
     }
@@ -338,7 +337,8 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
         CareGoal.S2,
         GoalSource.INFERRED,
     )
-    assert intake.target_outcomes == [Outcome.RUMINATION] and intake.goal_evidence == []
+    assert intake.target_outcomes == [Outcome.RUMINATION]
+    assert [e.paper_id for e in intake.goal_evidence] == ["P12", "N26", "N25", "N04", "N07", "N01"]
     assert intake.order_condition is InterventionOrder.POST_STRESS
     assert intake.setting is Setting.OFFICE_CAFE and intake.place is Place.INDOOR
     assert intake.earphones is False and intake.environment.audio is False

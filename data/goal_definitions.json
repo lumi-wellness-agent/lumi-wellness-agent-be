@@ -1,0 +1,71 @@
+{
+ "_about": "intake ② 개념 정의 — 목표(S1 · S2 · S3)가 무엇을 가리키는지 R1(상태 분석) 논문의 원문 문장으로 적는다. 단서표(intake_cues.json)는 팀 요약이고 이것은 원문 그대로다 — 줄바꿈 · 하이픈 · 쪽 넘김만 정리했고, 스캔본 N01은 텍스트 층의 OCR 오류를 쪽 이미지로 바로잡았다. page는 PDF 쪽 번호. ③ 목표 추론 입력에 통째로 넣고, 추론한 목표(와 부목표)의 정의를 IntakeResult.goal_evidence로 Reference 카드에 싣는다. 문장이 열 개 남짓이라 검색(RAG)하지 않는다.",
+ "goals": {
+  "S1": [
+   {
+    "paper_id": "P12",
+    "concept": "repetitive negative thinking",
+    "page": "1–2",
+    "sentence": "Repetitive negative thinking (RNT) poses such a transdiagnostic process being defined as a thinking process that is repetitive, passive, and/or relatively uncontrollable, and focused on negative content (Ehring & Watkins, 2008)."
+   },
+   {
+    "paper_id": "N26",
+    "concept": "rumination",
+    "page": "1",
+    "sentence": "Rumination is a common form of repetitive negative thinking involving persistent distressing thoughts (Martin & Tesser, 2006; Nolen-Hoeksema et al., 2008)."
+   },
+   {
+    "paper_id": "N25",
+    "concept": "state rumination",
+    "page": "2",
+    "sentence": "Rumination has recently been conceptualized as a state-dependent cognitive response, triggered by situational factors such as perceived discrepancies between goals and current circumstances (Michel-Kröhler et al., 2023; Smith & Alloy, 2009; Tamm et al., 2024)."
+   }
+  ],
+  "S2": [
+   {
+    "paper_id": "N04",
+    "concept": "stress",
+    "page": "2",
+    "sentence": "Stress means a situation in which a person feels tense, restless, nervous or anxious or is unable to sleep at night because his/her mind is troubled all the time."
+   },
+   {
+    "paper_id": "N07",
+    "concept": "state anxiety",
+    "page": "1",
+    "sentence": "The first questionnaire measures state anxiety (how one feels at the moment), the second, trait anxiety (how one generally feels)."
+   },
+   {
+    "paper_id": "N01",
+    "concept": "affect (pleasure · arousal)",
+    "page": "1",
+    "sentence": "The evidence suggests that these interrelationships can be represented by a spatial model in which affective concepts fall in a circle in the following order: pleasure (0°), excitement (45°), arousal (90°), distress (135°), displeasure (180°), depression (225°), sleepiness (270°), and relaxation (315°)."
+   }
+  ],
+  "S3": [
+   {
+    "paper_id": "P06",
+    "concept": "directed attention fatigue",
+    "page": "2",
+    "sentence": "More formally, any prolonged mental effort leads to directed attention fatigue."
+   },
+   {
+    "paper_id": "P06",
+    "concept": "directed attention fatigue",
+    "page": "2",
+    "sentence": "Any time one has worked intensely on a project and subsequently finds oneself mentally exhausted, one has experienced this unwelcome state."
+   },
+   {
+    "paper_id": "N27",
+    "concept": "mental fatigue",
+    "page": "1",
+    "sentence": "Mental fatigue represents a psychobiological state with subjective (e.g., an increase in feelings of tiredness), behavioral (e.g., motivation decrease or reaction time increase), and physiological (e.g., alterations in the electroencephalogram signal) derivations in humans [6]."
+   },
+   {
+    "paper_id": "N27",
+    "concept": "mental fatigue",
+    "page": "1",
+    "sentence": "This psychobiological state is caused by brain-demanding tasks (i.e., mental load), with a relevant role of emotional (e.g., anxiety or stress) and cognitive (e.g., working memory or cognitive flexibility) aspects [6]."
+   }
+  ]
+ }
+}
