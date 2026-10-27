@@ -10,7 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from app import protocols
-from app.schemas.care import CareGoal, ContentType
+from app.schemas.care import CareGoal, ContentType, Environment, Setting, environment_for
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.protocol import CareProtocol, Composition, StepType
 
@@ -87,6 +87,29 @@ def test_candidates_filter_by_order_and_minutes():
     assert [p.protocol_id for p in anyone] == ["PR-01", "PR-04"]
     assert LOADED["PR-01"].allows_order(InterventionOrder.NO_INDUCTION)
     assert not LOADED["PR-01"].allows_order(InterventionOrder.PRE_STRESS)
+
+
+def test_candidates_filter_by_environment_and_relax_in_order():
+    cafe = environment_for(Setting.OFFICE_CAFE, False)  # 이어폰 없는 카페 — 소리 X · 조용함 X
+    assert protocols.environment_gaps(LOADED["PR-09"], cafe) == ["AUDIO", "QUIET"]
+    home = environment_for(Setting.HOME, None)
+    assert protocols.environment_gaps(LOADED["PR-11"], home) == ["OUTDOORS"]  # 실외 걷기
+    assert protocols.environment_gaps(LOADED["PR-09"], None) == []  # 모르면 거르지 않는다
+    s1 = protocols.candidates(CareGoal.S1, minutes=5, environment=cafe)
+    assert [p.protocol_id for p in s1] == ["PR-15"]
+
+    # S3 + 사건 전(시험 앞두고 오래 공부함): 상태가 맞는 S3 활동이 없어 상태를 풀고 환경은 지킨다
+    search = protocols.plan_candidates(
+        CareGoal.S3, order=InterventionOrder.PRE_STRESS, minutes=10, environment=home
+    )
+    assert search.relaxed == ("order",)
+    assert [p.protocol_id for p in search.protocols] == ["PR-01", "PR-04"]
+    # 어떤 환경 조건도 안 되면 환경까지 푼다
+    nothing = Environment(audio=False, screen=False, quiet=False, outdoor=False)
+    search = protocols.plan_candidates(CareGoal.S1, minutes=5, environment=nothing)
+    assert search.relaxed == ("environment",) and search.protocols
+    # 시간은 풀지 않는다
+    assert protocols.plan_candidates(CareGoal.S1, minutes=2) == protocols.CandidateSearch([])
 
 
 def test_compact_is_what_the_planner_reads():

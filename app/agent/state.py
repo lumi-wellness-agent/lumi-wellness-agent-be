@@ -95,6 +95,12 @@ class CarePlan(BaseModel):
         description="추천 이유 2~3문장 — 사용자 상태, 고른 이유, 근거(저자·연도·지표)와 한계. "
         "사용자에게 보인다. Reference 카드의 사실(출처·플래그)은 evidence_record_ids에서 만든다"
     )
+    # 다 맞는 후보가 없어 푼 조건(protocols.plan_candidates) — order면 근거의 사용자 상태와 다르고,
+    # environment면 지금 환경에서 하기 어려운 활동일 수 있다
+    relaxed: list[str] = []
+    # 고른 활동이 지금 환경에서 어려운 이유(AUDIO · SCREEN · QUIET · OUTDOORS). FE가 "소리가 나와요"
+    # 같은 안내를 띄운다. 환경을 풀지 않았으면 비어 있다
+    environment_gaps: list[str] = []
 
 
 class ContentStep(BaseModel):
@@ -164,6 +170,9 @@ class ReplanProposal(BaseModel):
 
     recommended: NextStep
     reason: str
+    # 고를 수 있는 다음 단계 — 라운드 상한이면 END만, 바꿀 활동이 없으면 CHANGE_ACTIVITY를 뺀다
+    # (replanner.next_step_options). confirm payload의 options이고 세션 API가 결정을 이것으로 거른다
+    options: list[NextStep] = Field(default_factory=lambda: list(NextStep))
 
 
 class ReplanDecision(BaseModel):
