@@ -12,10 +12,11 @@
 - `evidence[].evidence_record_ids`는 적재 뒤 BE가 역기입하는 유일한 필드다.
 - 합격 기준: `make test-protocols`.
 
-## instruments/ — 측정 도구 3개
+## instruments/ — 측정 도구 4개
 
-`INS-SAM` · `INS-STAI6` · `INS-BSRI`. 문항 · 응답 척도 · 채점 규칙(`app/instruments.py`). SAM은 READY,
-STAI-6와 BSRI는 저작권·한국어판 확인 뒤 문항 원문을 채운다(`status: TODO`). LLM 번역 금지.
+`INS-SAM` · `INS-STAI6` · `INS-BSRI` · `INS-MFVAS`. 문항 · 응답 척도 · 채점 규칙(`app/instruments.py`).
+SAM은 READY, STAI-6와 BSRI는 저작권·한국어판 확인 뒤 문항 원문을 채운다(`status: TODO`). MFVAS는 S3용
+임시 도구다 — 팀이 쓴 문항이라 바로 제시하지만 타당화는 없다(`status: PROVISIONAL`). LLM 번역 금지.
 
 ## evidence_overrides.json — 사람이 확정한 근거 메타데이터
 

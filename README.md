@@ -6,7 +6,7 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 [lumi-wellness-agent-fe](https://github.com/lumi-wellness-agent/lumi-wellness-agent-fe)에서 개발합니다.
 
 현재는 에이전트 아키텍처 v2의 뼈대 단계입니다. 그래프 배선(intake → 사전 측정 → 계획 → 실행 대기 →
-사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 3개의
+사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(초안)와 측정 도구 4개의
 계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
 적재해 하이브리드 검색·검증이 돌고, intake·plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
 통과했습니다(`make plan-trial`). Reference 카드, 콘텐츠 생성, 세션 API는 아직입니다. 누가 무엇을 채우는지는
@@ -133,7 +133,8 @@ interrupt payload와 resume 값의 모양은 각 노드 docstring에 있습니�
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 재개 → plan → prepare → `run_session`에서 멈춤 | 계획·콘텐츠 |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | SAM 문항(S3는 + MFVAS) |
 | `POST /sessions/{id}/measure` — SAM 응답(S3는 + MFVAS) | 재개 → evaluate → replan → `confirm`에서 멈춤 | 평가·제안 |
-| `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → plan으로 돌아가거나, 종료면 `measure_final`에서 멈춤(S3는 바로 끝) | 새 계획·콘텐츠 또는 종료 측정 문항 |
+| `POST /sessions/{id}/decision` — `ReplanDecision` | 재개 → plan으로 돌아가거나, 종료면 `measure_final`에서 멈춤(S3는 바로 끝) | 새 계획·콘텐츠, 종료 측정 문항(S1·S2) 또는 세션 종료(S3) |
+| `POST /sessions/{id}/measure` — 종료 측정 응답(S1 BSRI · S2 STAI-6) | 재개 → `measure_final` 채점 → 끝 | 세션 종료 |
 
 체크포인터는 세션 상태를 Supabase Postgres의 `langgraph` 스키마에 저장합니다(`app/agent/checkpoint.py`).
 요청마다 다른 서버(서버리스 인스턴스)가 받아도 같은 세션을 이어 갑니다. `DATABASE_URL`이 비어 있으면
@@ -351,7 +352,7 @@ app/
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
 data/
 ├─ protocols/           활동 노드 JSON 21개 (PR-01 완성 예시, 나머지 초안)
-├─ instruments/         측정 도구 3개 (SAM · STAI-6 · BSRI)
+├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
 ├─ manifest.csv         논문 83편 매니페스트
