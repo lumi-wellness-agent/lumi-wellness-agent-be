@@ -1,6 +1,6 @@
 # ship 준비
 
-ship은 코드 수정을 끝낸 변경을 검증하고 이슈 → 브랜치 → PR → CI → `main` 머지까지 올리는 자동화입니다
+ship은 코드 수정을 끝낸 변경을 검증하고 이슈 → 브랜치 → PR → CI → `main` 머지 → Vercel 프로덕션 배포 확인까지 올리는 자동화입니다
 (README 「브랜치·PR 규칙」). 이 문서는 ship을 처음 쓰는 PC에서 한 번 해 둘 준비를 정리합니다.
 절차는 LLM 하네스가 읽는 명세 [`ship.md`](ship.md)·[`pipeline.md`](pipeline.md)에 있고, 하네스별 진입점은
 Claude Code [`.claude/commands/ship.md`](../.claude/commands/ship.md), Codex
@@ -90,7 +90,7 @@ Codex 데스크톱 앱에서 에이전트를 WSL로 돌리면(앱 설정에서 �
 오타 수정 같은 작은 문서 변경을 만들고 `$ship doc <설명>`(Claude Code는 `/ship doc <설명>`)으로 끝까지
 올려 봅니다. 실제로 이슈·PR이 만들어지고 `main`에 머지되므로 의미 있는 변경으로 합니다.
 
-- CI를 기다리는 동안 명령 하나가 최대 10분까지 응답 없이 붙잡혀 있는 것은 정상입니다. 중간에 끊지 않습니다.
+- CI·배포를 기다리는 동안 명령 하나가 최대 10분(배포 확인은 health 재시도까지 약 12분) 응답 없이 붙잡혀 있는 것은 정상입니다. 중간에 끊지 않습니다.
 - Codex가 명령 승인을 물으면 내용을 확인하고 승인합니다.
 - 이 문서대로 했는데 동작이 다르면, 확인한 내용으로 이 파일을 고쳐 둡니다.
 
@@ -102,5 +102,7 @@ Codex 데스크톱 앱에서 에이전트를 WSL로 돌리면(앱 설정에서 �
 | 커밋·브랜치 전환에서 `.git` 쓰기 거부 (Codex) | 3-2의 `writable_roots`가 없거나 경로가 다릅니다 |
 | CI 대기가 바로 `result=API_ERROR`로 끝남 | Codex는 3-1의 `network_access`를, 그 밖에는 gh 인증·네트워크를 확인합니다 |
 | `result=ERROR`와 "gh를 찾을 수 없다" | gh가 설치되지 않았거나 PATH에 없습니다 |
+| 배포 확인이 `result=NOT_FOUND`·`failure`로 끝남 | 팀원이 작성한 커밋이면 Hobby 플랜이 배포를 막았을 수 있습니다 → Vercel 대시보드에서 Redeploy합니다(README 「배포 (Vercel)」) |
+| 배포 확인이 `result=UNHEALTHY`로 끝남 | 배포는 됐지만 프로덕션 `/health/db`가 200이 아닙니다 → 마커 앞 줄의 `detail`대로 Vercel 환경변수·마이그레이션·`make checkpoint-setup`을 확인합니다 |
 | `$` 목록에 `ship`이 없음 (Codex) | 레포 밖에서 띄웠거나 프로젝트를 신뢰하지 않았습니다 |
 | 훅이 `bash\r: No such file or directory`로 실패 (WSL·Git Bash) | Windows git으로 받아 CRLF가 된 사본입니다 → 파일을 지우고 `git checkout -- <파일>`로 다시 받습니다 |

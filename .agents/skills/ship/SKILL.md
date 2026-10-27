@@ -1,6 +1,6 @@
 ---
 name: ship
-description: lumi-wellness-agent-be의 워킹 트리 변경을 검증(make lint·make test)하고 이슈 생성 → <타입>/#<이슈> 브랜치 → main PR → CI 게이트 → squash 머지 → main CI 확인까지 자동화한다 (하네스 중립 워크플로우 automation/ship.md의 Codex 어댑터). 사용자가 "ship", "$ship", "배포해줘", "PR 올려서 머지까지 해줘" 등 코드 수정이 끝난 변경을 main에 올리라고 하면 사용한다. 코드 수정·버그 분석 요청에는 쓰지 않는다. Codex에는 사용자 정의 슬래시 커맨드가 없어 "/ship"은 동작하지 않는다 — $ship 멘션이나 평문으로 부른다.
+description: lumi-wellness-agent-be의 워킹 트리 변경을 검증(make lint·make test)하고 이슈 생성 → <타입>/#<이슈> 브랜치 → main PR → CI 게이트 → squash 머지 → main CI 확인 → Vercel 프로덕션 배포 확인까지 자동화한다 (하네스 중립 워크플로우 automation/ship.md의 Codex 어댑터). 사용자가 "ship", "$ship", "배포해줘", "PR 올려서 머지까지 해줘" 등 코드 수정이 끝난 변경을 main에 올리라고 하면 사용한다. 코드 수정·버그 분석 요청에는 쓰지 않는다. Codex에는 사용자 정의 슬래시 커맨드가 없어 "/ship"은 동작하지 않는다 — $ship 멘션이나 평문으로 부른다.
 ---
 
 # ship (Codex 어댑터)
@@ -21,8 +21,8 @@ description: lumi-wellness-agent-be의 워킹 트리 변경을 검증(make lint�
 
 ## Codex 폴링 모드 (`automation/pipeline.md` 「폴링 실행 규칙」의 Codex 모드)
 
-- 배경 재호출 프리미티브가 없으므로 CI·PR 체크 폴링은 `automation/bin/`의 폴링 스크립트(`pr_gate.py`·`run_wait.py`)를 가상환경 python으로 **포그라운드 블로킹 호출**로 **한 번의 셸 호출**로 완료까지 실행한다 — 스크립트가 종료 마커를 출력하고 반환할 때까지 그 호출이 블로킹된다.
-- 스크립트 출력은 파일로 리다이렉트(`> "$LOG" 2>&1`)하고 마커를 `tail`로 읽는다. 스크립트 내부 타임아웃을 상한으로 삼고, **셸 명령 타임아웃은 그보다 넉넉히** 설정한다 (예: 게이트 10분 → 셸 15분+). 없으면 스크립트가 셸 타임아웃에 먼저 끊겨 미완료로 오판될 수 있다.
+- 배경 재호출 프리미티브가 없으므로 CI·PR 체크·Vercel 배포 폴링은 `automation/bin/`의 폴링 스크립트(`pr_gate.py`·`run_wait.py`·`deploy_wait.py`)를 가상환경 python으로 **포그라운드 블로킹 호출**로 **한 번의 셸 호출**로 완료까지 실행한다 — 스크립트가 종료 마커를 출력하고 반환할 때까지 그 호출이 블로킹된다.
+- 스크립트 출력은 파일로 리다이렉트(`> "$LOG" 2>&1`)하고 마커를 `tail`로 읽는다. 스크립트 내부 타임아웃을 상한으로 삼고, **셸 명령 타임아웃은 그보다 넉넉히** 설정한다 (예: 게이트 10분 → 셸 15분+, 배포 대기는 health 재시도까지 최대 약 12분 → 셸 15분+). 없으면 스크립트가 셸 타임아웃에 먼저 끊겨 미완료로 오판될 수 있다.
 - 폴링 스크립트는 `gh`를 반복 호출하므로 **샌드박스에 네트워크가 열려 있어야 한다** — `~/.codex/config.toml`(Windows는 `%USERPROFILE%\.codex\config.toml`)의 `[sandbox_workspace_write] network_access = true`. 닫혀 있으면 첫 호출이 `result=API_ERROR`로 끝난다: 이를 GitHub 장애로 추측하거나 `TIMEOUT`으로 바꾸지 말고, 설정을 안내하고 중단한다 (`approval_policy = "never"`에서는 승인 상승을 요청할 수 없다).
 - 검증(Phase 2)의 `make` 명령은 폴링과 분리된 별도 셸 호출로 돌린다. 폴링 스크립트는 표준 라이브러리 Python에서 `gh`만 부른다.
 

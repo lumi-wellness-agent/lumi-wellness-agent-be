@@ -284,6 +284,7 @@ FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나�
 
 환경 변수는 Vercel 프로젝트의 Settings → Environment Variables에 넣고, 바꾼 뒤에는 다시 배포해야 반영됩니다.
 배포한 뒤 `https://<배포 주소>/health/db`가 200이면 DB 연결·확장·체크포인트 테이블이 준비된 것입니다.
+ship은 머지한 뒤 이 확인까지 자동으로 합니다(`automation/pipeline.md` Step 3).
 Hobby 플랜은 함수 실행을 300초에서 끊고, 프로젝트 소유자가 작성한 커밋만 배포해 팀원 커밋이 배포되지 않을 수
 있습니다. 그때는 Vercel 대시보드에서 Redeploy합니다.
 
@@ -304,7 +305,7 @@ feature → `main`으로 올립니다. 인프라가 Supabase 하나라 `dev`를 
 
 위 1~3을 자동화한 것이 **ship 하네스**입니다. 코드 수정을 끝낸 뒤 Claude Code에서는 `/ship`, Codex에서는
 `$ship`(또는 "ship"·"배포해줘")으로 부르면 검증(`make lint`·`make test`) → 이슈·브랜치 생성 → PR → CI 게이트
-→ squash 머지 → main CI 확인까지 진행합니다. 절차 원본은 하네스 중립 명세 `automation/ship.md`·
+→ squash 머지 → main CI 확인 → Vercel 프로덕션 배포·`/health/db` 확인까지 진행합니다. 절차 원본은 하네스 중립 명세 `automation/ship.md`·
 `automation/pipeline.md`이고, `.claude/commands/ship.md`와 `.agents/skills/ship/SKILL.md`는 각 하네스의
 진입 어댑터입니다. 폴링·게이트 스크립트(`automation/bin/`)는 표준 라이브러리만 쓰는 Python이라
 bash·jq가 필요 없고, `tests/automation/`이 `make test`로 회귀 검증합니다. 처음 쓰는 PC에서 할
