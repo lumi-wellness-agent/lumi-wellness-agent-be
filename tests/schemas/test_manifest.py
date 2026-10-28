@@ -1,4 +1,4 @@
-"""계약 1 — data/manifest.csv(83편)와 JSON(활동 노드 · 측정 도구)·fixture의 논문 ID가 실재하는지."""
+"""계약 1 — data/manifest.csv(84편)와 JSON(활동 노드 · 측정 도구)·fixture의 논문 ID가 실재하는지."""
 
 import csv
 import json
@@ -17,8 +17,8 @@ ROWS = list(csv.DictReader(MANIFEST.open(encoding="utf-8")))
 IDS = {row["rc_id"] for row in ROWS}
 
 
-def test_83_unique_rc_ids():
-    assert len(ROWS) == 83 and len(IDS) == 83
+def test_84_unique_rc_ids():
+    assert len(ROWS) == 84 and len(IDS) == 84
     assert all(PAPER_ID.match(pid) for pid in IDS)
 
 
@@ -27,7 +27,7 @@ def test_design_counts_match_master_sheet():
     assert counts == {
         StudyDesign.THEORY_REVIEW: 5,
         StudyDesign.SYSTEMATIC_REVIEW_META: 18,
-        StudyDesign.SCALE_DEVELOPMENT: 13,
+        StudyDesign.SCALE_DEVELOPMENT: 14,
         StudyDesign.RANDOMIZED_EXPERIMENT: 35,
         StudyDesign.QUASI_EXPERIMENT: 7,
         StudyDesign.OBSERVATIONAL: 5,
@@ -40,7 +40,7 @@ def test_fulltext_status():
         FulltextStatus(row["fulltext_status"])
         by_status.setdefault(row["fulltext_status"], set()).add(row["rc_id"])
         assert bool(row["pdf_path"]) == (row["fulltext_status"] != "MISSING")
-    assert by_status["MISSING"] == {"E02", "E13", "N06", "N10", "N23", "P30"}
+    assert by_status["MISSING"] == {"E02", "E13", "N06", "N10", "N23", "N28", "P30"}
     assert by_status["IMAGE_PDF"] == {"N02", "N03", "N09", "P05", "P26", "P27"}
 
 
