@@ -12,7 +12,7 @@ from app.schemas.card import CardBadge, ReferenceCard
 from app.schemas.care import CareGoal
 from app.schemas.evidence import InterventionOrder, Medium, Outcome, Section
 from app.schemas.intake import GoalSource
-from app.schemas.measure import InstrumentId
+from app.schemas.measure import GOAL_SCALE, InstrumentId
 from app.schemas.retrieval import Flag
 from tests.agent import fakes
 
@@ -74,11 +74,18 @@ def test_s3_card_groups_chunks_and_states_what_lumi_measures():
     assert got.goal.measured_by.instrument_id is InstrumentId.MFVAS
     assert got.goal.measured_by.provisional is True
     assert reference_card.MEASURE_GAPS[CareGoal.S3] in got.goal.notes
+    assert reference_card.PROVISIONAL_NOTES[InstrumentId.MFVAS] in got.goal.notes
     assert CardBadge.PROVISIONAL_MEASURE in got.badges
     assert got.grades == {
         Outcome.ATTENTION: protocols.get_protocol("PR-01").grades[Outcome.ATTENTION].grade
     }
     assert got.limits[0] == reference_card.GENERAL_LIMIT
+
+
+def test_every_goal_scale_has_a_provisional_note():
+    # 목표 척도가 PROVISIONAL이면 카드가 이 표에서 문장을 꺼낸다 — 목표 척도를 더하면 문장도 더한다
+    scales = {scale for scale in GOAL_SCALE.values() if scale}
+    assert scales <= set(reference_card.PROVISIONAL_NOTES)
 
 
 def test_a_review_is_one_entry_and_a_matching_experiment_keeps_the_card_unadapted():
@@ -114,6 +121,8 @@ def test_default_goal_without_evidence_uses_the_protocol_note_for_the_adapted_sc
     ]
     assert got.evidence == [] and got.goal.definitions == []
     assert got.goal.notes[0] == "상황 단서가 부족해 기본 목표(긴장·스트레스 완화)로 시작했습니다."
+    # STAI-6은 검증된 영어판의 번역 초안 — 팀이 만든 척도라고 적지 않는다
+    assert got.goal.notes[1:] == [reference_card.TRANSLATED_DRAFT_NOTE]
     note = protocols.get_protocol("PR-06").content_spec.model_dump()["reference_card_note"]
     assert got.limits == [
         reference_card.GENERAL_LIMIT,
