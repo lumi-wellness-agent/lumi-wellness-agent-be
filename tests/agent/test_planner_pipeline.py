@@ -261,3 +261,17 @@ def test_demo_s2_session_offers_breathing_first():
     ids = [p.protocol_id for p in found]
     assert ids[0] == "PR-06"
     assert ids.index("PR-03") > ids.index("PR-06")
+
+
+def test_short_time_without_a_fitting_activity_keeps_the_evidence_dose():
+    # S3에서 3분 칩 — 3분 안의 S3 활동이 없어 시간을 풀고, 활동은 줄이지 않고 근거 용량(6분)으로
+    state = {
+        "request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S3, order_condition=InterventionOrder.POST_FATIGUE, minutes=3
+        ),
+    }
+    plan = run_plan(RecordingPlanner(choice("PR-01")), state)
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.protocol_id == "PR-01"
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-01").duration_minutes.default)

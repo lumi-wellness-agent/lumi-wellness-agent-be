@@ -14,7 +14,9 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 
 후보는 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로 거른다. 다 맞는 것이 없으면
 사용자 상태 → 환경 순으로 풀고(protocols.plan_candidates), 푼 조건을 CarePlan.relaxed에, 고른 활동이
-환경에서 어려운 이유를 environment_gaps에 남긴다. 시간은 풀지 않는다.
+환경에서 어려운 이유를 environment_gaps에 남긴다. 시간은 그래도 없을 때만 맨 마지막에
+풀고(짧은 시간 칩), 그때 활동 시간은 줄이지 않고 근거 용량(프로토콜 기본값)을 쓴다 — relaxed에
+minutes가 남는다.
 
 LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
 순서 · 시간 · 환경 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
@@ -154,7 +156,7 @@ def check_plan(
         problems.append(f"활동 시간 {activity.minutes}분이 최소 {duration.min}분보다 짧다")
     if duration.max is not None and activity.minutes > duration.max:
         problems.append(f"활동 시간 {activity.minutes}분이 최대 {duration.max}분보다 길다")
-    if intake.minutes and activity.minutes > intake.minutes:
+    if "minutes" not in relaxed and intake.minutes and activity.minutes > intake.minutes:
         problems.append(f"활동 시간 {activity.minutes}분이 가용 시간 {intake.minutes}분을 넘는다")
     rounds = state.get("rounds") or []
     if (
@@ -351,6 +353,8 @@ def make_plan_node(planner: Planner):
         if search.relaxed:
             log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
         by_id = {p.protocol_id: p for p in found}
+        # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
+        available = None if "minutes" in search.relaxed else session.minutes_available
         candidates = [protocols.compact(p) for p in found]
 
         progress({"node": "plan", "step": "choose_activity"})
@@ -362,11 +366,11 @@ def make_plan_node(planner: Planner):
                 problems = [f"{choice.protocol_id}는 후보 목록에 없다"]
                 known = protocols.get_protocol(choice.protocol_id)
                 if known is not None:  # 왜 후보가 아닌지도 알려 준다
-                    minutes = protocols.planned_minutes(known, session.minutes_available)
+                    minutes = protocols.planned_minutes(known, available)
                     activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
                     problems += check_plan(activity, state, search.relaxed)
                 continue
-            minutes = protocols.planned_minutes(protocol, session.minutes_available)
+            minutes = protocols.planned_minutes(protocol, available)
             activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
             problems = check_plan(activity, state, search.relaxed)
             if not problems:

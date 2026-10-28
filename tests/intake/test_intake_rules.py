@@ -282,11 +282,11 @@ def test_context_asks_only_slots_that_change_the_top_activity():
     assert [(g.key, g.select.value, len(g.options)) for g in q.groups] == [
         ("setting", "single", 4),
         ("earphones", "single", 2),
-        ("minutes", "single", 3),
+        ("minutes", "single", 4),  # 3분 · 5분 · 10분 · 20분 이상
     ]
     assert [o.set for o in q.groups[1].options] == [{"earphones": True}, {"earphones": False}]
     assert all(o.label != UNKNOWN_LABEL for g in q.groups for o in g.options)
-    assert q.groups[2].options[-1].label == "20분 이상"
+    assert q.groups[2].options[0].label == "3분" and q.groups[2].options[-1].label == "20분 이상"
     assert rules.context_question([], 2) is None
 
 

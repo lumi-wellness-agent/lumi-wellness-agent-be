@@ -40,6 +40,7 @@ from app.schemas.intake import (
     MAX_STATE_TURNS,
     MAX_TURNS,
     MIN_OPTIONS,
+    MINUTES_ASK_BOUNDARIES,
     MINUTES_CHOICES,
     SKIP_LABEL,
     UNKNOWN_LABEL,
@@ -399,7 +400,7 @@ def context_groups(intake: IntakeResult) -> list[str]:
         ):
             groups.append("earphones")
     if intake.minutes is None:
-        if len({top_activity(intake, minutes=m) for m in MINUTES_CHOICES}) > 1:
+        if len({top_activity(intake, minutes=m) for m in MINUTES_ASK_BOUNDARIES}) > 1:
             groups.append("minutes")
     return groups
 

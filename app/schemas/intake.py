@@ -52,7 +52,10 @@ MAX_TURNS = 3  # 질문 합계 상한(State + Context)
 MAX_STATE_TURNS = 2  # 시점 질문 + 재질문 1회
 MIN_OPTIONS = 2  # single 묶음 보기 수(잘 모르겠어요 포함)
 MAX_OPTIONS = 5
-MINUTES_CHOICES = (5, 10, 20)  # 추천이 바뀌는 경계. 20 = 20분 이상
+# 시간 칩 · 보기. 3 = 짧은 활동(PR-20 1–2분 · PR-09 3분), 20 = 20분 이상
+MINUTES_CHOICES = (3, 5, 10, 20)
+# 시간을 되물을지 판단하는 경계. 3분은 보기에만 둔다 — 넣으면 S2마다 시간을 더 묻게 된다
+MINUTES_ASK_BOUNDARIES = (5, 10, 20)
 UNKNOWN_LABEL = "잘 모르겠어요"
 OPENING_TEXT = "오늘 상황이 어떠세요?"  # FE 시작 화면의 고정 질문(답 = CareRequest.text)
 SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → S2 DEFAULT
