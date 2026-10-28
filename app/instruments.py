@@ -1,10 +1,10 @@
-"""측정 도구 — 문항·응답 척도·채점. data/instruments/INS-*.json이 원천이고 LLM은 어디에도 없다.
+"""측정 도구 — 문항·응답 척도·채점. data/instruments/INS-*.json이 원천이다.
 
 measure_pre · measure_post · measure_final(app/agent/nodes/measure.py)이 present()로 interrupt에
 문항을 싣고, FE 응답을 score()로 채점해 Measurement(app/schemas/measure.py)로 남긴다.
-문항 원문(text)이 비어 있는 도구(status TODO)는 measure 담당이 저작권·한국어판을 확인한 뒤 채운다.
-LLM 번역 금지 — 척도는 번역·타당화된 문항만 쓴다. PROVISIONAL은 팀이 쓴 임시 문항(번역 아님)으로
-제시는 하되 타당화가 없다 — Reference 카드에 '미검증'을 적는다(INS-MFVAS).
+PROVISIONAL은 출처 문항의 한국어 번역 초안 또는 팀 작성 임시 문항을 내부 시험에 제시하는 상태다.
+화면에는 '한국어 번역본 · 내부 시험용'으로 표시하고, 검증된 한국어판처럼 해석하지 않는다.
+READY는 확인된 문항을 제시하는 상태, TODO는 제시 문구가 아직 없는 상태다.
 """
 
 from collections.abc import Mapping
@@ -59,8 +59,9 @@ class Instrument(BaseModel):
     scale: Scale
     scoring: Scoring
     license_note: str | None = None
-    # READY = 문항 원문까지 채워져 제시할 수 있다.
-    # PROVISIONAL = 제시는 하지만 임시·미검증(팀이 쓴 문항). TODO = 원문을 아직 못 채웠다
+    # READY = 확인된 문항을 제시한다.
+    # PROVISIONAL = 번역 초안 또는 임시 문항을 내부 시험에 제시한다.
+    # TODO = 제시 문구가 아직 없다.
     status: Literal["READY", "PROVISIONAL", "TODO"] = "TODO"
     note: str | None = None
 
