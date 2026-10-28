@@ -1,7 +1,9 @@
 """설정(.env)으로 세션 그래프를 조립한다. 공급자는 OpenAI(1순위) → Anthropic(폴백), 모델은 하나씩.
 
-- OPENAI_API_KEY가 있으면 openai(LLM_MODEL, 기본 gpt-4o-mini)를, ANTHROPIC_API_KEY가 있으면
+- OPENAI_API_KEY가 있으면 openai(LLM_MODEL, 기본 gpt-5.4-mini)를, ANTHROPIC_API_KEY가 있으면
   anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5)을 등록한다. 둘 다 비면 조립하지 않는다.
+- reasoning_effort는 보내지 않는다. gpt-5.4-mini는 기본이 none이라 추론 토큰이 0이고(10-28 실측),
+  gpt-4o-mini 같은 비추론 모델은 이 인자를 400으로 거부해 LLM_MODEL을 되돌리면 늘 폴백으로 간다.
 - 재시도·폴백 규칙은 app/agent/llm.py — 5xx·네트워크는 재시도 1회, 4xx는 즉시 다음 공급자.
   벤더 SDK의 자체 재시도는 끈다(max_retries=0). 호출 1회는 LLM_TIMEOUT_SECONDS에서 끊는다 —
   SDK 기본값(OpenAI 600초)은 Vercel 함수 한도(Hobby 300초)보다 길다. 타임아웃은 재시도 대상이다.

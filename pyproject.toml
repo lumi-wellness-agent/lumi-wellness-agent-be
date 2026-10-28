@@ -17,7 +17,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.2",
     # intake·plan의 구조화 출력(with_structured_output)과 메시지 타입. Tool 루프(create_agent)는 쓰지 않는다
     "langchain-core>=1.6",
-    # intake·plan의 모델 공급자(app/agent/assembly.py). 1순위 OpenAI(LLM_MODEL, 기본 gpt-4o-mini),
+    # intake·plan의 모델 공급자(app/agent/assembly.py). 1순위 OpenAI(LLM_MODEL, 기본 gpt-5.4-mini),
     # 폴백 Anthropic(FALLBACK_MODEL, 기본 claude-haiku-5-5). 재시도·폴백 규칙은 app/agent/llm.py
     "langchain-openai>=1.7",
     "langchain-anthropic>=1.7",
