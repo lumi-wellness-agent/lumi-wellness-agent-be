@@ -283,3 +283,24 @@ def test_scenery_without_enough_photos_is_topped_up_from_protocol_query(monkeypa
     assert calls == ["calm sea horizon", "calm forest water"]
     assert len(result.assets) == 25
     assert any("좋아하는 풍경 sea" in w for w in result.warnings)
+
+
+def test_single_photo_slot_asks_only_the_first_scenery(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    protocol = get_protocol("PR-03")  # VISUAL_STILL 1장
+    assert protocol is not None
+    result = resolve_activity_assets(
+        protocol,
+        CareRequest(text="-", profile=UserProfile(preferred_scenery=["sea", "forest", "sky"])),
+        settings=Settings(pixabay_api_key="secret"),
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: (_ for _ in ()).throw(AssertionError())
+            )
+        ),
+    )
+    assert captured == [("calm sea horizon", 1)]
+    assert len(result.assets) == 1

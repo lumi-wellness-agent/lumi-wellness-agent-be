@@ -87,6 +87,9 @@ EXCLUDED_IMAGE_TAGS = (
     "temple",
     "monument",
     "bridge",
+    "boat",
+    "ship",
+    "pier",
     "road",
     "street",
     "car",
@@ -282,7 +285,8 @@ class FreesoundProvider:
         params = {
             "query": query,
             "fields": (
-                "id,name,username,license,url,previews,duration,tags,avg_rating,num_downloads"
+                "id,name,username,license,url,previews,duration,tags,"
+                "avg_rating,num_downloads"
             ),
             "sort": "rating_desc",
             "page_size": 100,

@@ -67,9 +67,13 @@ def personalized_photos(
     """좋아하는 풍경마다 나눠 받아 번갈아 섞는다. 모자라면 명세 기본 검색어로 채운다.
 
     자산 metadata에 preferred_scenery(그 사진을 고른 풍경)와 query를 남긴다 — FE가 "좋아하는 ○○
-    풍경으로 골랐어요"를 보이고, Reference 카드가 연구 자극과 다르다(ADAPTED_STIMULUS)는 근거로
-    쓴다.
+    풍경으로 골랐어요"를 보인다. 연구 자극과 다르다는 표시(ADAPTED_STIMULUS)를 Reference 카드에 잇는
+    것은 아직이다(카드는 plan이 자산보다 먼저 만든다).
+
+    사진이 풍경 수보다 적으면(PR-03 · 21은 1장) 앞의 풍경만 부른다. 기본 검색어로 채우다 실패해도
+    받은 사진은 돌려준다.
     """
+    sceneries = sceneries[:count]
     each = -(-count // len(sceneries))  # 올림
     groups: list[list[ActivityAsset]] = []
     warnings: list[str] = []
@@ -89,7 +93,16 @@ def personalized_photos(
     seen: set[str] = set()
     photos = [a for a in mixed if not (a.url in seen or seen.add(a.url))][:count]
     if len(photos) < count:
-        for asset in pixabay.search_images(fallback_query, count=count):
+        try:
+            extra = pixabay.search_images(fallback_query, count=count)
+        except ContentProviderError as exc:
+            if not photos:
+                raise
+            warnings.append(
+                f"VISUAL_STILL: 기본 검색어로 채우지 못해 {len(photos)}장만 보임 ({exc})"
+            )
+            extra = []
+        for asset in extra:
             if asset.url not in seen and len(photos) < count:
                 seen.add(asset.url)
                 photos.append(asset)
