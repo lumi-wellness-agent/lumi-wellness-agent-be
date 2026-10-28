@@ -85,7 +85,7 @@ prepare가 그대로 FE에 넘긴다(README 「RUN 페이로드」). `scratch/pr
 
 | 파일 | 할 일 |
 | --- | --- |
-| `data/instruments/INS-STAI6.json` `INS-BSRI.json` | 문항 원문 `text`와 `instruction`을 채우고 `status`를 `READY`로. STAI는 Mind Garden 허가·한국어판, BSRI는 한국어판 출처 확인. **LLM 번역 금지** |
+| `data/instruments/INS-STAI6.json` `INS-BSRI.json` | 승인된 한국어 번역 초안을 넣고 `PROVISIONAL`로 내부 시험한다. STAI는 원문 표의 6개 표현 기반 문장 초안, BSRI는 첨부 자료의 전체 8문항 번역. PRE/FINAL에서 측정한다 |
 | `app/instruments.py` | 채점은 되어 있다(STAI-6 역채점 후 합 × 20/6, BSRI 평균, SAM 문항별). 제시 형식(`present`)에 FE가 필요한 값을 더한다 |
 | `app/agent/nodes/measure.py` | interrupt payload·resume 모양을 FE와 맞춘다. 사전은 SAM + 목표 척도, 라운드 사이는 SAM(S3는 + MFVAS), 종료는 STAI-6 · BSRI만 |
 | `tests/measure/` | `make test-measure` |

@@ -1,4 +1,4 @@
-"""측정 도구 — data/instruments/*.json 계약과 채점. 문항 원문 채우기는 measure 담당의 일이다."""
+"""측정 도구 — instrument 계약·번역 payload·채점."""
 
 import pytest
 
@@ -35,8 +35,11 @@ def test_sam_is_ready_and_scores_per_item():
     assert payload["items"][0]["low_label"] == "불쾌" and payload["scale"]["max"] == 9
 
 
-def test_stai6_prorated_sum_with_reverse_items():
+def test_stai6_translation_and_prorated_sum_with_reverse_items():
     stai6 = LOADED[InstrumentId.STAI6]
+    assert stai6.status == "PROVISIONAL"
+    assert "한국어 번역본 · 내부 시험용" in stai6.name
+    assert all(item.text for item in stai6.items)
     assert stai6.scoring.kind is ScoringKind.SUM_PRORATED and stai6.scoring.prorate_items == 20
     assert [i.id for i in stai6.items if i.reverse] == ["calm", "relaxed", "content"]
     calmest = {"calm": 4, "tense": 1, "upset": 1, "relaxed": 4, "content": 4, "worried": 1}
@@ -45,8 +48,11 @@ def test_stai6_prorated_sum_with_reverse_items():
     assert score(stai6, most_anxious) == {"total": 80.0}
 
 
-def test_bsri_mean():
+def test_bsri_translation_and_mean():
     bsri = LOADED[InstrumentId.BSRI]
+    assert bsri.status == "PROVISIONAL"
+    assert "한국어 번역본 · 내부 시험용" in bsri.name
+    assert all(item.text for item in bsri.items)
     answers = {f"item{i}": 10 * i for i in range(1, 9)}
     assert score(bsri, answers) == {"mean": 45.0}
 
@@ -89,10 +95,14 @@ def test_measure_builds_measurement_and_drops_unknown_keys():
 def test_presentable_instrument_needs_item_text(status):
     doc = LOADED[InstrumentId.STAI6].model_dump()
     doc["status"] = status
+    doc["items"][0]["text"] = None
     with pytest.raises(ValueError, match="text"):
         Instrument.model_validate(doc)
 
 
-def test_todo_instruments_are_named_for_the_measure_owner():
-    todo = sorted(i.value for i, ins in LOADED.items() if ins.status == "TODO")
-    assert todo == ["INS-BSRI", "INS-STAI6"]  # 문항 원문·한국어판 확인 뒤 READY로 바꾼다
+def test_stai6_and_bsri_are_available_as_internal_translation_drafts():
+    for instrument_id in (InstrumentId.STAI6, InstrumentId.BSRI):
+        instrument = LOADED[instrument_id]
+        assert instrument.status == "PROVISIONAL"
+        assert all(item.text for item in instrument.items)
+        assert "한국어 번역본 · 내부 시험용" in instrument.name
