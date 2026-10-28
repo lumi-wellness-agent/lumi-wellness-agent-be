@@ -1,7 +1,9 @@
-"""scripts/rag_eval.py의 DB 없는 부분 — 지표, chunk → 레코드 접기, 매체별 순위 합치기, 정답,
-케이스 파일. 실제 검색은 DB와 OPENAI_API_KEY가 필요해 `make rag-eval ARGS="run"`으로 따로 돌린다.
+"""scripts/rag_eval.py의 DB 없는 부분 — 지표(다른 활동 근거 비율 포함), chunk → 레코드 접기, 매체별
+순위 합치기, 정답, 케이스 파일, 결과 비교. 실제 검색은 DB와 OPENAI_API_KEY가 필요해
+`make rag-eval ARGS="run"`으로 따로 돌린다.
 """
 
+import json
 import math
 
 from app import protocols
@@ -27,6 +29,36 @@ def test_metrics_count_records_not_chunks():
     none = rag_eval.metrics(ranks, [C])
     assert none["hit@10"] == 0.0 and none["recall@10"] == 0.0 and none["mrr"] == 0.0
     assert math.isnan(rag_eval.recall_at(ranks, [], 5))
+
+
+def test_foreign_counts_top_records_outside_the_activity_evidence():
+    ranks = {A: 1, B: 3, C: 6}
+    assert rag_eval.foreign(ranks, {A}) == [B]  # C는 6위라 plan이 검증에 넘기는 상위 5 밖
+    assert rag_eval.foreign_at(ranks, {A}) == 0.5
+    assert rag_eval.foreign_at(ranks, {A, B}) == 0.0
+    assert rag_eval.foreign_at({}, {A}) == 0.0  # 아무것도 못 찾았으면 섞인 것도 없다
+
+
+def test_compare_shows_a_dash_for_metrics_older_results_lack(tmp_path):
+    def saved(foreign: float | None) -> str:
+        metrics = {m: 0.5 for m in rag_eval.METRICS if m != "foreign@5"}
+        if foreign is not None:
+            metrics["foreign@5"] = foreign
+        result = {"case": "PR-01-S3-template", "mode": "hybrid", "gold": ["P03/P03-E1"]}
+        return json.dumps(
+            {
+                "meta": {"db": "lumi-pg", "at": "-"},
+                "summary": {"template/hybrid": {"n": 1, **metrics}},
+                "results": [{**result, "metrics": metrics}],
+            }
+        )
+
+    before, after = tmp_path / "before.json", tmp_path / "after.json"
+    before.write_text(saved(None), encoding="utf-8")
+    after.write_text(saved(0.0), encoding="utf-8")
+    lines = rag_eval.compare(before, after).splitlines()
+    assert lines[2].startswith("template/hybrid") and lines[2].split()[-1] == "—"
+    assert lines[-1] == "hybrid recall@5 · foreign@5가 바뀐 케이스 없음"
 
 
 def test_merge_rankings_keeps_best_score_and_breaks_ties_by_id():

@@ -5,6 +5,7 @@ SQL은 tests/retrieval/test_hybrid_db.py가 실제 Postgres로 확인한다.
 
 import asyncio
 import logging
+import re
 
 from app.config import Settings
 from app.retrieval import embedding, hybrid
@@ -79,6 +80,34 @@ def test_no_induction_user_can_cite_every_study_condition():
     )
     cited = {order["intervention_orders"][0] for order in params["orders"]}
     assert cited == {order.value for order in InterventionOrder}
+
+
+def test_search_params_fill_every_sql_parameter():
+    params = hybrid.search_params(
+        query="nature images rumination",
+        vector=[1.0, 0.0],
+        medium=Medium.STATIC_IMAGE,
+        intervention_order=None,
+        outcomes=(),
+        record_type=None,
+        evidence_keys=["P24-E1", "N24", "P24-E1"],
+    )
+    # 평가(scripts/rag_eval.py)도 이 함수로 SQL 인자를 만든다 — 빠진 자리표시자가 없어야 한다
+    assert set(params) == set(re.findall(r"%\((\w+)\)s", hybrid.SEARCH_SQL))
+    assert params["evidence_keys"] == ["P24-E1", "N24"]
+    assert params["terms"] == ["nature", "images", "rumination"]
+
+
+def test_search_params_without_scope_or_vector_are_null():
+    params = hybrid.search_params(
+        query="SART",
+        vector=None,
+        medium=None,
+        intervention_order=None,
+        outcomes=(),
+        record_type=None,
+    )
+    assert params["evidence_keys"] is None and params["embedding"] is None
 
 
 def test_keyword_terms_drop_function_words():

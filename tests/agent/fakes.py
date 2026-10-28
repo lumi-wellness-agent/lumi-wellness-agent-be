@@ -69,6 +69,7 @@ async def fake_search(
     intervention_order: InterventionOrder | None = None,
     outcomes: Sequence[Outcome] = (),
     record_type: RecordType | None = None,
+    evidence_keys: Sequence[str] = (),
     limit: int = TOP_K,
 ) -> list[EvidenceHit]:
     allowed = {record_type} if record_type else set(DEFAULT_RECORD_TYPES)
@@ -77,6 +78,9 @@ async def fake_search(
     for hit in load_hits():
         meta = hit.metadata
         if meta.record_type not in allowed:
+            continue
+        # SEARCH_SQL의 coalesce(experiment_id, paper_id)와 같은 키
+        if evidence_keys and (hit.experiment_id or hit.paper.paper_id) not in evidence_keys:
             continue
         if medium and medium not in meta.media:
             continue

@@ -14,8 +14,7 @@
 통합 효과를 '미검증'으로 표시한다.
 
 judge()는 DB 없는 순수 규칙이다. validate()가 evidence_records에서 레코드와 상충 후보를
-읽어 judge()를 부른다. Planner는 validate_evidence Tool(app/agent/tools/evidence.py)로
-validate()를 부른다.
+읽어 judge()를 부른다. plan 노드(nodes/planner.verify_evidence)가 validate()를 부른다.
 """
 
 import logging

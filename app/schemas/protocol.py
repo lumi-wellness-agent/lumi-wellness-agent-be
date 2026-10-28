@@ -1,7 +1,8 @@
 """활동 노드(Care Protocol) JSON — data/protocols/PR-*.json 하나가 레코드 하나다.
 
-앞부분(ProtocolEvidenceSection)은 근거 연결 — evidence[]·grades. PR-A 계약 2. BE는
-evidence[].evidence_record_ids만 역기입한다. 근거는 활동 노드를 제약하는 장치가 아니라 Reference
+앞부분(ProtocolEvidenceSection)은 근거 연결 — evidence[]·grades. PR-A 계약 2. plan의 근거 검색이
+evidence[]의 key(ARM은 experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 먼저 찾는다
+(nodes/planner.find_evidence). 근거는 활동 노드를 제약하는 장치가 아니라 Reference
 카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 83편 밖 근거뿐인
 노드(PR-21)는 evidence[]를 비워 둔다.
 
@@ -105,7 +106,8 @@ class ProtocolEvidenceRef(BaseModel):
     outcomes: list[Outcome]
     result: str | None = None
     verification: Verification  # "본문" · "초록" · "2차" 라벨 허용
-    # BE 역기입 — 그 arm의 chunk ID 전부. 순서는 (Section 순, chunk_idx, id)
+    # 비워 둔다. 역기입하려던 자리인데 검색이 key로 레코드를 찾아 id를 적어 둘 필요가
+    # 없다(2026-10-28)
     evidence_record_ids: list[int] = []
 
     @field_validator("design", mode="before")

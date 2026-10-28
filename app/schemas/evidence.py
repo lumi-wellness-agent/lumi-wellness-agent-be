@@ -168,7 +168,7 @@ class FulltextStatus(StrEnum):
 
 
 class Section(StrEnum):
-    """evidence_records.section의 정규 값. Docling 헤딩을 매핑한다. 순서 = 카드·역기입 순서."""
+    """evidence_records.section의 정규 값. Docling 헤딩을 매핑한다. 순서 = 카드 순서."""
 
     ABSTRACT = "ABSTRACT"
     INTRODUCTION = "INTRODUCTION"

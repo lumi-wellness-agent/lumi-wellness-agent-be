@@ -95,6 +95,7 @@ class Recorder:
                 "intervention_order": _value(kwargs.get("intervention_order")),
                 "outcomes": [o.value for o in kwargs.get("outcomes") or []],
                 "record_type": _value(kwargs.get("record_type")),
+                "within": list(kwargs.get("evidence_keys") or []),
                 "hits": [h.evidence_record_id for h in hits],
             }
         )
@@ -171,7 +172,7 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
         return {"scenario": name, "rejected": str(exc)}
     plan: CarePlan = out["plan"]
     elapsed = time.perf_counter() - started
-    keys = ("medium", "intervention_order", "outcomes", "record_type")
+    keys = ("medium", "intervention_order", "outcomes", "record_type", "within")
     for s in recorder.searches:
         filters = " ".join(f"{k}={s[k]}" for k in keys if s[k])
         print(f"search  {s['query']!r} {filters} → {s['hits'] or '0건'}")

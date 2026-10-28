@@ -8,6 +8,9 @@
   `{"intervention_orders": ["POST_STRESS"]}`를 만들어 `@> any(…)`, 또는 조건 미상(빈 목록).
   미상은 검증도 통과시킨다(validation._order_check)
   종류: `@> '{"record_type": "ARM"}'`. 그리고 `embedding_model = 설정의 embedding_model`
+- 활동 근거 범위: evidence_keys(활동 노드 evidence[]의 key — ARM은 experiment_id, 리뷰는 paper_id)를
+  주면 `coalesce(experiment_id, paper_id)`가 그 안에 드는 레코드만 본다. 같은 매체를 쓰는 활동이
+  여럿이라 메타데이터 필터만으로는 다른 활동의 근거가 섞인다(nodes/planner.find_evidence)
 - 벡터: 필터된 집합(수백 chunk)에 `embedding <=> 질의` exact 코사인. HNSW는 WHERE 뒤에
   적용돼 결과가 K보다 적을 수 있어 순위 기준으로 의존하지 않는다. 커지면 iterative scan 검토
 - 키워드: 질의를 낱말로 나눠(기능어 제외) 낱말마다 pg_trgm `strict_word_similarity`가 0.5 이상인
@@ -23,7 +26,8 @@
   찾는다. OpenAI 장애로 플래너가 Anthropic으로 넘어가도 근거 검색은 돈다. 풀이 없으면 빈 목록이다.
 
 테이블·인덱스는 supabase/migrations에 있다. 결과 모양은 schemas/retrieval.py의 EvidenceHit.
-Planner는 search_evidence Tool(app/agent/tools/evidence.py)로 이 모듈을 부른다.
+plan 노드(nodes/planner.find_evidence)가 이 모듈을 부르고, 평가(scripts/rag_eval.py)가 같은 SQL ·
+인자(search_params)로 순위를 잰다.
 """
 
 import logging
@@ -69,6 +73,8 @@ with filtered as materialized (
     and (%(orders)s::jsonb[] is null or e.metadata @> any(%(orders)s::jsonb[])
          or e.metadata -> 'intervention_orders' = '[]'::jsonb)
     and (%(outcomes)s::jsonb[] is null or e.metadata @> any(%(outcomes)s::jsonb[]))
+    and (%(evidence_keys)s::text[] is null
+         or coalesce(e.experiment_id, e.paper_id) = any(%(evidence_keys)s::text[]))
 ),
 dense as (
   select id, row_number() over (order by distance, id) as rank
@@ -122,6 +128,34 @@ def _jsonb(value: Any) -> Any:
     if value is None:
         return None
     return [Jsonb(v) for v in value] if isinstance(value, list) else Jsonb(value)
+
+
+def search_params(
+    *,
+    query: str,
+    vector: Sequence[float] | None,
+    medium: Medium | None,
+    intervention_order: InterventionOrder | None,
+    outcomes: Sequence[Outcome],
+    record_type: RecordType | None,
+    evidence_keys: Sequence[str] = (),
+) -> dict[str, Any]:
+    """SEARCH_SQL의 인자 전부. search와 평가(scripts/rag_eval.py)가 같은 것을 쓴다."""
+    filters = filter_params(
+        medium=medium,
+        intervention_order=intervention_order,
+        outcomes=outcomes,
+        record_type=record_type,
+    )
+    return {
+        **{name: _jsonb(value) for name, value in filters.items()},
+        "evidence_keys": list(dict.fromkeys(evidence_keys)) or None,
+        "embedding": None if vector is None else Vector(vector),
+        "embedding_model": get_settings().embedding_model,
+        "terms": keyword_terms(query),
+        "min_similarity": KEYWORD_MIN_SIMILARITY,
+        "candidates": CANDIDATES,
+    }
 
 
 def keyword_terms(query: str) -> list[str]:
@@ -179,18 +213,22 @@ async def search(
     intervention_order: InterventionOrder | None = None,
     outcomes: Sequence[Outcome] = (),
     record_type: RecordType | None = None,
+    evidence_keys: Sequence[str] = (),
     limit: int = TOP_K,
 ) -> list[EvidenceHit]:
     """프리필터 → 벡터·키워드 → RRF 상위 limit건. medium은 연구 매체(study_medium 적용 후).
 
     intervention_order(사용자 상태)를 주면 그 상태에 인용할 수 있는 연구 조건(ORDER_COMPATIBILITY —
     그 값 또는 NO_INDUCTION, NO_INDUCTION이면 전부)이거나 조건 미상인 레코드가, outcomes를 주면
-    하나라도 측정한 레코드가 나온다. 0건이면 0건을 돌려준다(필터 자동 완화 없음).
+    하나라도 측정한 레코드가 나온다. evidence_keys(ARM은 experiment_id, 리뷰는 paper_id)를 주면
+    그 레코드 안에서만 찾는다. 0건이면 0건을 돌려준다(필터 자동 완화 없음).
     """
     wanted = (
         f"medium={medium} order={intervention_order} "
         f"outcomes={[o.value for o in outcomes]} type={record_type}"
     )
+    if evidence_keys:
+        wanted += f" within={list(evidence_keys)}"
     if pool is None:
         log.warning("DB 풀이 없어(DATABASE_URL 미설정) 근거를 찾지 않는다: %r %s", query, wanted)
         return []
@@ -202,20 +240,15 @@ async def search(
     else:
         if vector is None:
             log.warning("OPENAI_API_KEY가 없어 키워드로만 찾는다: %r", query)
-    filters = filter_params(
+    params = search_params(
+        query=query,
+        vector=vector,
         medium=medium,
         intervention_order=intervention_order,
         outcomes=outcomes,
         record_type=record_type,
+        evidence_keys=evidence_keys,
     )
-    params = {
-        **{name: _jsonb(value) for name, value in filters.items()},
-        "embedding": None if vector is None else Vector(vector),
-        "embedding_model": get_settings().embedding_model,
-        "terms": keyword_terms(query),
-        "min_similarity": KEYWORD_MIN_SIMILARITY,
-        "candidates": CANDIDATES,
-    }
     async with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(SEARCH_SQL, params)
         rows = await cur.fetchall()
