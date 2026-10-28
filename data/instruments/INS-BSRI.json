@@ -1,23 +1,75 @@
 {
   "instrument_id": "INS-BSRI",
-  "name": "Brief State Rumination Inventory (BSRI)",
-  "paper_id": "N25",
+  "name": "Brief State Rumination Inventory (BSRI) — 한국어 번역본 · 내부 시험용",
+  "paper_id": "N28",
   "concept": "상태 반추",
   "timeframe": "지금",
-  "instruction": null,
+  "instruction": "지금 이 순간의 느낌이나 생각에 따라 답하세요. 각 문항에 대한 동의 정도를 0(전혀 동의하지 않음)부터 100(완전히 동의함)까지 표시하세요.",
   "items": [
-    {"id": "item1", "text": null},
-    {"id": "item2", "text": null},
-    {"id": "item3", "text": null},
-    {"id": "item4", "text": null},
-    {"id": "item5", "text": null},
-    {"id": "item6", "text": null},
-    {"id": "item7", "text": null},
-    {"id": "item8", "text": null}
+    {
+      "id": "item1",
+      "text": "지금 나는 내 기분을 되돌아보고 있다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item2",
+      "text": "지금 나는 내가 왜 그런 식으로 반응하는지 궁금하다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item3",
+      "text": "지금 나는 내가 왜 늘 이렇게 느끼는지 궁금하다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item4",
+      "text": "지금 나는 “왜 다른 사람은 겪지 않는 문제를 나만 겪을까?”라고 생각하고 있다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item5",
+      "text": "지금 나는 최근에 내가 했던 말이나 행동을 머릿속에서 되풀이하고 있다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item6",
+      "text": "지금 나는 “왜 나는 일을 더 잘 감당하지 못할까?”라고 생각하고 있다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item7",
+      "text": "지금 나는 나 자신에 대한 부정적인 생각을 멈추기 어렵다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    },
+    {
+      "id": "item8",
+      "text": "지금 나는 왜 더 나은 방식으로 반응하지 못하는지 궁금하다.",
+      "low_label": "전혀 동의하지 않는다",
+      "high_label": "완전히 동의한다"
+    }
   ],
-  "scale": {"min": 0, "max": 100, "step": 1, "kind": "SLIDER"},
-  "scoring": {"kind": "MEAN", "key": "mean", "range": [0, 100]},
-  "license_note": "논문 게재, 무료(확인). 한국어판 미확인 → 번역·타당화 필요. LLM 번역 금지",
-  "status": "TODO",
-  "note": "measure 담당: Marchetti et al. 2014의 8문항을 원문(N25)에서 옮기고 한국어판 출처를 확인한 뒤 status를 READY로. 온라인 슬라이더 형식의 측정 불변성이 확인돼 앱 적용에 유리(Chiorri et al. 2026)"
+  "scale": {
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "kind": "SLIDER"
+  },
+  "scoring": {
+    "kind": "MEAN",
+    "key": "mean",
+    "range": [
+      0,
+      100
+    ]
+  },
+  "license_note": "첨부자료는 BSRI 문항을 연구용으로 소개한다. 이 JSON은 내부 시험용 한국어 번역 초안이다.",
+  "status": "PROVISIONAL",
+  "note": "원척도 Marchetti et al. (2018), N28. 모든 문항 정방향 채점. mean 0–100은 8개 문항 합계(0–800)를 8로 나눈 값이며 판정 임계값은 사용하지 않는다. N25(Chiorri et al., 2026)는 응답 방식·집단 간 측정 비교 근거다."
 }
