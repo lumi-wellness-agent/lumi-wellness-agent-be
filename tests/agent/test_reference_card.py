@@ -110,6 +110,7 @@ def test_default_goal_without_evidence_uses_the_protocol_note_for_the_adapted_sc
         CardBadge.NO_VERIFIED_EVIDENCE,
         CardBadge.ADAPTED_STIMULUS,  # when_adapted_script — 한국어 각색 안내
         CardBadge.DEFAULT_GOAL,
+        CardBadge.PROVISIONAL_MEASURE,
     ]
     assert got.evidence == [] and got.goal.definitions == []
     assert got.goal.notes[0] == "상황 단서가 부족해 기본 목표(긴장·스트레스 완화)로 시작했습니다."
