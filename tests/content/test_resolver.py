@@ -200,3 +200,86 @@ def test_pr14_offers_registered_mandala_svgs_without_api_key():
     assert [asset.metadata["is_default"] for asset in templates] == [True] + [False] * 5
     assert all(asset.metadata["selection_mode"] == "FIRST_THEN_RANDOM" for asset in templates)
     assert len(result.warnings) == 6 and all("내용 검수" in w for w in result.warnings)
+
+
+def _fake_pixabay(captured):
+    def fake_search(self, query, *, count=1):
+        from app.agent.state import ActivityAsset
+
+        captured.append((query, count))
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url=f"https://cdn/{query.replace(' ', '-')}-{i}.jpg",
+                provider="PIXABAY",
+                verification="PENDING_CONTENT_REVIEW",
+            )
+            for i in range(count)
+        ]
+
+    return fake_search
+
+
+def _resolve_pr01(profile):
+    protocol = get_protocol("PR-01")
+    assert protocol is not None
+    return resolve_activity_assets(
+        protocol,
+        CareRequest(text="자연 사진을 보고 싶어요", profile=profile),
+        settings=Settings(pixabay_api_key="secret"),
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: (_ for _ in ()).throw(AssertionError())
+            )
+        ),
+    )
+
+
+def test_preferred_scenery_uses_reviewed_queries_and_alternates(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    result = _resolve_pr01(UserProfile(preferred_scenery=["sea", "숲"]))
+    # 풍경마다 나눠 받는다(25 → 13 + 13) — 명세 기본 검색어는 쓰지 않는다
+    assert captured == [("calm sea horizon", 13), ("calm forest", 13)]
+    assert len(result.assets) == 25
+    picked = [a.metadata["preferred_scenery"] for a in result.assets[:4]]
+    assert picked == ["sea", "forest", "sea", "forest"]
+    assert result.assets[0].metadata["query"] == "calm sea horizon"
+
+
+def test_unknown_scenery_falls_back_to_protocol_query(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    result = _resolve_pr01(UserProfile(preferred_scenery=["desert"]))
+    assert captured == [("calm forest water", 25)]
+    assert all("preferred_scenery" not in a.metadata for a in result.assets)
+
+
+def test_scenery_without_enough_photos_is_topped_up_from_protocol_query(monkeypatch):
+    calls = []
+
+    def search(self, query, *, count=1):
+        from app.agent.state import ActivityAsset
+
+        calls.append(query)
+        if query == "calm sea horizon":
+            raise ContentProviderError("조건에 맞는 Pixabay 자연 이미지가 부족함")
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url=f"https://cdn/{query.replace(' ', '-')}-{i}.jpg",
+                provider="PIXABAY",
+                verification="PENDING_CONTENT_REVIEW",
+            )
+            for i in range(count)
+        ]
+
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_images", search)
+    result = _resolve_pr01(UserProfile(preferred_scenery=["sea"]))
+    assert calls == ["calm sea horizon", "calm forest water"]
+    assert len(result.assets) == 25
+    assert any("좋아하는 풍경 sea" in w for w in result.warnings)

@@ -62,6 +62,45 @@ def _request_json(client: httpx.Client, method: str, url: str, **kwargs: Any) ->
     return body
 
 
+# 자연 사진 명세(PR-01 · 03 · 21 content_spec.selection.exclude_tags)의
+# "사람 · 문자·로고 · 인공 구조물 중심"을 Pixabay 태그로 거른다. 태그에 이 단어가 있으면 뺀다
+# (예: "lake bled, church" → church).
+EXCLUDED_IMAGE_TAGS = (
+    "people",
+    "person",
+    "man",
+    "woman",
+    "girl",
+    "boy",
+    "child",
+    "human",
+    "crowd",
+    "building",
+    "church",
+    "architecture",
+    "castle",
+    "tower",
+    "city",
+    "town",
+    "village",
+    "house",
+    "temple",
+    "monument",
+    "bridge",
+    "road",
+    "street",
+    "car",
+    "text",
+    "logo",
+    "sign",
+)
+
+
+def _excluded(tags: list[str]) -> bool:
+    words = {w for tag in tags for w in tag.lower().replace("-", " ").split()}
+    return any(word in words for word in EXCLUDED_IMAGE_TAGS)
+
+
 class PixabayProvider:
     image_base_url = "https://pixabay.com/api/"
     video_base_url = "https://pixabay.com/api/videos/"
@@ -90,13 +129,16 @@ class PixabayProvider:
                 "min_width": 1280,
                 "min_height": 720,
                 "order": "popular",
-                "per_page": max(20, min(count * 2, 200)),
+                "per_page": max(20, min(count * 3, 200)),  # 태그로 거르는 몫을 남긴다
             },
         )
         assets: list[ActivityAsset] = []
         for hit in body.get("hits", []):
             url = hit.get("largeImageURL") or hit.get("webformatURL")
             if not url or hit.get("imageWidth", 0) < 1280 or hit.get("imageHeight", 0) < 720:
+                continue
+            tags = [tag.strip() for tag in str(hit.get("tags", "")).split(",") if tag.strip()]
+            if _excluded(tags):
                 continue
             assets.append(
                 ActivityAsset(
@@ -112,11 +154,7 @@ class PixabayProvider:
                         "id": hit.get("id"),
                         "width": hit.get("imageWidth"),
                         "height": hit.get("imageHeight"),
-                        "tags": [
-                            tag.strip()
-                            for tag in str(hit.get("tags", "")).split(",")
-                            if tag.strip()
-                        ],
+                        "tags": tags,
                         "automated_screening": {
                             "category": "nature",
                             "image_type": "photo",
@@ -244,8 +282,7 @@ class FreesoundProvider:
         params = {
             "query": query,
             "fields": (
-                "id,name,username,license,url,previews,duration,tags,"
-                "avg_rating,num_downloads"
+                "id,name,username,license,url,previews,duration,tags,avg_rating,num_downloads"
             ),
             "sort": "rating_desc",
             "page_size": 100,

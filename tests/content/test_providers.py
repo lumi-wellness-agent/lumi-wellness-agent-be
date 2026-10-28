@@ -237,3 +237,31 @@ def test_provider_http_errors_do_not_expose_key(status):
     with pytest.raises(RuntimeError) as exc:
         PixabayProvider("top-secret", client).search_video(f"forest-{status}")
     assert "top-secret" not in str(exc.value)
+
+
+def test_pixabay_drops_people_and_buildings_by_tag():
+    tags = {1: "forest, water", 2: "lake bled, church", 3: "people, beach", 4: "mountain, valley"}
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "hits": [
+                    {
+                        "id": image_id,
+                        "user": "maker",
+                        "pageURL": f"https://pixabay.com/photos/{image_id}/",
+                        "largeImageURL": f"https://cdn/{image_id}.jpg",
+                        "imageWidth": 1920,
+                        "imageHeight": 1080,
+                        "tags": tag,
+                    }
+                    for image_id, tag in tags.items()
+                ]
+            },
+        )
+
+    assets = PixabayProvider("secret", client_for(handler)).search_images(
+        "tag-filter-images", count=2
+    )
+    assert [a.metadata["id"] for a in assets] == [1, 4]
