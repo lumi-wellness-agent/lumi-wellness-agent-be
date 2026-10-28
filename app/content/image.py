@@ -8,13 +8,21 @@
 from app.schemas.care import UserProfile
 
 
-def nature_prompt(profile: UserProfile, *, meditation: bool = False) -> str:
-    """AI Horde에 보낼 자연 이미지 프롬프트. 자유 사용자 문장은 넣지 않는다."""
-    scenery = ", ".join(profile.preferred_scenery) or "calm forest and gentle water"
+def nature_prompt(
+    profile: UserProfile, *, meditation: bool = False, scenery: list[str] | None = None
+) -> str:
+    """AI Horde에 보낼 자연 이미지 프롬프트. 자유 사용자 문장은 넣지 않는다.
+
+    scenery는 plan이 고른 풍경의 검수된 영어 묘사(data/content_factors.json ai_prompt)다. 사용자
+    칩(profile.preferred_scenery)이 있으면 resolver가 넘기지 않아 칩이 우선한다.
+    """
+    scenery_text = (
+        ", ".join(scenery or profile.preferred_scenery) or "calm forest and gentle water"
+    )
     colors = ", ".join(profile.preferred_colors)
     parts = [
         "realistic restorative nature photograph",
-        scenery,
+        scenery_text,
         "soft natural light",
         "stable horizon",
         "no people, no text, no logo, no buildings, no threatening animals",

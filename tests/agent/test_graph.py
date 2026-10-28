@@ -16,7 +16,7 @@ from app.agent.context import AgentContext
 from app.agent.graph import build_graph
 from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
-from app.agent.nodes.planner import ActivityChoice, PlanRejected, check_plan
+from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
 from app.agent.nodes.replanner import route_after_confirm
 from app.agent.state import (
     ActivityContent,
@@ -164,7 +164,7 @@ class FakePlanner:
         return ActivityChoice(protocol_id=protocol_id, search_query="-", reason="-")
 
     async def explain(self, state, choice, protocol, evidence):
-        return "-"
+        return PlanRationale.text("-")
 
 
 def run(graph, value):

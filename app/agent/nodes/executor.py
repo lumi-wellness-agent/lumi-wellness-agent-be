@@ -3,13 +3,17 @@
 - prepare_session: 프로토콜(data/protocols)의 steps · guide · content_spec과 app/content가 준비한
   자산으로 ActivityContent를 만든다. content_spec(대본 · 재생 시점 · 화면 명세)은 그대로 넘겨 FE
   플레이어가 활동마다 읽고, NOTICE 단계가 있으면 단계 모듈(PR-16)의 화면 명세를 함께 싣는다. 생성
-  콘텐츠는 UNVERIFIED로 표시한다.
+  콘텐츠는 UNVERIFIED로 표시한다. plan이 고른 콘텐츠 Factor(CarePlan.content_factors)가 공급자
+  검색어를 정하고, 세션마다 값의 검수 검색어 가운데 하나를 무작위로 골라 같은 풍경이라도 다른 사진·
+  소리를 받는다(app/content/resolver.py).
 - run_session: interrupt로 멈춘다. FE 플레이어가 프로토콜 1개를 실행하고(선택 NOTICE 단계 포함),
   끝나면 SessionReport로 재개한다. 점수는 여기서 받지 않는다 — measure_post가 잰다.
 
 interrupt가 있는 노드는 재개될 때 처음부터 다시 실행된다. 콘텐츠 준비를 run_session에 두면
 재개할 때마다 다시 만들기 때문에 두 노드로 나눴다.
 """
+
+import random
 
 from langgraph.types import interrupt
 
@@ -34,7 +38,12 @@ def prepare_session(state: CareState) -> dict:
     if len(activity_steps) == 1:  # ACTIVITY 하나면 계획한 시간으로 맞춘다
         activity_steps[0].minutes = activity.minutes
     notice = next((s.label for s in protocol.steps if s.type is StepType.NOTICE), None)
-    resolution = resolve_activity_assets(protocol, state["request"])
+    resolution = resolve_activity_assets(
+        protocol,
+        state["request"],
+        factors=state["plan"].content_factors,
+        rng=random.Random(),
+    )
     content = ActivityContent(
         protocol_id=protocol.protocol_id,
         name=protocol.name,

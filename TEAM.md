@@ -11,7 +11,7 @@
   조합은 노드 자체로만 제공한다 — 조합이 곧 실험 자극인 `VALIDATED_MULTIMODAL`(PR-02 · 12). 구성 근거가 없는
   노드는 `EXPERIMENTAL`(PR-10 · 15 · 21 · 22)로 두고 '실험적'으로 표시한다.
 - **LLM은 두 곳뿐이다.** intake(구조화 출력 2회 — 상황 읽기 · 목표 추론, 글 답이면 읽기 1회 더)와 `plan`(구조화 출력
-  2회 — 활동 선택 · 추천 이유). intake의 질문 여부·보기 검증·답 병합과 plan의 후보·검색·검증, 측정·평가·재계획은 코드다.
+  2회 — 활동 선택 · 추천 이유와 콘텐츠 Factor). intake의 질문 여부·보기 검증·답 병합과 plan의 후보·검색·검증, 측정·평가·재계획은 코드다.
 - **측정은 RAG가 아니다.** 척도는 `data/instruments/*.json`에 있고 LLM은 문항을 만들거나 바꾸거나 점수를
   계산하지 않는다. 타당화된 한국어판이 아닌 문항(STAI-6 · BSRI 번역 초안, MFVAS)은 `PROVISIONAL`(내부 시험용)로
   두고 Reference 카드에 밝힌다.
@@ -59,6 +59,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-5.4-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`, 10-28 gpt-4o-mini에서 교체), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
 | 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 검색은 그 활동의 `evidence[]` 안에서 먼저 찾는다(10-28, README 「근거 검색 평가」). 재적재는 `make seed-evidence`(id 유지) |
 | 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
+| 완료 | `data/content_factors.json` `app/schemas/content.py` `app/content/factors.py` `app/content/resolver.py` | 콘텐츠 Factor(10-29) — plan의 LLM 호출 2가 풍경 · 자연음 · 작품 주제를 근거 있는 Enum 값으로 고르고(`CarePlan.content_factors`), prepare가 값의 검수 검색어로 공급자를 부른다. 사용자 칩 > LLM > 기본 검색어. README 「콘텐츠 Factor」 |
 | 수 | `app/agent/reference_card.py` | Reference 카드 — 됐다(README 「Reference 카드」). plan이 검증한 근거 · 프로토콜(composition · user_facing_flags · reference_card_note) · intake(목표 근거)로 만들고 rationale 문장에 기대지 않는다. 프로토콜 담당은 카드에 보일 메모를 `reference_card_note`로 적는다 |
 | 수 | `app/api/sessions.py` | 세션 API — `sessions` · `answer` · `measure` · `report` · `decision` · `retry` · `GET`, SSE · JSON, CORS(README 「세션 API」), 인증(Supabase Auth — Google · Kakao, 비로그인은 기록하지 않는 게스트 체험) · 동의 · 세션 기록 · 탈퇴(README 「인증 · 세션 기록」)는 됐다. 남은 것: FE |
 | 목 | — | 통합 · 리허설. `evidence[].evidence_record_ids` 역기입은 하지 않는다(10-28) — plan이 `evidence[]`의 key(ARM은 experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 실행할 때 찾는다(`find_evidence`) |

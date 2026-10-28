@@ -182,6 +182,9 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     cited = activity.evidence_record_ids
     print(f"plan    {activity.protocol_id} {activity.minutes}분 · 근거 {cited}")
     print(f"        {plan.rationale}")
+    if factors := plan.content_factors:
+        picked = factors.model_dump(mode="json", exclude={"reason"})
+        print(f"factors {picked} — {factors.reason}")
     tokens = f"{usage.input:,}/{usage.output:,}"
     print(f"        {elapsed:.1f}s · 모델 호출 {usage.calls}회 · 토큰 {tokens}")
     if card := plan.reference_card:

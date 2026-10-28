@@ -114,8 +114,34 @@ graph TD;
 
 - 논문 RAG는 근거 검색에 쓰고, 세션 실행은 검수된 프로토콜만 씁니다.
 - AI 생성 이미지는 보조 콘텐츠로 쓰고, 연구 자극과의 차이는 Reference 카드에 `ADAPTED_STIMULUS`로 밝힙니다.
+- 콘텐츠 Factor(풍경 · 자연음 · 작품 주제)는 LLM이 근거 있는 Enum 값만 고르고, 검색어는 코드가 검수 목록에서
+  고릅니다(아래 「콘텐츠 Factor」).
 - 측정은 RAG가 아닙니다. 척도(`data/instruments/`)는 구조화 표에 있고 LLM은 문항을 만들거나 점수를 계산하지 않습니다.
 - 의료적 진단·치료 효능을 주장하지 않습니다.
+
+### 콘텐츠 Factor (`data/content_factors.json` · `app/content/factors.py`)
+
+자연 자극 활동(PR-01 02 03 04 20 21, 그리고 Pixabay 풍경을 쓰는 PR-10 · 22)의 콘텐츠를 무엇으로 채울지 plan이
+고릅니다. LLM 호출을 늘리지 않고 plan의 LLM 호출 2(추천 이유)가 같은 구조화 출력에서 `content_factors`를
+냅니다.
+
+| 칸 | Enum(`app/schemas/content.py`) | 근거(값마다 논문 · 쪽은 카탈로그) | 쓰는 활동 |
+| --- | --- | --- | --- |
+| `scenery` 풍경 0~3 | forest · lake river · sea · mountain · meadow | P03 · P24 · P25 · P28 · P33 · N17 | 사진(PR-01 · 03 · 21 · 22), 영상(PR-02 · 10 — 숲 · 호수·강만) |
+| `soundscape` 자연음 1 | birdsong · stream · rain · ocean_waves · forest_wind | N14 · N15 · N16 · N17 · N18 | PR-02 · 04 |
+| `art_subject` 작품 주제 1 | waterscape · landscape | E06 · E07 | PR-20 |
+
+- **Enum = 논문 자극으로 쓰인 범주(`basis: STIMULUS`)만.** 근거 없이 선호용으로 둔 꽃 · 하늘(`DESIGN`)은 FE 칩으로만
+  받습니다. 곤충 소리(N16)처럼 근거는 있어도 불편할 수 있는 값은 `excluded`에 이유와 함께 남겼습니다.
+- **LLM은 값만, 검색어는 코드가.** 값마다 검수 검색어가 2~3개이고(include · exclude 태그 안), prepare가 세션마다
+  하나를 무작위로 골라 같은 풍경이라도 매번 다른 사진 · 소리를 받습니다. 자연음은 값별 exclude(거친 새소리 등)를
+  프로토콜 exclude에 더합니다.
+- **우선순위:** 사용자 칩(`profile.preferred_scenery`) > LLM Factor > 프로토콜 기본 검색어. `factors.sanitize`가
+  활동에 없는 칸 · 근거 없는 값 · 개수 초과를 지우고, 영상과 소리를 함께 쓰는 PR-02는 소리를 영상 풍경에
+  맞춥니다(숲 → 새소리 · 숲 바람, 호수·강 → 시냇물).
+- 자산 `metadata.content_factor`에 축 · 값 · 출처(`USER` · `LLM`) · 근거 논문 · 검색어가 남습니다.
+  `preferred_scenery`는 사용자 칩일 때만 남겨 FE가 LLM이 고른 풍경을 "좋아하는 ○○"라고 쓰지 않습니다.
+- Factor는 연구 자극 범위 안의 개인화이지 효과를 키운다는 근거가 아닙니다. 추천 이유(rationale)에도 쓰지 않습니다.
 
 ### LangGraph·LangChain을 쓰는 곳
 
@@ -664,7 +690,7 @@ app/
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  └─ reference_card.py Reference 카드 — 검증한 근거 · 프로토콜 · intake로 만든다(LLM 없음)
-├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 (Executor가 쓴다)
+├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 · 콘텐츠 Factor 카탈로그 (Executor가 쓴다)
 ├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공
 ├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from app.schemas.card import ReferenceCard
 from app.schemas.care import CareGoal, CareRequest, Environment, Place, Setting
+from app.schemas.content import ContentFactors
 from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.intake import GoalSource, IntakeEndReason, IntakeQuestion, IntakeTurn
 from app.schemas.measure import Measurement
@@ -105,6 +106,10 @@ class CarePlan(BaseModel):
     # "왜 추천했나요?" — plan 노드가 검증한 근거 · 프로토콜 · intake로 만든다
     # (app/agent/reference_card.py)
     reference_card: ReferenceCard | None = None
+    # 콘텐츠 Factor — plan의 LLM 호출 2가 고른 활동에 맞춰 고르고(factors.sanitize로 다듬는다)
+    # prepare가 공급자 검색어로 바꾼다(app/content/resolver.py). 사용자 칩(profile)이 있으면 칩이
+    # 우선한다. 고를 칸이 없는 활동이거나 LLM이 고르지 않았으면 None
+    content_factors: ContentFactors | None = None
 
 
 class ContentStep(BaseModel):

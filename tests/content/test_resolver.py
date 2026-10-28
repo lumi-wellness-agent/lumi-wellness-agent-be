@@ -304,3 +304,214 @@ def test_single_photo_slot_asks_only_the_first_scenery(monkeypatch):
     )
     assert captured == [("calm sea horizon", 1)]
     assert len(result.assets) == 1
+
+
+# ── 콘텐츠 Factor(plan이 고른 content_factors) ───────────────────────────────
+
+
+def _no_network():
+    return httpx.Client(
+        transport=httpx.MockTransport(lambda request: (_ for _ in ()).throw(AssertionError()))
+    )
+
+
+class LastChoice:
+    """rng 대역 — 늘 마지막 검색어를 고른다(다양화 경로)."""
+
+    def choice(self, items):
+        return items[-1]
+
+
+def _factors(scenery=(), soundscape=None, art_subject=None):
+    from app.schemas.content import ContentFactors
+
+    return ContentFactors(
+        scenery=list(scenery), soundscape=soundscape, art_subject=art_subject, reason="-"
+    )
+
+
+def test_llm_scenery_drives_photos_when_the_user_picked_none(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    protocol = get_protocol("PR-01")
+    result = resolve_activity_assets(
+        protocol,
+        CareRequest(text="바다가 보고 싶어요"),
+        factors=_factors([Scenery.SEA, Scenery.MOUNTAIN]),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert captured == [("calm sea horizon", 13), ("green mountain valley", 13)]
+    first = result.assets[0].metadata
+    # LLM이 고른 풍경은 "좋아하는 ○○"가 아니다 — preferred_scenery를 남기지 않는다
+    assert "preferred_scenery" not in first
+    assert first["content_factor"]["source"] == "LLM"
+    assert first["content_factor"]["value"] == "sea"
+    assert first["content_factor"]["evidence"] == ["P03"]
+
+
+def test_user_chips_win_over_llm_scenery(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    result = resolve_activity_assets(
+        get_protocol("PR-03"),
+        CareRequest(text="-", profile=UserProfile(preferred_scenery=["숲"])),
+        factors=_factors([Scenery.SEA]),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert captured == [("calm forest", 1)]
+    assert result.assets[0].metadata["preferred_scenery"] == "forest"
+    assert result.assets[0].metadata["content_factor"]["source"] == "USER"
+
+
+def test_rng_picks_other_reviewed_queries_for_variety(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    resolve_activity_assets(
+        get_protocol("PR-03"),
+        CareRequest(text="-"),
+        factors=_factors([Scenery.FOREST]),
+        rng=LastChoice(),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert captured == [("sunlit woodland", 1)]
+
+
+def test_soundscape_factor_sets_freesound_query_and_extra_excludes(monkeypatch):
+    from app.agent.state import ActivityAsset
+    from app.schemas.content import Soundscape
+
+    calls = []
+
+    def fake_sound(self, query, *, min_duration_seconds=0, exclude_terms=()):
+        calls.append((query, exclude_terms))
+        return ActivityAsset(slot="SOUNDSCAPE", url="https://cdn/s.mp3", provider="FREESOUND")
+
+    monkeypatch.setattr("app.content.resolver.FreesoundProvider.search_sound", fake_sound)
+    result = resolve_activity_assets(
+        get_protocol("PR-04"),
+        CareRequest(text="-"),
+        factors=_factors(soundscape=Soundscape.BIRDSONG),
+        settings=Settings(freesound_api_key="secret"),
+        client=_no_network(),
+    )
+    query, excludes = calls[0]
+    assert query == "birds quiet"
+    # 프로토콜 exclude(사람 목소리 · 음악 · 천둥 …)에 거친 새소리(N15)를 더한다
+    assert "voice" in excludes and "thunder" in excludes and "crow" in excludes
+    assert result.assets[0].metadata["content_factor"]["label_ko"] == "새소리"
+
+
+def test_video_and_sound_follow_the_user_scene_for_pr02(monkeypatch):
+    from app.agent.state import ActivityAsset
+    from app.schemas.content import Soundscape
+
+    calls = {}
+
+    def fake_video(self, query, **kwargs):
+        calls["video"] = query
+        return ActivityAsset(slot="VISUAL_VIDEO", url="https://cdn/v.mp4", provider="PIXABAY")
+
+    def fake_sound(self, query, *, min_duration_seconds=0, exclude_terms=()):
+        calls["sound"] = query
+        return ActivityAsset(slot="SOUNDSCAPE", url="https://cdn/s.mp3", provider="FREESOUND")
+
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_video", fake_video)
+    monkeypatch.setattr("app.content.resolver.FreesoundProvider.search_sound", fake_sound)
+    result = resolve_activity_assets(
+        get_protocol("PR-02"),
+        # 사용자가 호수·강을 골랐다 — LLM이 고른 새소리 대신 시냇물 영상에 맞는 소리
+        CareRequest(text="-", profile=UserProfile(preferred_scenery=["호수·강"])),
+        factors=_factors(soundscape=Soundscape.BIRDSONG),
+        settings=Settings(pixabay_api_key="secret", freesound_api_key="secret"),
+        client=_no_network(),
+    )
+    assert calls == {"video": "stream", "sound": "gentle stream"}
+    video, sound = result.assets
+    assert video.metadata["content_factor"]["source"] == "USER"
+    assert sound.metadata["content_factor"]["value"] == "stream"
+
+
+def test_pr02_without_scenery_keeps_the_matching_default_pair(monkeypatch):
+    from app.agent.state import ActivityAsset
+    from app.schemas.content import Soundscape
+
+    calls = {}
+
+    def fake_video(self, query, **kwargs):
+        calls["video"] = query
+        return ActivityAsset(slot="VISUAL_VIDEO", url="https://cdn/v.mp4", provider="PIXABAY")
+
+    def fake_sound(self, query, *, min_duration_seconds=0, exclude_terms=()):
+        calls["sound"] = query
+        return ActivityAsset(slot="SOUNDSCAPE", url="https://cdn/s.mp3", provider="FREESOUND")
+
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_video", fake_video)
+    monkeypatch.setattr("app.content.resolver.FreesoundProvider.search_sound", fake_sound)
+    resolve_activity_assets(
+        get_protocol("PR-02"),
+        CareRequest(text="-"),
+        factors=_factors(soundscape=Soundscape.OCEAN_WAVES),
+        settings=Settings(pixabay_api_key="secret", freesound_api_key="secret"),
+        client=_no_network(),
+    )
+    assert calls == {"video": "forest", "sound": "forest ambience"}
+
+
+def test_art_subject_sets_the_museum_query(monkeypatch):
+    from app.agent.state import ActivityAsset
+    from app.schemas.content import ArtSubject
+
+    calls = []
+
+    def fake_art(self, query):
+        calls.append(query)
+        return ActivityAsset(slot="ARTWORK", url="https://cdn/a.jpg", provider="AIC")
+
+    monkeypatch.setattr("app.content.resolver.ArtInstituteProvider.search_artwork", fake_art)
+    result = resolve_activity_assets(
+        get_protocol("PR-20"),
+        CareRequest(text="-"),
+        factors=_factors(art_subject=ArtSubject.WATERSCAPE),
+        settings=Settings(),
+        client=_no_network(),
+    )
+    assert calls == ["water lilies"]
+    assert result.assets[0].metadata["content_factor"]["evidence"] == ["E06", "E07"]
+
+
+def test_ai_image_prompt_uses_reviewed_scenery_words_from_the_llm(monkeypatch):
+    from app.agent.state import ActivityAsset
+    from app.schemas.content import Scenery
+
+    captured = {}
+
+    def fake_generate(self, prompt, *, count=1):
+        captured["prompt"] = prompt
+        return [
+            ActivityAsset(slot="VISUAL_STILL", url="https://cdn/g.webp", provider="AI_HORDE")
+        ] * count
+
+    monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", fake_generate)
+    resolve_activity_assets(
+        get_protocol("PR-21"),
+        CareRequest(text="-", profile=UserProfile(content_type=ContentType.AI_IMAGE)),
+        factors=_factors([Scenery.LAKE_RIVER]),
+        settings=Settings(ai_horde_api_key="secret"),
+        client=_no_network(),
+    )
+    assert "calm lake and gentle river surrounded by green nature" in captured["prompt"]

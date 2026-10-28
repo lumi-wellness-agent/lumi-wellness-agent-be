@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app.agent.state import CareState, IntakeResult, NextStep
+from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
 from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Outcome
@@ -151,7 +152,17 @@ EXPLAIN_SYSTEM_PROMPT = """\
 - '실험적'은 구성이 EXPERIMENTAL이거나 목표 지표 등급이 D뿐일 때만 쓴다.
 - 근거가 없으면 연구 근거를 찾지 못했다고 솔직하게 적는다.
 - enum · 플래그 이름(POST_FATIGUE · RUMINATION · ADAPTED_STIMULUS …)과 통계값(p · g · SMD)을 그대로
-  쓰지 않는다. 치료 효과를 단정하지 않고, 건강한 성인 대상 결과를 임상 효과로 넓히지 않는다."""
+  쓰지 않는다. 치료 효과를 단정하지 않고, 건강한 성인 대상 결과를 임상 효과로 넓히지 않는다.
+
+content_factors — 이 활동의 콘텐츠(풍경 · 자연음 · 작품 주제)를 함께 고른다.
+- '## 콘텐츠 Factor'에 있는 칸과 값만 쓴다. 칸이 없으면 scenery [], soundscape null,
+  art_subject null, reason ""이다.
+- 사용자 입력에 드러난 선호 · 기피(바다가 보고 싶다 · 물이 무섭다 · 새소리가 거슬린다 …)와 제약
+  (이명 · 멀미 …)을 먼저 따른다. 사용자가 고른 좋아하는 풍경이 있으면 그 풍경을 앞에 둔다.
+- 단서가 없으면 칸 안에서 고르게 고른다. 사진이 여러 장이면 연구 자극처럼 풍경 2~3종을 섞는다.
+- 지난 라운드에 쓴 Factor가 있으면 다른 값을 골라 콘텐츠를 바꾼다.
+- Factor는 연구 자극 범위 안의 개인화다. 어떤 풍경 · 소리가 효과가 더 크다고 말하지 않고,
+  rationale에는 Factor를 쓰지 않는다(화면이 따로 보인다). reason은 고른 까닭 한 문장(한국어)."""
 
 GOAL_NAMES: dict[CareGoal, str] = {
     CareGoal.S1: "반복되는 생각에서 벗어나기(반추 완화)",
@@ -270,5 +281,26 @@ def build_rationale_input(
             "## 사용자 상태\n" + "\n".join(_state_lines(request, intake)),
             "## 고른 활동\n" + "\n".join(activity_lines),
             evidence_part,
+            _factor_part(state, protocol),
         ]
     )
+
+
+def _factor_part(state: CareState, protocol: CareProtocol) -> str:
+    """LLM 호출 2의 콘텐츠 Factor 칸 — 이 활동에 열 칸 · 사용자 칩 · 지난 라운드에 쓴 Factor."""
+    menu = content_factors.menu(protocol)
+    if not menu:
+        return "## 콘텐츠 Factor\n이 활동은 고를 칸이 없다."
+    lines = [json.dumps(menu, ensure_ascii=False)]
+    chips = state["request"].profile.preferred_scenery
+    if chips:
+        lines.append(f"- 사용자가 고른 좋아하는 풍경: {', '.join(chips)}")
+    used = [
+        f"{r.plan.activity.protocol_id} "
+        + json.dumps(r.plan.content_factors.model_dump(mode="json", exclude={"reason"}))
+        for r in state.get("rounds") or []
+        if r.plan.content_factors
+    ]
+    if used:
+        lines.append(f"- 지난 라운드에 쓴 Factor: {' / '.join(used)}")
+    return "## 콘텐츠 Factor (고를 칸)\n" + "\n".join(lines)

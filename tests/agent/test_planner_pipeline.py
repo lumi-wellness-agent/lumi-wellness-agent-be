@@ -11,10 +11,11 @@ from langgraph.runtime import Runtime
 
 from app import protocols
 from app.agent.context import AgentContext
-from app.agent.nodes.planner import ActivityChoice, PlanRejected, make_plan_node
+from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, make_plan_node
 from app.agent.state import IntakeResult
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
+from app.schemas.content import ArtSubject, ContentFactors, Scenery, Soundscape
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
 
@@ -31,9 +32,15 @@ STATE = {"request": REQUEST, "intake": INTAKE}
 class RecordingPlanner:
     """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다."""
 
-    def __init__(self, *choices: ActivityChoice, rationale: str = "추천 이유"):
+    def __init__(
+        self,
+        *choices: ActivityChoice,
+        rationale: str = "추천 이유",
+        factors: ContentFactors | None = None,
+    ):
         self.choices = list(choices)
         self.rationale = rationale
+        self.factors = factors or ContentFactors.none()
         self.chosen: list[tuple[list[str], list[str]]] = []  # (후보 ID, 거부 사유)
         self.explained: list[tuple[str, str, list[int]]] = []  # (프로토콜, 이유, 인용 근거)
 
@@ -45,7 +52,7 @@ class RecordingPlanner:
         self.explained.append(
             (protocol.protocol_id, choice.reason, [c.evidence_record_id for c in evidence])
         )
-        return self.rationale
+        return PlanRationale(rationale=self.rationale, content_factors=self.factors)
 
 
 def choice(protocol_id: str, query: str = "nature images rumination") -> ActivityChoice:
@@ -90,6 +97,25 @@ def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
     assert plan.activity.evidence_record_ids == [102, 101, 112, 111]
     assert plan.rationale == "추천 이유"
     assert planner.explained == [("PR-21", "-", [102, 101, 112, 111])]
+
+
+def test_pipeline_keeps_only_the_content_factors_the_activity_can_use():
+    # PR-21은 이미지 1장 — 풍경은 하나만, 자연음 · 작품 칸은 없다
+    factors = ContentFactors(
+        scenery=[Scenery.SEA, Scenery.FOREST, Scenery.SEA],
+        soundscape=Soundscape.RAIN,
+        art_subject=ArtSubject.LANDSCAPE,
+        reason="바다를 보고 싶다고 했다",
+    )
+    plan = run_plan(RecordingPlanner(choice("PR-21"), factors=factors))
+    assert plan.content_factors == ContentFactors(
+        scenery=[Scenery.SEA], soundscape=None, art_subject=None, reason="바다를 보고 싶다고 했다"
+    )
+
+
+def test_pipeline_leaves_content_factors_empty_when_the_llm_picks_none():
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+    assert plan.content_factors is None
 
 
 def test_pipeline_builds_the_reference_card_from_the_cited_evidence(fake_backends):

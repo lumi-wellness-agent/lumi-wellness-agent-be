@@ -23,7 +23,9 @@ NOTICE_HOSTS = ["PR-01", "PR-09", "PR-15", "PR-21"]
 @pytest.fixture(autouse=True)
 def no_providers(monkeypatch):
     monkeypatch.setattr(
-        executor, "resolve_activity_assets", lambda protocol, request: ContentResolution([], [])
+        executor,
+        "resolve_activity_assets",
+        lambda protocol, request, **_: ContentResolution([], []),
     )
 
 

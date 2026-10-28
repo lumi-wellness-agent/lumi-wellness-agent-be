@@ -1,0 +1,187 @@
+{
+  "version": "2026-10-29",
+  "description": "콘텐츠 Factor 카탈로그 — 활동 노드 A(PR-01 02 03 04 20 21)의 콘텐츠를 무엇으로 채울지. plan LLM은 값(키)만 고르고, prepare가 값의 검수 검색어로 공급자를 부른다. basis STIMULUS는 논문 자극으로 쓰인 범주(LLM이 고를 수 있다), DESIGN은 근거 없이 사용자 선호용으로만 둔 값(FE 칩으로만 받는다). 검색어는 프로토콜 selection의 include · exclude 태그를 벗어나지 않게 골랐고, 값마다 여럿을 두어 세션마다 하나를 고른다(다양화). 효과를 키운다는 근거가 아니라 연구 자극 범위 안의 개인화다.",
+  "axes": {
+    "scenery": {
+      "label_ko": "풍경",
+      "slots": ["VISUAL_STILL", "VISUAL_VIDEO"],
+      "max_values": 3,
+      "values": {
+        "forest": {
+          "label_ko": "숲",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "P28", "page": 2, "note": "자연 사진은 나무·풀·식물이 있고 인공 구조물이 없는 장면"},
+            {"paper_id": "P24", "page": 4, "note": "나무·풀·식물 자연 사진 30장 × 20초"},
+            {"paper_id": "P33", "page": 4, "note": "숲(woodland)·관목지를 걷는 듯한 사진 슬라이드, 사람 없음"},
+            {"paper_id": "P25", "page": 4, "note": "고정 시점 10분 영상 Nature Forest"}
+          ],
+          "image_queries": ["calm forest", "green forest trees", "sunlit woodland"],
+          "video_queries": ["forest", "calm forest trees"],
+          "ai_prompt": "quiet green forest with tall trees and soft grass",
+          "matching_soundscapes": ["birdsong", "forest_wind"]
+        },
+        "lake river": {
+          "label_ko": "호수·강",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "P03", "page": 4, "note": "회복성 높은 사진 25장이 모두 호수·강·바다·언덕 자연 장면"},
+            {"paper_id": "N17", "page": 3, "note": "흐르는 물 장면의 강 영상과 강 소리로 회복"},
+            {"paper_id": "P25", "page": 4, "note": "고정 시점 10분 영상 Nature Stream"}
+          ],
+          "image_queries": ["calm lake water", "gentle river nature", "still lake reflection"],
+          "video_queries": ["stream", "calm river water"],
+          "ai_prompt": "calm lake and gentle river surrounded by green nature",
+          "matching_soundscapes": ["stream"]
+        },
+        "sea": {
+          "label_ko": "바다",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "P03", "page": 4, "note": "회복성 높은 사진 25장에 바다 장면 포함"}
+          ],
+          "image_queries": ["calm sea horizon", "quiet ocean shore", "calm sea water"],
+          "video_queries": [],
+          "ai_prompt": "calm sea with a stable horizon and soft daylight",
+          "matching_soundscapes": ["ocean_waves"]
+        },
+        "mountain": {
+          "label_ko": "산·언덕",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "P03", "page": 4, "note": "회복성 높은 사진 25장에 언덕 장면 포함"}
+          ],
+          "image_queries": ["green mountain valley", "green hills landscape", "rolling hills nature"],
+          "video_queries": [],
+          "ai_prompt": "green hills and a gentle mountain valley in soft natural light",
+          "matching_soundscapes": ["forest_wind", "birdsong"]
+        },
+        "meadow": {
+          "label_ko": "풀밭·들판",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "P28", "page": 1, "note": "자연 장면은 나무·풀·들판으로 구성"},
+            {"paper_id": "P33", "page": 4, "note": "관목지(heathland) 사진 슬라이드"}
+          ],
+          "image_queries": ["green meadow nature", "grass field landscape", "meadow trees nature"],
+          "video_queries": [],
+          "ai_prompt": "open green meadow with scattered trees",
+          "matching_soundscapes": ["birdsong", "forest_wind"]
+        },
+        "flowers": {
+          "label_ko": "꽃",
+          "basis": "DESIGN",
+          "evidence": [],
+          "image_queries": ["meadow flowers nature"],
+          "video_queries": [],
+          "ai_prompt": "meadow with soft wild flowers",
+          "matching_soundscapes": ["birdsong"]
+        },
+        "sky": {
+          "label_ko": "하늘",
+          "basis": "DESIGN",
+          "evidence": [],
+          "image_queries": ["open sky landscape"],
+          "video_queries": [],
+          "ai_prompt": "open sky over a calm natural landscape",
+          "matching_soundscapes": ["forest_wind"]
+        }
+      }
+    },
+    "soundscape": {
+      "label_ko": "자연음",
+      "slots": ["SOUNDSCAPE"],
+      "max_values": 1,
+      "values": {
+        "birdsong": {
+          "label_ko": "새소리",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "N14", "page": 4, "note": "회복 자연음은 분수 소리와 새소리를 섞은 것(50 dB)"},
+            {"paper_id": "N15", "page": 4, "note": "회복에 도움 된 자연음으로 새소리가 가장 많이 언급됨(35%). 까마귀·까치처럼 거칠고 큰 소리는 도움 안 됨"},
+            {"paper_id": "N18", "page": 2, "note": "가상 숲에 새소리와 물소리를 더함"}
+          ],
+          "queries": ["birds quiet", "birdsong forest morning", "songbirds nature ambience"],
+          "exclude_query_terms": ["crow", "magpie", "seagull", "parrot", "rooster"]
+        },
+        "stream": {
+          "label_ko": "시냇물·강물",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "N17", "page": 3, "note": "강 소리만 듣는 회복 조건"},
+            {"paper_id": "N15", "page": 4, "note": "물소리가 두 번째로 많이 언급됨(24%)"},
+            {"paper_id": "N18", "page": 2, "note": "가상 숲에 새소리와 물소리를 더함"}
+          ],
+          "queries": ["gentle stream", "babbling brook", "calm river flowing"],
+          "exclude_query_terms": ["rapids", "flood"]
+        },
+        "rain": {
+          "label_ko": "잔잔한 비",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "N16", "page": 3, "note": "자연 사운드스케이프 40개에 빗소리(움직이는 물) 포함"}
+          ],
+          "queries": ["soft rain nature", "gentle rain forest", "light rain ambience"],
+          "exclude_query_terms": ["storm", "roof", "window", "umbrella"]
+        },
+        "ocean_waves": {
+          "label_ko": "잔잔한 파도",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "N16", "page": 3, "note": "자연 사운드스케이프 40개에 파도 소리(움직이는 물) 포함"}
+          ],
+          "queries": ["calm ocean waves", "gentle waves beach", "sea waves shore ambience"],
+          "exclude_query_terms": ["storm", "crash", "boat", "seagull"]
+        },
+        "forest_wind": {
+          "label_ko": "숲 바람",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "N16", "page": 3, "note": "자연 사운드스케이프 40개에 바람 소리 포함"},
+            {"paper_id": "N18", "page": 2, "note": "가상 숲 환경의 자연음"}
+          ],
+          "queries": ["forest ambience", "wind in trees", "gentle wind leaves"],
+          "exclude_query_terms": ["storm", "howling"]
+        }
+      }
+    },
+    "art_subject": {
+      "label_ko": "작품 주제",
+      "slots": ["ARTWORK"],
+      "max_values": 1,
+      "values": {
+        "waterscape": {
+          "label_ko": "물 풍경",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "E06", "page": 5, "note": "모네 「수련 연못」(1899) 온라인 전시. 풍경·물 풍경 작품이 스트레스·불안 완화에 유용하다는 이유로 선택"},
+            {"paper_id": "E07", "page": 4, "note": "같은 모네 수련 작품 온라인 감상"}
+          ],
+          "queries": ["water lilies", "pond landscape", "river landscape"]
+        },
+        "landscape": {
+          "label_ko": "풍경",
+          "basis": "STIMULUS",
+          "evidence": [
+            {"paper_id": "E06", "page": 5, "note": "풍경·물 풍경 작품이 스트레스·불안 완화에 유용하다는 선행 연구를 근거로 자극 선택"}
+          ],
+          "queries": ["landscape trees", "countryside landscape", "meadow landscape"]
+        }
+      }
+    }
+  },
+  "excluded": [
+    {
+      "axis": "soundscape",
+      "value": "insects",
+      "evidence": [{"paper_id": "N16", "page": 3, "note": "자연 사운드스케이프에 귀뚜라미 같은 곤충 소리 포함"}],
+      "reason": "고음 반복음이라 이명·청각 민감 사용자에게 불편할 수 있어 제외(PR-04 exclude: 돌발 고음)"
+    },
+    {
+      "axis": "scenery",
+      "value": "waterfall",
+      "evidence": [],
+      "reason": "PR-02 · 04가 급류·폭포 근접음을 뺀다. 영상과 소리가 어긋나지 않게 풍경에서도 제외"
+    }
+  ]
+}

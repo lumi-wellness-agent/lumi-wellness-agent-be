@@ -7,7 +7,7 @@ import asyncio
 
 import pytest
 
-from app.agent.nodes.planner import ActivityChoice
+from app.agent.nodes.planner import ActivityChoice, PlanRationale
 from app.schemas.care import Place, Setting, environment_for
 from scripts import plan_eval
 from scripts.rag_eval import load_scenarios
@@ -28,7 +28,7 @@ class ScriptedPlanner:
         )
 
     async def explain(self, state, choice, protocol, evidence):
-        return "추천 이유"
+        return PlanRationale.text("추천 이유")
 
 
 @pytest.fixture

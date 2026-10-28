@@ -28,6 +28,7 @@ from app.agent.state import (
 )
 from app.agent.validation import judge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
+from app.schemas.content import ContentFactors, Scenery
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 from tests.agent import fakes
@@ -96,14 +97,14 @@ def test_choice_input_tells_which_activity_was_removed():
 
 
 def test_explainer_lists_only_verified_evidence():
-    model = fakes.FakeStructuredModel(PlanRationale(rationale="자연 이미지를 보며 … 다릅니다."))
+    model = fakes.FakeStructuredModel(PlanRationale.text("자연 이미지를 보며 … 다릅니다."))
     explain = make_explainer(model)
     protocol = protocols.get_protocol("PR-21")
     evidence = [cited(102, [Medium.AI_IMAGE, Medium.MINDFULNESS])]
 
     rationale = asyncio.run(explain(S1_STATE, CHOICE, protocol, evidence))
 
-    assert rationale == "자연 이미지를 보며 … 다릅니다."
+    assert rationale.rationale == "자연 이미지를 보며 … 다릅니다."
     assert model.schemas == [(PlanRationale, "json_schema")]
     system, human = model.inputs[0]
     assert system.content == EXPLAIN_SYSTEM_PROMPT
@@ -117,9 +118,45 @@ def test_explainer_lists_only_verified_evidence():
 
 
 def test_explainer_says_when_nothing_was_verified():
-    model = fakes.FakeStructuredModel(PlanRationale(rationale="근거를 찾지 못했습니다."))
+    model = fakes.FakeStructuredModel(PlanRationale.text("근거를 찾지 못했습니다."))
     asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
     assert "검증을 통과한 근거가 없다" in model.inputs[0][1].content
+
+
+def test_explainer_offers_only_the_factor_slots_of_the_chosen_activity():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"), PlanRationale.text("-"))
+    explain = make_explainer(model)
+
+    # PR-21은 자연 이미지 1장 — 풍경 칸만, 근거 있는(STIMULUS) 값만, 1개
+    asyncio.run(explain(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
+    text = model.inputs[0][1].content
+    assert "## 콘텐츠 Factor (고를 칸)" in text
+    assert '"field": "scenery"' in text and '"max": 1' in text
+    assert '"value": "forest"' in text and '"evidence": ["P28", "P24", "P33", "P25"]' in text
+    assert '"flowers"' not in text and '"sky"' not in text  # 근거 없는 선호용 값은 칩으로만
+    assert '"soundscape"' not in text and '"art_subject"' not in text
+
+    # 호흡(PR-06)은 고를 칸이 없다
+    asyncio.run(explain(S1_STATE, CHOICE, protocols.get_protocol("PR-06"), []))
+    assert "이 활동은 고를 칸이 없다" in model.inputs[1][1].content
+
+
+def test_explainer_shows_chips_and_factors_used_in_earlier_rounds():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    earlier = changed_round("PR-01")
+    earlier.plan.content_factors = ContentFactors(
+        scenery=[Scenery.SEA, Scenery.FOREST], soundscape=None, art_subject=None, reason="-"
+    )
+    state = {
+        "request": CareRequest(text="-", profile=UserProfile(preferred_scenery=["숲"])),
+        "intake": S1_STATE["intake"],
+        "rounds": [earlier],
+    }
+    asyncio.run(make_explainer(model)(state, CHOICE, protocols.get_protocol("PR-01"), []))
+    text = model.inputs[0][1].content
+    assert '"max": 3' in text  # 사진 25장 — 풍경 2~3종을 섞는다
+    assert "- 사용자가 고른 좋아하는 풍경: 숲" in text
+    assert '- 지난 라운드에 쓴 Factor: PR-01 {"scenery": ["sea", "forest"]' in text
 
 
 class ClientError(Exception):
@@ -129,13 +166,13 @@ class ClientError(Exception):
 def test_llm_planner_falls_back_to_the_next_provider(monkeypatch):
     monkeypatch.setattr(llm, "BACKOFF_SECONDS", 0)
     broken = fakes.FakeStructuredModel(ClientError(), ClientError())
-    working = fakes.FakeStructuredModel(CHOICE, PlanRationale(rationale="…"))
+    working = fakes.FakeStructuredModel(CHOICE, PlanRationale.text("…"))
     planner = LlmPlanner([("openai", broken), ("anthropic", working)])
 
     choice = asyncio.run(planner.choose(S1_STATE, [], []))
     rationale = asyncio.run(planner.explain(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
 
-    assert choice is CHOICE and rationale == "…"
+    assert choice is CHOICE and rationale.rationale == "…"
     assert len(working.inputs) == 2
 
 

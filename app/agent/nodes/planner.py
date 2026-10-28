@@ -4,7 +4,9 @@
     후보(코드) → 선택(LLM 1회) → 검색(코드) → 검증(코드) → 설명(LLM 1회) → CarePlan
 
 LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동을 고를지(제약 · 장소 · 자유 텍스트 대조)와
-검증된 근거를 어떻게 설명할지. 나머지(후보 정렬 · 검색 필터 · 검증 · usable만 남기기 · 활동 시간)는
+검증된 근거를 어떻게 설명할지. 설명과 함께(같은 호출) 고른 활동의 콘텐츠 Factor(풍경 · 자연음 · 작품
+주제)를 카탈로그 값 안에서 고르고, 코드가 활동에 맞게 다듬는다(app/content/factors.sanitize).
+나머지(후보 정렬 · 검색 필터 · 검증 · usable만 남기기 · 활동 시간)는
 규칙이라 코드가 한다. 처음에는 create_agent Tool 루프였는데 gpt-4o-mini가 검색을 건너뛰고, 인자를
 빠뜨리고, 제외한 활동을 다시 고르고, 한 번은 10분 넘게 돌았다(2026-10-26 실측). 절차를 코드로 옮기니
 종료가 보장되고 모델 호출이 4~5회에서 2회로 준다. 적응은 이 노드 안의 루프가 아니라 측정 → 평가 →
@@ -44,7 +46,9 @@ from app.agent.prompts import (
     build_rationale_input,
 )
 from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity
+from app.content import factors as content_factors
 from app.retrieval import hybrid
+from app.schemas.content import ContentFactors
 from app.schemas.evidence import study_medium
 from app.schemas.protocol import CareProtocol, Composition
 from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict
@@ -67,9 +71,17 @@ class ActivityChoice(BaseModel):
 
 
 class PlanRationale(BaseModel):
-    """LLM 호출 2의 구조화 출력."""
+    """LLM 호출 2의 구조화 출력 — 추천 이유와 콘텐츠 Factor."""
 
     rationale: str = Field(description="사용자에게 보여 줄 추천 이유 2~3문장(한국어)")
+    content_factors: ContentFactors = Field(
+        description="고른 활동의 콘텐츠 Factor — '## 콘텐츠 Factor' 칸의 값만. 칸이 없으면 비운다"
+    )
+
+    @classmethod
+    def text(cls, rationale: str) -> "PlanRationale":
+        """Factor 없이 추천 이유만 — 테스트 대역 · 콘텐츠 칸이 없는 활동."""
+        return cls(rationale=rationale, content_factors=ContentFactors.none())
 
 
 @dataclass(frozen=True)
@@ -97,7 +109,7 @@ class Planner(Protocol):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> Awaitable[str]: ...
+    ) -> Awaitable[PlanRationale]: ...
 
 
 class PlanRejected(Exception):
@@ -282,7 +294,7 @@ def make_chooser(model: BaseChatModel):
 
 
 def make_explainer(model: BaseChatModel):
-    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓴다."""
+    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓰고 콘텐츠 Factor를 고른다."""
     structured = model.with_structured_output(PlanRationale, method="json_schema")
 
     async def explain(
@@ -290,12 +302,12 @@ def make_explainer(model: BaseChatModel):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> str:
+    ) -> PlanRationale:
         messages = [
             SystemMessage(EXPLAIN_SYSTEM_PROMPT),
             HumanMessage(build_rationale_input(state, choice, protocol, evidence)),
         ]
-        return (await structured.ainvoke(messages)).rationale
+        return await structured.ainvoke(messages)
 
     return explain
 
@@ -318,7 +330,7 @@ class LlmPlanner:
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> str:
+    ) -> PlanRationale:
         return await self._explain(state, choice, protocol, evidence)
 
 
@@ -383,13 +395,22 @@ def make_plan_node(planner: Planner):
             ],
         )
         progress({"node": "plan", "step": "write_rationale"})
-        rationale = await planner.explain(state, choice, protocol, evidence)
+        explained = await planner.explain(state, choice, protocol, evidence)
+        factors = content_factors.sanitize(protocol, explained.content_factors)
+        if not factors.is_empty():
+            log.info(
+                "콘텐츠 Factor %s: %s (%s)",
+                activity.protocol_id,
+                factors.model_dump(mode="json", exclude={"reason"}),
+                factors.reason,
+            )
         activity = activity.model_copy(
             update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
         )
         plan = CarePlan(
             activity=activity,
-            rationale=rationale,
+            rationale=explained.rationale,
+            content_factors=None if factors.is_empty() else factors,
             relaxed=list(search.relaxed),
             environment_gaps=protocols.environment_gaps(protocol, session.environment),
             reference_card=reference_card.build_card(
