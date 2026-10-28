@@ -209,6 +209,11 @@ def menu(protocol: CareProtocol) -> list[dict[str, Any]]:
             "max": scenery_capacity(protocol) if axis == SCENERY else 1,
             "values": values,
         }
+        if axis == SCENERY and item["max"] > 1:
+            item["note"] = (
+                "사용자가 특정 풍경을 말했으면 그 풍경만. 단서가 없으면 서로 다른 값 "
+                f"{item['max']}개를 골라 섞는다(P03: 호수·강 · 바다 · 언덕을 섞은 25장)"
+            )
         if axis == MUSIC:
             item["note"] = (
                 "추천만 한다 — 사용자가 목록에서 직접 고르고 추천곡은 맨 앞에 보인다. "

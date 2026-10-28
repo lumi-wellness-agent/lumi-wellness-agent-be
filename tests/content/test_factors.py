@@ -157,3 +157,11 @@ def test_sanitize_drops_music_for_activities_without_a_music_choice():
         ),
     )
     assert out.is_empty()
+
+
+def test_scenery_menu_asks_for_four_kinds_when_there_is_no_cue():
+    scenery = factors.menu(protocols.get_protocol("PR-01"))[0]
+    assert scenery["max"] == 4
+    assert "단서가 없으면 서로 다른 값 4개" in scenery["note"]
+    # 사진 1장(PR-03)은 섞지 않는다
+    assert "note" not in factors.menu(protocols.get_protocol("PR-03"))[0]

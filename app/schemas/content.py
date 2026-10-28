@@ -77,9 +77,9 @@ class ContentFactors(BaseModel):
     """
 
     scenery: list[Scenery] = Field(
-        description="자연 사진·영상 풍경을 쓰일 순서대로 0~4개. 사진 여러 장이면 연구 자극"
-        "(P03 호수·강·바다·언덕)처럼 여러 종을 섞고, 1장이거나 영상이면 1개. 고른 활동에 풍경 칸이 "
-        "없으면 []"
+        description="자연 사진·영상 풍경을 쓰일 순서대로 0~4개. 사용자가 특정 풍경을 말했으면 그 "
+        "풍경만, 단서가 없으면 칸의 max만큼 서로 다른 값(사진 여러 장이면 P03처럼 4종). 1장이거나 "
+        "영상이면 1개. 고른 활동에 풍경 칸이 없으면 []"
     )
     soundscape: Soundscape | None = Field(
         description="자연음 범주 하나. 고른 활동에 자연음 칸이 없으면 null"

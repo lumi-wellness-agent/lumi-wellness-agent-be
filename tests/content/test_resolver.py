@@ -356,6 +356,7 @@ def test_llm_scenery_drives_photos_when_the_user_picked_none(monkeypatch):
     assert first["content_factor"]["source"] == "LLM"
     assert first["content_factor"]["value"] == "sea"
     assert first["content_factor"]["evidence"] == ["P03"]
+    assert first["content_factor"]["reason"] == "-"
 
 
 def test_user_chips_win_over_llm_scenery(monkeypatch):
@@ -541,6 +542,7 @@ def test_recommended_music_goes_first_but_all_three_stay_for_the_user():
     assert music[0].metadata["recommended"] is True
     assert music[0].metadata["content_factor"]["source"] == "LLM"
     assert music[0].metadata["content_factor"]["evidence"] == ["E08"]
+    assert music[0].metadata["content_factor"]["reason"] == "-"  # FE가 추천 이유로 보인다
     assert all(a.metadata["selection_mode"] == "USER_CHOICE" for a in music)
     assert "recommended" not in music[1].metadata
 

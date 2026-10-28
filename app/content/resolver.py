@@ -437,4 +437,10 @@ def resolve_activity_assets(
     finally:
         if own_client:
             client.close()
+    # LLM이 고른 Factor에는 고른 이유를 붙인다 — FE가 "LUMI가 고른 …" 아래에 보인다
+    if factors and factors.reason:
+        for asset in assets:
+            tag = asset.metadata.get("content_factor")
+            if tag and tag.get("source") == FactorSource.LLM.value:
+                asset.metadata["content_factor"] = {**tag, "reason": factors.reason}
     return ContentResolution(assets=assets, warnings=warnings)
