@@ -70,6 +70,11 @@ CASES = [
     ({"outcomes": [Outcome.SUBJECTIVE_STRESS, Outcome.ATTENTION]}, [122, 132, 142, 121, 152]),
     # 0건이면 0건 — 필터를 완화하지 않는다
     ({"outcomes": [Outcome.SUBJECTIVE_STRESS], "record_type": RecordType.ARM}, []),
+    # 활동 근거 범위 — ARM은 experiment_id, 리뷰는 paper_id(experiment_id 없는 레코드)로 맞춘다
+    ({"evidence_keys": ["P24-E1", "N24"]}, [102, 101, 152, 151]),
+    ({"evidence_keys": ["P03-E1", "P01"], "outcomes": [Outcome.ATTENTION]}, [122, 121, 162, 161]),
+    # 논문 키는 그 논문의 실험 레코드를 부르지 않는다 — evidence[] key와 같은 단위
+    ({"evidence_keys": ["P24"]}, []),
 ]
 
 

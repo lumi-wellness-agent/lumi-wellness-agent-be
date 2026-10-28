@@ -14,7 +14,8 @@
   고르는 방식 `selection`(검수 자산이면 `app/static/*/manifest.json`의 키), 화면 명세 `session_ui`. 모양은
   활동마다 다르고 prepare가 그대로 `ActivityContent.content_spec`으로 넘긴다. PR-16은 단독 활동이 아니라
   다른 활동의 NOTICE 단계를 그리는 모듈이다(`ActivityContent.notice_module`).
-- `evidence[].evidence_record_ids`는 적재 뒤 BE가 역기입하는 유일한 필드다.
+- `evidence[].evidence_record_ids`는 비워 둔다 — plan의 근거 검색이 `evidence[]`의 key(ARM은
+  experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 먼저 찾는다(README 「근거 검색 평가」).
 - 합격 기준: `make test-protocols`.
 
 ## instruments/ — 측정 도구 4개

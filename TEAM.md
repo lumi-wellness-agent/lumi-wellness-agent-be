@@ -55,11 +55,11 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/nodes/executor.py` `app/static/coloring/` | 활동 노드 21개 통합(10-27) — prepare가 `content_spec`(대본 · 재생 시점 · 화면 명세)과 NOTICE 단계 모듈(PR-16)을 RUN 페이로드로 넘긴다. C 파트 실행 계약(`scratch/pr11`~`pr19`)을 `content_spec.session_ui`로 옮기고 컬러링 도안 SVG 11개를 검수 자산으로 등록했다 |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-4o-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |
-| 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 재적재는 `make seed-evidence`(id 유지) |
+| 완료 | `supabase/migrations/20261026000000_evidence_contracts.sql` `scripts/seed_evidence.py` `app/retrieval/hybrid.py` `app/agent/validation.py` | 근거 122건(arm 61개) 적재 · 하이브리드 검색 · 검증. 검색은 그 활동의 `evidence[]` 안에서 먼저 찾는다(10-28, README 「근거 검색 평가」). 재적재는 `make seed-evidence`(id 유지) |
 | 완료 | `app/agent/nodes/planner.py` `app/agent/prompts.py` `app/agent/context.py` `scripts/plan_trial.py` | plan을 실제 모델로 — 고정 절차(후보 → 선택 LLM → 검색 → 검증 → 설명 LLM). S1 · S2 · S3 시나리오 통과(`make plan-trial`) |
 | 수 | `app/agent/reference_card.py` | Reference 카드 — 됐다(README 「Reference 카드」). plan이 검증한 근거 · 프로토콜(composition · user_facing_flags · reference_card_note) · intake(목표 근거)로 만들고 rationale 문장에 기대지 않는다. 프로토콜 담당은 카드에 보일 메모를 `reference_card_note`로 적는다 |
 | 수 | `app/api/sessions.py` | 세션 API — `sessions` · `answer` · `measure` · `report` · `decision` · `retry` · `GET`, SSE · JSON, CORS(README 「세션 API」), 인증(Supabase Auth — Google · Kakao, 비로그인은 기록하지 않는 게스트 체험) · 동의 · 세션 기록 · 탈퇴(README 「인증 · 세션 기록」)는 됐다. 남은 것: FE |
-| 목 | `data/protocols/*.json` `evidence[].evidence_record_ids` | 역기입 · 통합 · 리허설 |
+| 목 | — | 통합 · 리허설. `evidence[].evidence_record_ids` 역기입은 하지 않는다(10-28) — plan이 `evidence[]`의 key(ARM은 experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 실행할 때 찾는다(`find_evidence`) |
 
 ### 활동 노드 담당 (JSON 21개 — 셋이 7개씩, 월·화)
 
@@ -131,7 +131,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 2. **화** 통합: 근거 적재·검색·검증. 먼저 끝난 두 사람이 measure · intake를 맡는다(각 하루).
 3. **수** 통합: plan 실제 모델 · Reference 카드 · 세션 API. 나머지는 JSON 합류.
 4. **목** 통합 실행 · 시나리오 반복("발표 앞두고 긴장돼요" → S2 → SAM·STAI-6 → PR-06 → 세션 → SAM Δ → replan) ·
-   `evidence_record_ids` 역기입 · 리허설. **수요일 저녁까지 안 오면 대체:** intake는 폼 값으로 IntakeResult를 채우고,
+   리허설. **수요일 저녁까지 안 오면 대체:** intake는 폼 값으로 IntakeResult를 채우고,
    measure는 SAM만 받는다.
 
 ## PR 규칙과 테스트 명령

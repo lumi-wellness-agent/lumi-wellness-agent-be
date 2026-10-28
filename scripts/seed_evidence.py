@@ -22,7 +22,7 @@
   만든다. 입력은 논문 제목 + 메타데이터의 영어 라벨 한 줄 + content다. content가 한국어 요약이라
   영어 질의와 멀어서 붙인다(저장하는 content는 그대로).
 - 다시 돌려도 된다. (paper_id, experiment_id, section, chunk_idx)가 같으면 갱신해 id가 유지된다 —
-  활동 노드 JSON의 evidence_record_ids가 이 id를 가리킨다.
+  세션 기록(care_rounds.evidence_record_ids)과 계획(CarePlan)이 이 id를 가리킨다.
 """
 
 from __future__ import annotations

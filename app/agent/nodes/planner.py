@@ -200,11 +200,33 @@ def search_candidates(
 async def find_evidence(
     session: PlannerContext, protocol: CareProtocol, query: str
 ) -> list[EvidenceHit]:
-    """제공 매체마다 하이브리드 검색을 돌려 점수 순으로 합친다(상위 hybrid.TOP_K).
+    """그 활동의 evidence[] 안에서 먼저 찾고, 0건이면 같은 필터로 전체에서 찾는다.
+
+    evidence[]는 활동 노드 담당이 원문을 보고 고른 레코드다. 매체가 같은 활동이 여럿이라(자연
+    이미지 4개 · 명상 3개 · 호흡 2개 …) 매체 필터만으로는 다른 활동의 근거가 섞였다 — 2026-10-28
+    평가에서 template 질의 상위 5 레코드의 23%(scripts/rag_eval.py Foreign@5). evidence[]가 비었거나
+    (PR-21) 그 안에 목표 지표 · 사용자 상태에 맞는 레코드가 없을 때만 같은 매체 연구 전체로 넓힌다.
 
     필터는 검증(validation.judge)과 같은 축이다 — 연구 매체 · 사용자 상태(ORDER_COMPATIBILITY) ·
-    목표 1차 지표. 0건이어도 필터를 완화하지 않는다: 완화해서 찾은 레코드는 어차피 검증에서 막힌다.
+    목표 1차 지표. 그래서 0건이면 인용할 근거가 없다는 뜻이고, 이 필터는 완화하지 않는다: 완화해서
+    찾은 레코드는 어차피 검증에서 막힌다.
     """
+    own = [ref.key for ref in protocol.evidence]  # ARM은 experiment_id, 리뷰는 paper_id
+    if own:
+        hits = await _search_media(session, protocol, query, own)
+        if hits:
+            return hits
+        log.info("%s evidence[]에 맞는 근거가 없어 같은 매체 연구에서 찾는다", protocol.protocol_id)
+    return await _search_media(session, protocol, query)
+
+
+async def _search_media(
+    session: PlannerContext,
+    protocol: CareProtocol,
+    query: str,
+    evidence_keys: Sequence[str] = (),
+) -> list[EvidenceHit]:
+    """제공 매체마다 하이브리드 검색을 돌려 점수 순으로 합친다(상위 hybrid.TOP_K)."""
     delivered = protocols.delivered_media(protocol, session.content_type)
     found: dict[int, EvidenceHit] = {}
     for medium in dict.fromkeys(study_medium(m) for m in delivered):
@@ -214,6 +236,7 @@ async def find_evidence(
             medium=medium,
             intervention_order=session.user_order,
             outcomes=GOAL_OUTCOMES[session.goal].primary,
+            evidence_keys=evidence_keys,
         )
         for hit in hits:
             known = found.get(hit.evidence_record_id)

@@ -127,8 +127,9 @@ graph TD;
   (`app/agent/intake_rules.py`) — 질문을 몇 번 해도 LLM은 2회이고, 시점 질문에 글로 답할 때만 한 번 더 읽는다.
   plan은 고정 절차입니다: 코드가 후보를 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로
   거르고 목표 1차 지표 등급 순으로 정렬해 주면 LLM이 하나를 고르고
-  (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 매체 · 사용자 상태 · 목표 지표로 근거를
-  검색·검증해 usable만 남기고, LLM이 그 근거로 추천 이유를 씁니다. 처음에는 `create_agent` Tool
+  (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 `evidence[]` 안에서(맞는 레코드가 없으면 같은 매체
+  연구 전체에서) 매체 · 사용자 상태 · 목표 지표로 근거를 검색·검증해 usable만 남기고, LLM이 그 근거로 추천
+  이유를 씁니다. 처음에는 `create_agent` Tool
   루프였지만 gpt-4o-mini가 검색을 건너뛰고, 인자를 빠뜨리고, 한 번은 10분 넘게 돌아(2026-10-26 실측)
   절차를 코드로 옮겼습니다 — 종료가 보장되고 모델 호출이 4~5회에서 2회로 줍니다. 적응은 이 노드 안의
   루프가 아니라 측정 → 평가 → 재계획 → plan 순환에서 옵니다. 선택은 `check_plan`이 후검증하고, 어기면
@@ -361,7 +362,7 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 
    대상 DB는 매번 적습니다 — `.env`의 공용 Supabase에 실수로 쓰지 않도록 기본값을 두지 않았습니다.
    다시 돌려도 (`paper_id`, `experiment_id`, `section`, `chunk_idx`)가 같으면 갱신만 해 id가 유지됩니다.
-   활동 노드 JSON의 `evidence_record_ids`가 이 id를 가리키므로 행을 지우고 다시 넣지 않습니다. 사람이
+   세션 기록(`care_rounds.evidence_record_ids`)과 계획(`CarePlan`)이 이 id를 가리키므로 행을 지우고 다시 넣지 않습니다. 사람이
    원문으로 확정한 값은 `data/evidence_overrides.json`에 적고 다시 돌립니다(`data/README.md`).
 
    content는 `data/evidence_excerpts.json`에 발췌가 있는 레코드는 논문 원문 METHODS · RESULTS 구간, 없는
@@ -425,8 +426,10 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 (`paper_id`, `experiment_id`)가 있고, 정답은 활동 노드 JSON `evidence[]` 가운데 그 목표의 1차 지표를 측정한
 항목입니다(검색의 outcomes 필터와 같은 축). 질의는 세 묶음입니다 — `planner`(실제 모델이 S1 · S2 · S3 세션에서
 만든 질의와 그때의 필터), `template`(프로토콜 × 목표의 연구 용어 질의, plan 노드와 같은 필터), `open`(같은 질의를
-필터 없이 — 임베딩 · 키워드만의 품질). `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense ·
-keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)을 내고, `--out`으로 남긴 결과 둘을 `compare`가
+필터 없이 — 임베딩 · 키워드만의 품질). `planner` · `template`는 plan 노드처럼 그 활동의 `evidence[]` 안에서
+먼저 찾고 0건이면 전체에서 찾습니다(아래 「활동 근거 범위」). `make rag-eval ARGS="run --misses"`가 hybrid(운영과
+같은 RRF) · dense · keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 chunk에 든
+레코드 중 그 활동 `evidence[]` 밖의 비율 — 낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가
 비교합니다. content를 바꿔 다시 적재하기 전후에 돌립니다. `build`는 `data/protocols/*.json`에서 케이스를 다시
 만듭니다(`evidence[]`가 바뀌면 다시 만듭니다).
 
@@ -448,6 +451,29 @@ keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)을 내고, `
   RRF 가중치(또는 keyword 후보 수) 조정이 다음 실험이다.
 - 같은 날 `make plan-trial ARGS="S1 S2 S3"`는 요약 · 원문 모두 S1 → PR-09, S2 → PR-06, S3 → PR-01을 골랐다.
   계획 한 번의 입력 토큰은 3.9~5.6천에서 4.9~6.4천으로 늘었다(추천 이유 프롬프트의 발췌가 길어짐).
+
+**활동 근거 범위 (2026-10-28).** plan은 그 활동의 `evidence[]`(활동 노드 담당이 원문을 보고 고른 레코드) 안에서
+먼저 찾고, 목표 지표 · 사용자 상태에 맞는 레코드가 없거나 `evidence[]`가 비었을 때(PR-21)만 같은 필터로 전체에서
+찾습니다(`nodes/planner.find_evidence`, SQL은 `coalesce(experiment_id, paper_id)`를 `evidence[]`의 key와 대조).
+같은 매체를 쓰는 활동이 여럿이라(자연 이미지 4 · 명상 3 · 호흡 · 자연음 · 영상 · 보행 · 컬러링 · 글쓰기 각 2)
+매체 필터만으로는 다른 활동의 근거가 Reference 카드에 섞였습니다. `evidence[].evidence_record_ids`는 그래서
+역기입하지 않고 비워 둡니다 — key로 실행할 때 찾으므로 id를 적어 둘 필요가 없습니다.
+
+| group · hybrid | n | Foreign@5 전 → 후 | Hit@3 전 → 후 | Recall@3 전 → 후 | Recall@5 전 → 후 | MRR 전 → 후 |
+| --- | --- | --- | --- | --- | --- | --- |
+| planner | 9 | 0 → 0 | 1.000 → 1.000 | 0.652 → 0.652 | 0.911 → 0.911 | 1.000 → 1.000 |
+| template | 21 | 0.234 → 0 | 0.952 → 1.000 | 0.705 → 0.816 | 0.882 → 0.906 | 0.843 → 1.000 |
+| open | 21 | 0.498 → 0.498 | 0.667 → 0.667 | 0.447 → 0.447 | 0.517 → 0.517 | 0.541 → 0.541 |
+
+- 다른 활동의 근거가 섞이던 template 8건(PR-04 · 10 · 11 · 12 · 18 · 19 — 예: PR-19가 자기 근거 E11-E1 ·
+  E12-E1 대신 PR-18의 E14-E1 · E13을 가져왔다)이 모두 사라졌다. planner(데모 S1 · S2 · S3 질의)는 원래 0이라
+  그대로다. 같은 날 `make plan-trial ARGS="S1 S2 S3"`는 PR-09 · PR-06 · PR-01을 골랐고, 그 질의들은 범위가
+  있든 없든 상위 5건이 같았다.
+- template의 Recall · MRR이 오른 것은 정답이 그 활동의 `evidence[]`라 범위를 좁히면 어느 정도 당연하다. 볼 지표는
+  Foreign@5다. `open`은 범위도 필터도 없어 그대로다 — RRF 가중치 실험은 여기서 한다.
+- 범위 안에서도 못 찾는 정답은 검색이 아니라 데이터 문제다. E11-E1 · E12-E1 · E15는 활동 JSON에는 AFFECT를
+  쟀다고 돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(원문 확인 뒤
+  `data/evidence_overrides.json` 또는 JSON을 고친다). E02-E1 · P30-E1은 원문이 없어 시트 요약이라 순위가 낮다.
 
 ## 배포 (Vercel)
 

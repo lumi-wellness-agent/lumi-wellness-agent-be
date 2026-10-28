@@ -129,6 +129,68 @@ def test_pipeline_without_db_plans_without_evidence():
     assert planner.explained == [("PR-21", "-", [])]
 
 
+S3_STATE = {
+    "request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요"),
+    "intake": IntakeResult(
+        goal=CareGoal.S3, order_condition=InterventionOrder.POST_FATIGUE, minutes=10
+    ),
+}
+
+
+def add_other_activitys_hit(monkeypatch) -> int:
+    """S3 필터(STATIC_IMAGE · ATTENTION · POST_FATIGUE)에 맞는 PR-03의 근거(P28-E1) chunk를 점수
+    최고로 더한다. 매체 필터만으로 찾으면 PR-01 세션에 이것이 맨 앞에 나온다."""
+    hits = fakes.load_hits()
+    base = next(h for h in hits if h.evidence_record_id == 122)  # P03-E1 RESULTS
+    other = base.model_copy(
+        update={
+            "evidence_record_id": 901,
+            "paper": base.paper.model_copy(update={"paper_id": "P28"}),
+            "experiment_id": "P28-E1",
+            "score": 0.05,
+        }
+    )
+    monkeypatch.setattr(fakes, "load_hits", lambda: (*hits, other))
+    return other.evidence_record_id
+
+
+def test_pipeline_searches_the_activitys_own_evidence_first(fake_backends, monkeypatch):
+    other = add_other_activitys_hit(monkeypatch)
+    wide = asyncio.run(
+        fakes.fake_search(
+            None,
+            query="-",
+            medium=Medium.STATIC_IMAGE,
+            intervention_order=InterventionOrder.POST_FATIGUE,
+            outcomes=[Outcome.ATTENTION],
+        )
+    )
+    assert wide[0].evidence_record_id == other
+
+    plan = run_plan(RecordingPlanner(choice("PR-01", "nature images attention")), S3_STATE)
+
+    # 한 번에 끝난다 — PR-01의 evidence[] 안에서 찾았다
+    pr01 = protocols.get_protocol("PR-01")
+    assert [list(s["evidence_keys"]) for s in fake_backends] == [[r.key for r in pr01.evidence]]
+    assert plan.activity.evidence_record_ids and other not in plan.activity.evidence_record_ids
+    own_papers = {r.paper_id for r in pr01.evidence}
+    assert {e.paper.paper_id for e in plan.reference_card.evidence} <= own_papers
+
+
+def test_pipeline_widens_to_the_same_medium_when_its_evidence_does_not_fit(fake_backends):
+    # PR-03(스트레스 전 자연 장면)의 근거 P28-E1은 생리 지표만 쟀다. S2 1차 지표로는 0건이라 같은
+    # 필터로 전체에서 찾고, 같은 매체 메타분석 N24를 인용한다
+    state = {
+        "request": CareRequest(text="발표 앞두고 긴장돼요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+        ),
+    }
+    plan = run_plan(RecordingPlanner(choice("PR-03", "nature images stress")), state)
+    assert [list(s["evidence_keys"]) for s in fake_backends] == [["P28-E1"], []]
+    assert plan.activity.evidence_record_ids == [152, 151]
+
+
 def test_pipeline_rejects_when_nothing_fits():
     state = {**STATE, "intake": INTAKE.model_copy(update={"minutes": 2})}
     with pytest.raises(PlanRejected, match="맞는 검수 프로토콜이 없다"):

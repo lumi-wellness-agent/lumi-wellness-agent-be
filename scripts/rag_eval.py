@@ -17,12 +17,16 @@
            상태는 없다
   open     template와 같은 질의를 필터 없이. 모든 chunk에서 순위를 매기므로 임베딩 · 키워드만의
            품질이다
+  planner · template는 plan 노드처럼 그 활동의 evidence[] 안에서 먼저 찾고, 0건이면 같은 필터로
+  전체에서 찾는다(2026-10-28부터. 그 전 운영은 evidence[] 범위 없이 찾았다)
 - 방식(mode): hybrid(운영과 같은 RRF) · dense(벡터 순위만) · keyword(낱말 순위만). SQL · 필터 ·
   후보 수는 app/retrieval/hybrid.py의 것을 그대로 쓴다. 매체가 여럿이면 레코드별 최고 점수로
   합친다(plan 노드와 같다).
 - 지표: Hit@K(정답 레코드가 상위 K chunk 안에 하나라도), Recall@K(정답 레코드 중 상위 K chunk 안의
   비율), MRR(첫 정답 chunk 순위의 역수). K = 3 · 5 · 10. DB에 없는 정답(미적재 논문)은 분모에서
-  빼고 따로 센다.
+  빼고 따로 센다. Foreign@5는 상위 5 chunk에 든 레코드 중 그 활동의 evidence[]에 없는 것(같은
+  매체를 쓰는 다른 활동의 근거 등)의 비율이다 — plan이 상위 5건을 검증해 인용하므로 Reference
+  카드에 남의 근거가 얼마나 섞이는지다. 낮을수록 좋다.
 - DB는 읽기만 한다. 질의 임베딩에 OPENAI_API_KEY가 든다(없으면 dense가 비고 hybrid는 keyword만 —
   운영과 같다). content를 바꿔 다시 적재(make seed-evidence)하기 전후에 돌려 compare로 비교한다.
 """
@@ -35,7 +39,7 @@ import json
 import math
 import sys
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -44,7 +48,6 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from pgvector import Vector  # noqa: E402
 from psycopg.rows import dict_row  # noqa: E402
 from psycopg_pool import AsyncConnectionPool  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
@@ -63,7 +66,7 @@ KS = (3, 5, 10)
 LIMIT = max(KS)
 GROUPS = ("planner", "template", "open")
 MODES = ("hybrid", "dense", "keyword")
-METRICS = tuple(f"{name}@{k}" for name in ("hit", "recall") for k in KS) + ("mrr",)
+METRICS = tuple(f"{name}@{k}" for name in ("hit", "recall") for k in KS) + ("mrr", "foreign@5")
 
 Group = Literal["planner", "template", "open"]
 Key = tuple[str, str | None]  # (paper_id, experiment_id)
@@ -319,6 +322,19 @@ def metrics(ranks: Mapping[Key, int], relevant: Sequence[Key]) -> dict[str, floa
     return out
 
 
+def foreign(ranks: Mapping[Key, int], own: Collection[Key], k: int = 5) -> list[Key]:
+    """상위 k chunk에 든 레코드 중 그 활동의 evidence[]에 없는 것, 순위 순. k = 5는 plan이
+    검증에 넘기는 건수(hybrid.TOP_K)다."""
+    top = sorted((rank, key) for key, rank in ranks.items() if rank <= k)
+    return [key for _, key in top if key not in own]
+
+
+def foreign_at(ranks: Mapping[Key, int], own: Collection[Key], k: int = 5) -> float:
+    """상위 k chunk에 든 레코드 중 그 활동의 evidence[] 밖 비율. 하나도 안 들면 0이다."""
+    top = sum(rank <= k for rank in ranks.values())
+    return len(foreign(ranks, own, k)) / top if top else 0.0
+
+
 def merge_rankings(rankings: Iterable[Sequence[tuple[int, float]]], limit: int) -> list[int]:
     """매체마다 나온 (chunk id, 점수) 순위를 레코드별 최고 점수로 합친다. 동점이면 id 순."""
     best: dict[int, float] = {}
@@ -361,19 +377,18 @@ async def search_rows(
     medium: Medium | None,
     order: InterventionOrder | None,
     outcomes: Sequence[Outcome],
+    evidence_keys: Sequence[str] = (),
 ) -> list[dict[str, Any]]:
     """hybrid.search와 같은 SQL · 인자로 후보 행(벡터 · 키워드 순위 포함)을 받는다."""
-    filters = hybrid.filter_params(
-        medium=medium, intervention_order=order, outcomes=outcomes, record_type=None
+    params = hybrid.search_params(
+        query=query,
+        vector=vector,
+        medium=medium,
+        intervention_order=order,
+        outcomes=outcomes,
+        record_type=None,
+        evidence_keys=evidence_keys,
     )
-    params = {
-        **{name: hybrid._jsonb(value) for name, value in filters.items()},
-        "embedding": None if vector is None else Vector(vector),
-        "embedding_model": get_settings().embedding_model,
-        "terms": hybrid.keyword_terms(query),
-        "min_similarity": hybrid.KEYWORD_MIN_SIMILARITY,
-        "candidates": hybrid.CANDIDATES,
-    }
     async with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(hybrid.SEARCH_SQL, params)
         return await cur.fetchall()
@@ -391,10 +406,11 @@ class CaseResult:
     ranks: dict[Key, int]  # 레코드 → 순위(상위 LIMIT 안에 든 것만)
     gold: list[Key]  # DB에 있는 정답
     unresolved: list[Key]  # DB에 없는 정답
+    own: frozenset[Key]  # 그 활동의 evidence[] 전부(역할 · 지표 무관)
 
     @property
     def metrics(self) -> dict[str, float]:
-        return metrics(self.ranks, self.gold)
+        return metrics(self.ranks, self.gold) | {"foreign@5": foreign_at(self.ranks, self.own)}
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -405,8 +421,36 @@ class CaseResult:
             "ranks": {label(key): rank for key, rank in self.ranks.items()},
             "gold": [label(key) for key in self.gold],
             "unresolved": [label(key) for key in self.unresolved],
+            "foreign": [label(key) for key in foreign(self.ranks, self.own)],
             "metrics": self.metrics,
         }
+
+
+def own_records(protocol_id: str) -> frozenset[Key]:
+    """그 활동의 evidence[] 레코드 — Foreign@5의 '자기 근거'이자 planner · template의 검색 범위."""
+    protocol = protocols.load_protocols()[protocol_id]
+    return frozenset((e.paper_id, e.experiment_id) for e in protocol.evidence)
+
+
+async def search_media(
+    pool: AsyncConnectionPool,
+    case: EvalCase,
+    vector: list[float] | None,
+    evidence_keys: Sequence[str] = (),
+) -> list[list[dict[str, Any]]]:
+    """매체마다 후보 행. 매체가 없으면(open) 매체 필터 없이 한 번."""
+    return [
+        await search_rows(
+            pool,
+            query=case.query,
+            vector=vector,
+            medium=medium,
+            order=case.intervention_order,
+            outcomes=case.outcomes,
+            evidence_keys=evidence_keys,
+        )
+        for medium in list(case.media) or [None]
+    ]
 
 
 async def evaluate(
@@ -418,18 +462,13 @@ async def evaluate(
     for case in cases:
         if case.query not in vectors:
             vectors[case.query] = await embedding.embed_query(case.query)
-        media: list[Medium | None] = list(case.media) or [None]
-        rows_by_medium = [
-            await search_rows(
-                pool,
-                query=case.query,
-                vector=vectors[case.query],
-                medium=medium,
-                order=case.intervention_order,
-                outcomes=case.outcomes,
-            )
-            for medium in media
-        ]
+        own = own_records(case.protocol_id)
+        # planner · template는 plan 노드(find_evidence)처럼 그 활동의 evidence[] 안에서 먼저 찾고,
+        # 0건이면 같은 필터로 전체에서 찾는다. open은 범위도 필터도 없다
+        scope = sorted(e or p for p, e in own) if case.group != "open" else []
+        rows_by_medium = await search_media(pool, case, vectors[case.query], scope)
+        if scope and not any(rows_by_medium):
+            rows_by_medium = await search_media(pool, case, vectors[case.query])
         key_of: dict[int, Key] = {
             row["id"]: (row["paper_id"], row["experiment_id"])
             for rows in rows_by_medium
@@ -448,6 +487,7 @@ async def evaluate(
                     ranks=record_ranks(ranked, key_of),
                     gold=gold_keys,
                     unresolved=unresolved,
+                    own=own,
                 )
             )
     return results
@@ -497,6 +537,18 @@ def format_misses(results: Sequence[CaseResult], mode: str = "hybrid", k: int = 
     return "\n".join(lines) or f"(상위 {k} 안에 정답을 모두 찾았다)"
 
 
+def format_foreign(results: Sequence[CaseResult], mode: str = "hybrid") -> str:
+    """상위 5에 든 그 활동 evidence[] 밖 레코드. open은 필터가 없어 늘 섞이므로 뺀다."""
+    lines = []
+    for r in results:
+        if r.mode != mode or r.case.group == "open" or not r.gold:
+            continue
+        if found := foreign(r.ranks, r.own):
+            names = ", ".join(label(key) for key in found)
+            lines.append(f"- {r.case.id} ({r.case.query!r}): {names}")
+    return "\n".join(lines) or "(상위 5에 다른 활동의 근거가 없다)"
+
+
 def db_label(url: str) -> str:
     parts = urlsplit(url)
     return f"{parts.hostname}:{parts.port or 5432}{parts.path}"
@@ -525,6 +577,8 @@ async def run(args: argparse.Namespace) -> int:
     if args.misses:
         print("\n상위 5 안에 못 든 정답(hybrid):")
         print(format_misses(results))
+        print("\n상위 5에 든 다른 활동의 근거(hybrid · planner · template):")
+        print(format_foreign(results))
     if args.out:
         payload = {
             "meta": {
@@ -554,17 +608,24 @@ def compare(before_path: Path, after_path: Path) -> str:
         if name not in after["summary"]:
             continue
         b, a = before["summary"][name], after["summary"][name]
-        lines.append(f"{name:18s} " + " ".join(f"{a[m] - b[m]:>+9.3f}" for m in METRICS))
+        # 지표가 없는 쪽(foreign@5 전에 남긴 결과)은 —
+        cells = (f"{a[m] - b[m]:>+9.3f}" if m in a and m in b else f"{'—':>9s}" for m in METRICS)
+        lines.append(f"{name:18s} " + " ".join(cells))
     by_case_before = {(r["case"], r["mode"]): r for r in before["results"]}
     changed = []
     for r in after["results"]:
         prev = by_case_before.get((r["case"], r["mode"]))
         if prev is None or r["mode"] != "hybrid" or not r["gold"]:
             continue
-        was, now = prev["metrics"]["recall@5"], r["metrics"]["recall@5"]
-        if was != now:
-            changed.append(f"- {r['case']}: recall@5 {was:.2f} → {now:.2f}")
-    title = "hybrid recall@5가 바뀐 케이스:" if changed else "hybrid recall@5가 바뀐 케이스 없음"
+        shifts = [
+            f"{m} {prev['metrics'][m]:.2f} → {r['metrics'][m]:.2f}"
+            for m in ("recall@5", "foreign@5")
+            if m in prev["metrics"] and m in r["metrics"] and prev["metrics"][m] != r["metrics"][m]
+        ]
+        if shifts:
+            changed.append(f"- {r['case']}: {' · '.join(shifts)}")
+    which = "hybrid recall@5 · foreign@5가 바뀐 케이스"
+    title = f"{which}:" if changed else f"{which} 없음"
     lines.append(f"\n{title}")
     lines.extend(changed)
     return "\n".join(lines)
