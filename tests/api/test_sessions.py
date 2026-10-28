@@ -384,6 +384,8 @@ def test_heartbeat_fills_silence_and_passes_errors_through():
         return [item async for item in sessions.with_heartbeat(source, 0.01)]
 
     out = asyncio.run(collect(slow()))
-    assert out[0] == "a" and out[-1] == "b" and None in out
+    data = [item for item in out if item is not None]
+    assert data == ["a", "b"]
+    assert any(item is None for item in out[out.index("a") + 1 : out.index("b")])
     with pytest.raises(ValueError, match="boom"):
         asyncio.run(collect(failing()))
