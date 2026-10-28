@@ -222,10 +222,15 @@ def test_pipeline_widens_to_the_same_medium_when_its_evidence_does_not_fit(fake_
     assert plan.activity.evidence_record_ids == [152, 151]
 
 
-def test_pipeline_rejects_when_nothing_fits():
+def test_pipeline_relaxes_time_last_when_nothing_fits_the_minutes():
+    # S1 · 2분 — 2분 안의 S1 활동이 없다. 전에는 실패했고, 이제 시간을 마지막에 풀어 가장 짧은
+    # 활동(PR-09 3분 마음챙김)을 근거 용량 그대로 준다
     state = {**STATE, "intake": INTAKE.model_copy(update={"minutes": 2})}
-    with pytest.raises(PlanRejected, match="맞는 검수 프로토콜이 없다"):
-        run_plan(RecordingPlanner(choice("PR-09")), state)
+    planner = RecordingPlanner(choice("PR-09"))
+    plan = run_plan(planner, state)
+    assert planner.chosen[0][0][0] == "PR-09"  # 가장 짧은 활동이 맨 앞
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-09").duration_minutes.default)
 
 
 def test_pipeline_relaxes_the_user_state_when_no_activity_fits_it():
