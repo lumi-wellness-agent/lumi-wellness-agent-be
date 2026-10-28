@@ -581,3 +581,20 @@ def test_four_sceneries_are_mixed_seven_photos_each(monkeypatch):
     assert len(result.assets) == 25
     order = [a.metadata["content_factor"]["value"] for a in result.assets[:4]]
     assert order == ["lake river", "sea", "mountain", "forest"]
+
+
+def test_artwork_url_is_rewritten_to_the_be_proxy(monkeypatch):
+    from app.agent.state import ActivityAsset
+
+    iiif = "https://www.artic.edu/iiif/2/2d484387-2509-5e8e-2c43-22f9981972eb/full/843,/0/default.jpg"
+
+    def fake_art(self, query):
+        return ActivityAsset(slot="ARTWORK", url=iiif, provider="ART_INSTITUTE_OF_CHICAGO")
+
+    monkeypatch.setattr("app.content.resolver.ArtInstituteProvider.search_artwork", fake_art)
+    result = resolve_activity_assets(
+        get_protocol("PR-20"), CareRequest(text="-"), settings=Settings(), client=_no_network()
+    )
+    art = result.assets[0]
+    assert art.url == "/media/artic/2d484387-2509-5e8e-2c43-22f9981972eb/843.jpg"
+    assert art.metadata["origin_url"] == iiif

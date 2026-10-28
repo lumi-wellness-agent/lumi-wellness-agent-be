@@ -24,6 +24,7 @@ from app.content.providers import (
     FreesoundProvider,
     PixabayProvider,
 )
+from app.content.proxy import proxied_url
 from app.schemas.care import CareRequest, ContentType
 from app.schemas.content import ContentFactors, FactorSource, Soundscape
 from app.schemas.protocol import CareProtocol, SlotType
@@ -437,6 +438,11 @@ def resolve_activity_assets(
     finally:
         if own_client:
             client.close()
+    # 미술관 · Pixabay 사진은 BE가 대신 받아 전달한다(app/api/media.py)
+    for asset in assets:
+        if proxied := proxied_url(asset):
+            asset.metadata = {**asset.metadata, "origin_url": asset.url}
+            asset.url = proxied
     # LLM이 고른 Factor에는 고른 이유를 붙인다 — FE가 "LUMI가 고른 …" 아래에 보인다
     if factors and factors.reason:
         for asset in assets:
