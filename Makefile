@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval parse-papers extract-excerpts
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval plan-eval parse-papers extract-excerpts
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -47,12 +47,20 @@ plan-trial:
 	$(PY) scripts/plan_trial.py $(ARGS)
 
 # 근거 검색 평가(README 「근거 검색 평가」). 근거 DB는 읽기만 하고, 없으면 .env의 DATABASE_URL. 질의 임베딩에
-# OPENAI_API_KEY가 든다. content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다
-# 예: make rag-eval ARGS="build"
+# OPENAI_API_KEY가 든다. content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다.
+# collect는 시나리오로 운영 choose 프롬프트를 불러 질의를 모은다(LLM 비용 — 빠진 것만 채운다)
+# 예: make rag-eval ARGS="collect"
+#     make rag-eval ARGS="build"
 #     make rag-eval ARGS="run --misses --out before.json --database-url postgresql://postgres:postgres@localhost:54329/postgres"
 #     make rag-eval ARGS="compare before.json after.json"
 rag-eval:
 	$(PY) scripts/rag_eval.py $(ARGS)
+
+# 계획 평가(README 「계획 평가」). 시나리오마다 실제 모델로 plan 노드를 돌려 규칙으로 판정한다(LLM 비용).
+# 근거 DB는 읽기만 하고, 없으면 .env의 DATABASE_URL — lumi-pg로 돌린다
+# 예: make plan-eval ARGS="--database-url postgresql://postgres:postgres@localhost:54329/postgres --out plan_eval.json"
+plan-eval:
+	$(PY) scripts/plan_eval.py $(ARGS)
 
 # 논문 PDF → 섹션 텍스트 캐시(Docling, `.[ingestion]` extras). 캐시는 Research_paper(비공개)/…/01_fulltext
 # 예: make parse-papers ARGS="--with-records"

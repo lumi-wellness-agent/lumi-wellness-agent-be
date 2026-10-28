@@ -333,7 +333,8 @@ make run                # http://127.0.0.1:8000/health
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
-| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl`의 질의로 Hit@K · Recall@K · MRR을 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `build`가 케이스를 다시 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
+| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
+| `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -422,16 +423,63 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 
 ### 근거 검색 평가
 
-`data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다. 케이스마다 질의 · 필터 · 정답 레코드
-(`paper_id`, `experiment_id`)가 있고, 정답은 활동 노드 JSON `evidence[]` 가운데 그 목표의 1차 지표를 측정한
-항목입니다(검색의 outcomes 필터와 같은 축). 질의는 세 묶음입니다 — `planner`(실제 모델이 S1 · S2 · S3 세션에서
-만든 질의와 그때의 필터), `template`(프로토콜 × 목표의 연구 용어 질의, plan 노드와 같은 필터), `open`(같은 질의를
-필터 없이 — 임베딩 · 키워드만의 품질). `planner` · `template`는 plan 노드처럼 그 활동의 `evidence[]` 안에서
-먼저 찾고 0건이면 전체에서 찾습니다(아래 「활동 근거 범위」). `make rag-eval ARGS="run --misses"`가 hybrid(운영과
-같은 RRF) · dense · keyword 세 방식으로 Hit@K · Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 chunk에 든
-레코드 중 그 활동 `evidence[]` 밖의 비율 — 낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가
-비교합니다. content를 바꿔 다시 적재하기 전후에 돌립니다. `build`는 `data/protocols/*.json`에서 케이스를 다시
-만듭니다(`evidence[]`가 바뀌면 다시 만듭니다).
+`data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다(2026-10-28 갱신, 180문항). 운영 plan 노드가
+마주칠 수 있는 검색 상황(활동 × 목표 × 사용자 상태)을 전부 덮습니다.
+
+- **시나리오.** `data/eval_scenarios.jsonl`은 목표 3 × 사용자 상태 5(사건 전 · 사건 후 · 오래 집중한 뒤 ·
+  계기 없음 · 잘 모르겠어요) × 문장 2(직접 · 돌려 말하기) = 30개입니다. 칩(`setting` · `earphones` ·
+  `minutes`)은 같은 시나리오를 쓰는 계획 평가용입니다.
+- **질의.** `make rag-eval ARGS="collect"`가 시나리오마다 그 목표 · 상태의 후보(`plan_candidates`, 칩 없이)를
+  한 바퀴 돌며 운영 choose 프롬프트로 활동마다 `search_query`를 받습니다 — 고른 활동을 빼 가며 다시 묻고,
+  목표 · 상태는 intake를 거치지 않고 직접 넣습니다. 상황 110개 × 문장 2 = 220개를 모았고(gpt-5.4-mini, 67초,
+  입력 토큰 57만), 같은 상황에 같은 질의는 `build`가 하나로 합쳐 180문항입니다. 모은 질의
+  (`data/rag_eval_queries.jsonl`)는 다시 만들 수 없어 케이스와 따로 두고, `collect`는 빠진 (시나리오, 활동)만
+  채웁니다.
+- **정답.** 활동 노드 JSON `evidence[]` 가운데 그 목표의 1차 지표를 잰 레코드(`paper_id`, `experiment_id`)이고
+  `build`가 붙입니다. `run`은 DB에 없는 정답과, 사용자 상태에 인용할 수 없는 연구 조건(`ORDER_COMPATIBILITY`)의
+  정답을 분모에서 빼고 따로 셉니다 — 뒤의 것은 검색의 순서 필터가 일부러 거르는 레코드입니다.
+- **묶음.** `planner`(163)는 정답이 있는 상황, `fallback`(17)은 그 활동 `evidence[]`에 목표 지표 근거가 없어
+  같은 필터로 전체에서 찾는 상황입니다(PR-15 · PR-21 S1, PR-03 S2). fallback은 상위 5가 늘 다른 활동의
+  근거라 점수 대신 상위 5에 든 레코드 수(`found@5`)와 목록을 봅니다. `run --open`은 planner 질의를 필터 ·
+  범위 없이도 돌립니다(임베딩 · 키워드만의 품질, RRF 가중치 실험용).
+- **평균.** 문항마다 같은 무게입니다 — 운영에서 나올 수 있는 검색 상황 전체의 평균입니다. 활동이 S2에 17개
+  (S1 · S3는 4개씩)라 planner 163문항 중 119문항이 S2입니다.
+- `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense · keyword 세 방식으로 Hit@K ·
+  Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 chunk에 든 레코드 중 그 활동 `evidence[]` 밖의 비율 —
+  낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. DB는 lumi-pg로 돌립니다 — 운영
+  Supabase의 session pooler(5432)는 클라이언트 한도가 15라 다른 연결과 겹치면 평가 풀이 연결을 못 엽니다.
+- `tests/retrieval/test_rag_eval.py`가 커밋된 케이스가 `build` 결과와 같은지, 후보가 될 수 있는 상황마다 모은
+  질의가 있는지 봅니다. 활동 JSON이 바뀌어 깨지면 `collect` → `build`를 다시 돌립니다.
+
+2026-10-28 측정(180문항, text-embedding-3-small, lumi-pg — 운영 Supabase도 같은 값):
+
+| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | Foreign@5 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| planner · hybrid | 163 | 1.000 | 0.840 | 0.920 | 0.949 | 1.000 | 0 |
+| planner · dense | 163 | 1.000 | 0.820 | 0.901 | 0.947 | 1.000 | 0 |
+| planner · keyword | 163 | 0.951 | 0.783 | 0.829 | 0.849 | 0.951 | 0 |
+| open · hybrid | 163 | 0.675 | 0.426 | 0.515 | 0.685 | 0.606 | 0.604 |
+| open · dense | 163 | 0.877 | 0.540 | 0.676 | 0.819 | 0.805 | 0.435 |
+
+| view · 방식 | n | found@5 평균 | 근거 0건 |
+| --- | --- | --- | --- |
+| fallback · hybrid | 17 | 2.47 | 2 (12%) |
+
+- 운영 경로(planner · hybrid)는 첫 정답이 늘 1위이고(MRR 1.000) 다른 활동의 근거가 섞이지 않는다(Foreign@5 0).
+  옛 평가셋(planner 9 · template 21)의 Recall@5 0.911 · 0.906과 같은 수준이다.
+- 상위 5에 못 든 정답은 세 갈래다. ① PR-19의 E11-E1 · E12-E1, PR-18의 E15는 활동 JSON에는 AFFECT를 쟀다고
+  돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(데이터 문제, 아래와 같다). ② PR-14는
+  정답이 7개라 상위 5에 다 들 수 없고, 원문이 없는 E02-E1 · P30-E1이 뒤로 밀린다. ③ S3의 PR-11 · PR-01은
+  P07-E1 · P03-E1 · P01 · P04가 6~8위다.
+- 사용자 상태 정책으로 정답 19건을 분모에서 뺐다(예: 사건 전 사용자에게 스트레스 뒤 회복 연구).
+- fallback 2문항(PR-15를 사건 전 · 오래 집중한 뒤에 고른 경우)은 상위 5가 비어 Reference 카드에 근거가 없다 —
+  빌려 올 S1 컬러링 연구 P32-E1이 스트레스 뒤(POST_STRESS) 조건이라 그 상태에 인용할 수 없다. PR-21은 PR-09의
+  N26-E1 · P13 · P14(와 PR-01의 P24-E1 · P33-E1)를, PR-03은 PR-01의 P24-E1 · P33-E1 · N24를 빌려 온다.
+- 필터 없는 open에서는 여전히 dense(Recall@5 0.676)가 hybrid(0.515)보다 낫다 — RRF 가중치 실험의 근거다.
+  운영은 범위 · 필터 안에서 찾으므로 이 차이가 planner 결과에는 거의 드러나지 않는다.
+
+아래 두 측정은 옛 평가셋(51문항 — `planner` 9 · `template` 21 · `open` 21, 2026-10-26 질의)으로 잰 것이다.
+`template`은 프로토콜 × 목표의 연구 용어 질의, `open`은 같은 질의를 필터 없이 돌린 묶음이었다.
 
 2026-10-27 측정(text-embedding-3-small, lumi-pg). '요약'은 content가 근거 arm 시트 요약 122 chunk일 때,
 '원문'은 레코드 58개(chunk 116개)를 논문 원문 METHODS · RESULTS 발췌로 바꾼 뒤(`data/evidence_excerpts.json`,
@@ -474,6 +522,33 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - 범위 안에서도 못 찾는 정답은 검색이 아니라 데이터 문제다. E11-E1 · E12-E1 · E15는 활동 JSON에는 AFFECT를
   쟀다고 돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(원문 확인 뒤
   `data/evidence_overrides.json` 또는 JSON을 고친다). E02-E1 · P30-E1은 원문이 없어 시트 요약이라 순위가 낮다.
+
+### 계획 평가
+
+`make plan-eval`은 같은 시나리오 30개(`data/eval_scenarios.jsonl`)마다 운영 plan 노드를 실제 모델로 돌려
+규칙으로 판정합니다(LLM 비용, 근거 DB 읽기 전용 — lumi-pg로 돌립니다). 목표 · 사용자 상태 · 칩(장소 · 이어폰 ·
+시간)은 intake 결과로 직접 넣고(intake는 따로 평가합니다), `change_activity` 시나리오 6개는 첫 계획의 활동을
+바꾸기로 한 다음 라운드를 한 번 더 돕니다. 정답은 활동 하나가 아니라 규칙입니다 — 계획이 나온다 · LLM의 첫
+선택이 재질의 없이 통과한다 · 고른 활동이 기대 후보(`plan_candidates`) 안이다 · 풀린 조건이 기대와 같다 · 최종
+계획이 `check_plan`을 통과한다 · 활동 변경 뒤 다른 활동을 고른다. Reference 카드의 근거 수와 다른 활동에서 빌려
+온 근거는 따로 셉니다(근거가 없는 카드는 규칙 위반이 아니라 근거 부족입니다).
+
+2026-10-28 측정(gpt-5.4-mini, lumi-pg) — 계획 36개(시나리오 30 + 활동 변경 6):
+
+| 규칙 | 통과 |
+| --- | --- |
+| 계획이 나온다 | 36/36 |
+| 첫 선택이 재질의 없이 통과한다 | 36/36 |
+| 기대 후보 안 · 풀린 조건이 기대와 같다 · `check_plan` 통과 | 36/36 |
+| 활동 변경 뒤 다른 활동을 고른다 | 6/6 |
+| Reference 카드에 근거가 있다 | 35/36 |
+
+- 근거 없는 카드는 S1-pre-b(사건 전 · 사무실 · 이어폰 없음 · 5분 → 후보가 PR-15 하나)뿐이다. 근거 검색 평가의
+  fallback 0건과 같은 원인이다 — 빌려 올 컬러링 연구 P32-E1이 스트레스 뒤 조건이다. PR-15를 고른 다른 두 카드는
+  PR-14의 P32-E1을 빌려 왔다.
+- 첫 계획에서 고른 활동은 S1 PR-09 8 · PR-15 2, S2 PR-06 7 · PR-01 2 · PR-19 1, S3 PR-01 6 · PR-11 3 · PR-10 1이다.
+  빠듯한 칩에서는 남은 후보로 옮겨 간다(예: 발표 앞 · 사무실 · 이어폰 없음 · 5분 → PR-19 글쓰기).
+- 계획 한 번에 평균 3.1초, 토큰 4,091/202(선택 · 설명 두 번 호출)였다.
 
 ## 배포 (Vercel)
 
@@ -597,11 +672,14 @@ data/
 ├─ manifest.csv         논문 83편 매니페스트
 ├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 ├─ goal_definitions.json intake 개념 정의 S1·S2·S3 — R1 논문 원문 문장(paper_id · 쪽)
-└─ rag_eval.jsonl       근거 검색 평가셋 — 질의 · 필터 · 정답 레코드 (make rag-eval)
+├─ eval_scenarios.jsonl 평가 시나리오 30개 — 목표 × 사용자 상태 × 문장 · 칩 (검색 질의 수집 · 계획 평가)
+├─ rag_eval_queries.jsonl 운영 choose 프롬프트로 모은 검색 질의 220개 (make rag-eval ARGS="collect")
+└─ rag_eval.jsonl       근거 검색 평가셋 180문항 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안
 scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records 적재(make seed-evidence)
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
-scripts/rag_eval.py             근거 검색 평가 — 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
+scripts/rag_eval.py             근거 검색 평가 — 질의 수집 · 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
+scripts/plan_eval.py            계획 평가 — 시나리오마다 실제 모델로 plan 노드 실행 · 규칙 판정(make plan-eval)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
