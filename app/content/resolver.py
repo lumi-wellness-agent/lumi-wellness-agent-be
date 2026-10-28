@@ -56,7 +56,8 @@ SCENERY_ALIASES = {
     "꽃": "flowers",
     "하늘": "sky",
 }
-MAX_SCENERY = 3
+# 섞는 풍경 수 상한(카탈로그 scenery.max_values — P03의 호수·강·바다·언덕처럼 여러 종)
+MAX_SCENERY = factor_catalog.load_catalog().axes[factor_catalog.SCENERY].max_values
 
 
 def preferred_sceneries(request: CareRequest) -> list[str]:
@@ -182,6 +183,16 @@ def _soundscape_plan(
     if soundscape in matching:
         return soundscape, FactorSource.LLM
     return (matching[0] if matching else None), scenery_source
+
+
+def _recommended_music(
+    slot: SlotType, refs: list, factors: ContentFactors | None
+) -> factor_catalog.FactorValue | None:
+    """plan이 추천한 이완 음악 — 음악 슬롯이고 그 곡이 이 목록에 있을 때만."""
+    if slot is not SlotType.MUSIC or not factors or factors.music is None:
+        return None
+    spec = factor_catalog.value(factor_catalog.MUSIC, factors.music.value)
+    return spec if spec and spec.asset_ref in refs else None
 
 
 def _ai_scenery(sceneries: list[str], source: FactorSource) -> list[str] | None:
@@ -374,6 +385,11 @@ def resolve_activity_assets(
                     )
                     if default_ref not in refs:
                         raise ContentProviderError("기본 검수 자산이 후보 목록에 없음")
+                    # 이완 음악(PR-05): plan이 추천한 곡을 맨 앞 · 기본으로. 고르는 것은 사용자다
+                    recommended = _recommended_music(slot.slot, refs, factors)
+                    if recommended:
+                        default_ref = recommended.asset_ref
+                        refs = [default_ref] + [r for r in refs if r != default_ref]
 
                     for ref in refs:
                         record = curated_asset(str(ref))
@@ -385,6 +401,11 @@ def resolve_activity_assets(
                             "selection_mode": selection.get("mode", "FIXED"),
                             "is_default": ref == default_ref,
                         }
+                        if recommended and ref == default_ref:
+                            metadata["recommended"] = True
+                            metadata["content_factor"] = factor_catalog.tag(
+                                factor_catalog.MUSIC, factors.music.value, FactorSource.LLM
+                            )
                         slot_assets.append(
                             ActivityAsset(
                                 slot=slot.slot.value,

@@ -6,6 +6,7 @@
     .venv/bin/python scripts/plan_trial.py --text "하루 종일 집중했더니 머리가 멍해요"
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
     .venv/bin/python scripts/plan_trial.py S3 --no-db --content --repeat 2
+    .venv/bin/python scripts/plan_trial.py --text "긴장이 안 풀려요" --protocol PR-05 --content
 
 - 발표 리허설과 RAG 평가셋 질의 수집용이다. intake는 질문 없이 한 번에 돈다(nodes/intake.intake_once
   — 상황 읽기 → 목표 추론(단서표) → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
@@ -16,6 +17,8 @@
 - --no-db는 근거 DB 없이 돈다(검색 0건 — 근거 없이 계획하고 활동 · 콘텐츠 Factor만 본다).
 - --content는 계획 뒤 prepare처럼 콘텐츠를 실제로 받는다(.env의 PIXABAY · FREESOUND 키, 비면 경고).
   자산마다 고른 Factor · 출처 · 검색어 · 주소를 출력한다 — 같은 Factor라도 검색어가 바뀌는지 본다.
+- --protocol은 LLM의 활동 선택을 그 활동으로 바꾼다(후보에 없으면 check_plan이 거부). 근거 검색
+  질의와 추천 이유 · 콘텐츠 Factor는 그대로 LLM이 쓴다 — 특정 활동의 Factor를 볼 때.
 - --queries는 검색 호출(질의 · 필터 · 결과 ID)과 최종 계획의 프로토콜을 JSONL로 덧붙인다.
 """
 
@@ -41,7 +44,12 @@ from app.agent import validation  # noqa: E402
 from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.nodes.intake import LlmIntaker, intake_once  # noqa: E402
-from app.agent.nodes.planner import LlmPlanner, PlanRejected, make_plan_node  # noqa: E402
+from app.agent.nodes.planner import (  # noqa: E402
+    ActivityChoice,
+    LlmPlanner,
+    PlanRejected,
+    make_plan_node,
+)
 from app.agent.state import (  # noqa: E402
     CarePlan,
     NextStep,
@@ -124,6 +132,23 @@ class Recorder:
         return verdicts
 
 
+class ForcedPlanner:
+    """LLM이 고른 활동을 정한 활동으로 바꾼다. 질의 · 설명 · Factor는 LLM 그대로."""
+
+    def __init__(self, inner: LlmPlanner, protocol_id: str):
+        self.inner = inner
+        self.protocol_id = protocol_id
+
+    async def choose(self, state, candidates, problems) -> ActivityChoice:
+        choice = await self.inner.choose(state, candidates, problems)
+        return choice.model_copy(
+            update={"protocol_id": self.protocol_id, "reason": f"--protocol {self.protocol_id}"}
+        )
+
+    async def explain(self, state, choice, protocol, evidence):
+        return await self.inner.explain(state, choice, protocol, evidence)
+
+
 def show_content(plan: CarePlan, request: CareRequest) -> None:
     """prepare처럼 콘텐츠를 받아 자산마다 Factor · 검색어를 보인다(공급자 API 호출)."""
     resolution = resolve_activity_assets(
@@ -135,8 +160,9 @@ def show_content(plan: CarePlan, request: CareRequest) -> None:
     for asset in resolution.assets[:6]:
         factor = asset.metadata.get("content_factor") or {}
         picked = f"{factor.get('value')}({factor.get('source')})" if factor else "기본값"
-        query = factor.get("query") or asset.metadata.get("query") or "-"
-        print(f"content {asset.slot} {asset.provider} · {picked} · 검색어 {query!r} · {asset.url}")
+        query = factor.get("query") or asset.metadata.get("query")
+        what = f"검색어 {query!r}" if query else asset.title or "-"
+        print(f"content {asset.slot} {asset.provider} · {picked} · {what} · {asset.url}")
     if len(resolution.assets) > 6:
         print(f"        … 자산 {len(resolution.assets)}개")
     for warning in resolution.warnings:
@@ -170,6 +196,8 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     for _, model in models:
         model.callbacks = [usage]
     planner = LlmPlanner(models)
+    if args.protocol:
+        planner = ForcedPlanner(planner, args.protocol)
     intaker = LlmIntaker(models)
     intake, would_ask = await intake_once(intaker, request)
     state: dict = {"request": request, "intake": intake}
@@ -247,6 +275,7 @@ async def main() -> None:
     parser.add_argument("--queries", type=Path, help="검색 기록을 덧붙일 JSONL")
     parser.add_argument("--no-db", action="store_true", help="근거 DB 없이(검색 0건)")
     parser.add_argument("--content", action="store_true", help="콘텐츠를 실제로 받아 본다")
+    parser.add_argument("--protocol", help="활동을 이 프로토콜로 정한다(예: PR-05)")
     args = parser.parse_args()
 
     # 선택 이유·질의(plan 노드 INFO 로그)를 같이 보여 준다

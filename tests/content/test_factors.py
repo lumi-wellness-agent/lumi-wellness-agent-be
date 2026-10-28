@@ -9,7 +9,7 @@ import pytest
 from app import protocols
 from app.content import factors
 from app.content.providers import EXCLUDED_IMAGE_TAGS
-from app.schemas.content import ArtSubject, ContentFactors, Scenery, Soundscape
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 
 ROOT = Path(__file__).resolve().parents[2]
 PAPERS = {row["rc_id"] for row in csv.DictReader((ROOT / "data" / "manifest.csv").open())}
@@ -17,6 +17,7 @@ ENUMS = {
     factors.SCENERY: Scenery,
     factors.SOUNDSCAPE: Soundscape,
     factors.ART_SUBJECT: ArtSubject,
+    factors.MUSIC: MusicTrack,
 }
 
 
@@ -62,11 +63,11 @@ def test_video_scenery_is_limited_to_filmed_settings():
 @pytest.mark.parametrize(
     ("protocol_id", "axes", "capacity"),
     [
-        ("PR-01", ["scenery"], 3),  # 사진 25장
+        ("PR-01", ["scenery"], 4),  # 사진 25장
         ("PR-02", ["scenery", "soundscape"], 1),  # 영상 + 자연음
         ("PR-03", ["scenery"], 1),  # 사진 1장
         ("PR-04", ["soundscape"], 0),
-        ("PR-05", [], 0),  # 검수 음원 3곡 중 사용자 선택 — Factor 없음
+        ("PR-05", ["music"], 0),  # 검수 음원 3곡 중 사용자 선택 — 추천 칸만
         ("PR-20", ["art_subject"], 0),
         ("PR-21", ["scenery"], 1),
         ("PR-06", [], 0),  # 호흡
@@ -90,6 +91,7 @@ def test_sanitize_matches_video_sound_to_the_video_scene():
             scenery=[Scenery.SEA, Scenery.LAKE_RIVER],  # 바다는 영상 근거가 없다
             soundscape=Soundscape.BIRDSONG,  # 시냇물 영상에 새소리 → 시냇물 소리로 맞춘다
             art_subject=None,
+            music=None,
             reason="-",
         ),
     )
@@ -100,7 +102,9 @@ def test_sanitize_drops_video_sound_without_a_video_scene():
     pr02 = protocols.get_protocol("PR-02")
     out = factors.sanitize(
         pr02,
-        ContentFactors(scenery=[], soundscape=Soundscape.RAIN, art_subject=None, reason="-"),
+        ContentFactors(
+            scenery=[], soundscape=Soundscape.RAIN, art_subject=None, music=None, reason="-"
+        ),
     )
     assert out.is_empty()  # 기본 숲 영상 · 숲 소리를 그대로 쓴다
 
@@ -110,7 +114,11 @@ def test_sanitize_keeps_any_soundscape_for_sound_only_activity():
     out = factors.sanitize(
         pr04,
         ContentFactors(
-            scenery=[Scenery.SEA], soundscape=Soundscape.RAIN, art_subject=None, reason="-"
+            scenery=[Scenery.SEA],
+            soundscape=Soundscape.RAIN,
+            art_subject=None,
+            music=None,
+            reason="-",
         ),
     )
     assert out.scenery == [] and out.soundscape is Soundscape.RAIN
@@ -121,3 +129,31 @@ def test_menu_tells_the_llm_how_video_and_sound_pair():
     sound = next(item for item in menu if item["field"] == "soundscape")
     assert "forest → birdsong, forest_wind" in sound["note"]
     assert "lake river → stream" in sound["note"]
+
+
+def test_every_music_value_points_at_a_registered_pr05_track():
+    from app.content.curated import curated_asset
+
+    refs = factors.music_refs(protocols.get_protocol("PR-05"))
+    for key, value in factors.load_catalog().axes[factors.MUSIC].values.items():
+        assert value.asset_ref in refs and curated_asset(value.asset_ref), key
+        assert {"form", "vocals", "sacred", "character"} <= set(value.labels), key
+
+
+def test_music_menu_shows_labels_and_keeps_the_choice_with_the_user():
+    menu = factors.menu(protocols.get_protocol("PR-05"))
+    assert [item["field"] for item in menu] == ["music"]
+    music = menu[0]
+    assert [v["value"] for v in music["values"]] == ["miserere", "mozart_k448", "vivaldi_spring"]
+    assert music["values"][0]["labels"]["vocals"] == "라틴어 가사"
+    assert "사용자가 목록에서 직접 고르고" in music["note"]
+
+
+def test_sanitize_drops_music_for_activities_without_a_music_choice():
+    out = factors.sanitize(
+        protocols.get_protocol("PR-21"),  # 고정 명상 음성뿐 — 음악 칸이 없다
+        ContentFactors(
+            scenery=[], soundscape=None, art_subject=None, music=MusicTrack.MISERERE, reason="-"
+        ),
+    )
+    assert out.is_empty()

@@ -145,7 +145,11 @@ def test_explainer_shows_chips_and_factors_used_in_earlier_rounds():
     model = fakes.FakeStructuredModel(PlanRationale.text("-"))
     earlier = changed_round("PR-01")
     earlier.plan.content_factors = ContentFactors(
-        scenery=[Scenery.SEA, Scenery.FOREST], soundscape=None, art_subject=None, reason="-"
+        scenery=[Scenery.SEA, Scenery.FOREST],
+        soundscape=None,
+        art_subject=None,
+        music=None,
+        reason="-",
     )
     state = {
         "request": CareRequest(text="-", profile=UserProfile(preferred_scenery=["숲"])),
@@ -154,7 +158,7 @@ def test_explainer_shows_chips_and_factors_used_in_earlier_rounds():
     }
     asyncio.run(make_explainer(model)(state, CHOICE, protocols.get_protocol("PR-01"), []))
     text = model.inputs[0][1].content
-    assert '"max": 3' in text  # 사진 25장 — 풍경 2~3종을 섞는다
+    assert '"max": 4' in text  # 사진 25장 — 풍경을 최대 4종 섞는다
     assert "- 사용자가 고른 좋아하는 풍경: 숲" in text
     assert '- 지난 라운드에 쓴 Factor: PR-01 {"scenery": ["sea", "forest"]' in text
 

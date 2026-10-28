@@ -322,11 +322,15 @@ class LastChoice:
         return items[-1]
 
 
-def _factors(scenery=(), soundscape=None, art_subject=None):
+def _factors(scenery=(), soundscape=None, art_subject=None, music=None):
     from app.schemas.content import ContentFactors
 
     return ContentFactors(
-        scenery=list(scenery), soundscape=soundscape, art_subject=art_subject, reason="-"
+        scenery=list(scenery),
+        soundscape=soundscape,
+        art_subject=art_subject,
+        music=music,
+        reason="-",
     )
 
 
@@ -515,3 +519,63 @@ def test_ai_image_prompt_uses_reviewed_scenery_words_from_the_llm(monkeypatch):
         client=_no_network(),
     )
     assert "calm lake and gentle river surrounded by green nature" in captured["prompt"]
+
+
+def test_recommended_music_goes_first_but_all_three_stay_for_the_user():
+    from app.schemas.content import MusicTrack
+
+    result = resolve_activity_assets(
+        get_protocol("PR-05"),
+        CareRequest(text="가사 없는 음악이 좋아요"),
+        factors=_factors(music=MusicTrack.VIVALDI_SPRING),
+        settings=Settings(),
+        client=_no_network(),
+    )
+    music = [a for a in result.assets if a.slot == "MUSIC"]
+    assert [a.metadata["asset_ref"] for a in music] == [
+        "audio/pr05_vivaldi_spring_cc_by_sa_v1",
+        "audio/pr05_miserere_cc_by_sa_v1",
+        "audio/pr05_mozart_k448_cc_by_sa_v1",
+    ]
+    assert [a.metadata["is_default"] for a in music] == [True, False, False]
+    assert music[0].metadata["recommended"] is True
+    assert music[0].metadata["content_factor"]["source"] == "LLM"
+    assert music[0].metadata["content_factor"]["evidence"] == ["E08"]
+    assert all(a.metadata["selection_mode"] == "USER_CHOICE" for a in music)
+    assert "recommended" not in music[1].metadata
+
+
+def test_music_without_recommendation_keeps_the_protocol_default():
+    result = resolve_activity_assets(
+        get_protocol("PR-05"),
+        CareRequest(text="-"),
+        settings=Settings(),
+        client=_no_network(),
+    )
+    music = [a for a in result.assets if a.slot == "MUSIC"]
+    assert music[0].metadata["asset_ref"] == "audio/pr05_miserere_cc_by_sa_v1"
+    assert music[0].metadata["is_default"] is True
+    assert not any("recommended" in a.metadata for a in music)
+
+
+def test_four_sceneries_are_mixed_seven_photos_each(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay(captured)
+    )
+    result = resolve_activity_assets(
+        get_protocol("PR-01"),
+        CareRequest(text="-"),
+        factors=_factors(
+            [Scenery.LAKE_RIVER, Scenery.SEA, Scenery.MOUNTAIN, Scenery.FOREST]
+        ),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    # P03(호수·강 · 바다 · 언덕)처럼 4종 — 25장을 7장씩 받아 번갈아 섞고 25장에서 자른다
+    assert [count for _, count in captured] == [7, 7, 7, 7]
+    assert len(result.assets) == 25
+    order = [a.metadata["content_factor"]["value"] for a in result.assets[:4]]
+    assert order == ["lake river", "sea", "mountain", "forest"]

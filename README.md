@@ -121,15 +121,16 @@ graph TD;
 
 ### 콘텐츠 Factor (`data/content_factors.json` · `app/content/factors.py`)
 
-자연 자극 활동(PR-01 02 03 04 20 21, 그리고 Pixabay 풍경을 쓰는 PR-10 · 22)의 콘텐츠를 무엇으로 채울지 plan이
+자연 자극 활동(PR-01 02 03 04 05 20 21, 그리고 Pixabay 풍경을 쓰는 PR-10 · 22)의 콘텐츠를 무엇으로 채울지 plan이
 고릅니다. LLM 호출을 늘리지 않고 plan의 LLM 호출 2(추천 이유)가 같은 구조화 출력에서 `content_factors`를
 냅니다.
 
 | 칸 | Enum(`app/schemas/content.py`) | 근거(값마다 논문 · 쪽은 카탈로그) | 쓰는 활동 |
 | --- | --- | --- | --- |
-| `scenery` 풍경 0~3 | forest · lake river · sea · mountain · meadow | P03 · P24 · P25 · P28 · P33 · N17 | 사진(PR-01 · 03 · 21 · 22), 영상(PR-02 · 10 — 숲 · 호수·강만) |
+| `scenery` 풍경 0~4 | forest · lake river · sea · mountain · meadow | P03 · P24 · P25 · P28 · P33 · N17 | 사진(PR-01 · 03 · 21 · 22), 영상(PR-02 · 10 — 숲 · 호수·강만) |
 | `soundscape` 자연음 1 | birdsong · stream · rain · ocean_waves · forest_wind | N14 · N15 · N16 · N17 · N18 | PR-02 · 04 |
 | `art_subject` 작품 주제 1 | waterscape · landscape | E06 · E07 | PR-20 |
+| `music` 이완 음악 추천 1 | miserere · mozart_k448 · vivaldi_spring | E09 · E08(표 20 · 23쪽) | PR-05 — 추천곡을 맨 앞에 두고 고르는 것은 사용자(E08: 목록에서 사용자가 고른 음악 g = 0.38, 1편) |
 
 - **Enum = 논문 자극으로 쓰인 범주(`basis: STIMULUS`)만.** 근거 없이 선호용으로 둔 꽃 · 하늘(`DESIGN`)은 FE 칩으로만
   받습니다. 곤충 소리(N16)처럼 근거는 있어도 불편할 수 있는 값은 `excluded`에 이유와 함께 남겼습니다.

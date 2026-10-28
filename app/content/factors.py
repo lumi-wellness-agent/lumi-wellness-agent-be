@@ -17,7 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.schemas.content import ContentFactors, FactorSource, Scenery, Soundscape
+from app.schemas.content import ContentFactors, FactorSource, MusicTrack, Scenery, Soundscape
 from app.schemas.protocol import CareProtocol, SlotType
 
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "content_factors.json"
@@ -46,6 +46,9 @@ class FactorValue(BaseModel):
     # 자연음 · 작품
     queries: list[str] = []
     exclude_query_terms: list[str] = []
+    # 음악 — 검수 자산 참조와 LLM이 읽는 라벨(형태 · 가사 · 종교곡 · 성격)
+    asset_ref: str | None = None
+    labels: dict[str, str] = {}
 
 
 class FactorAxis(BaseModel):
@@ -64,6 +67,7 @@ class FactorCatalog(BaseModel):
 SCENERY = "scenery"
 SOUNDSCAPE = "soundscape"
 ART_SUBJECT = "art_subject"
+MUSIC = "music"
 
 
 @lru_cache
@@ -117,7 +121,7 @@ def _provider(spec: dict) -> str | None:
 
 
 def scenery_capacity(protocol: CareProtocol) -> int:
-    """이 활동이 쓰는 풍경 수 — 사진 여러 장이면 최대 3, 사진 1장 · 영상이면 1, 칸이 없으면 0."""
+    """이 활동이 쓰는 풍경 수 — 사진 여러 장이면 최대 4, 사진 1장 · 영상이면 1, 칸이 없으면 0."""
     specs = _slot_specs(protocol)
     still = specs.get(SlotType.VISUAL_STILL)
     if still and (_provider(still) == "PIXABAY" or (still.get("generation") or {}).get("provider")):
@@ -136,7 +140,8 @@ def video_only(protocol: CareProtocol) -> bool:
 
 
 def axes_for(protocol: CareProtocol) -> list[str]:
-    """이 활동에 열 Factor 칸. 검수 자산만 쓰는 활동(음악 · 안내 음성 · 도안)과 A 밖 활동은 없다."""
+    """이 활동에 열 Factor 칸. 고정 검수 자산만 쓰는 활동(안내 음성 · 도안)과 A 밖 활동은 없다.
+    검수 음원을 사용자가 고르는 활동(PR-05)은 추천 칸(music)이 열린다."""
     specs = _slot_specs(protocol)
     axes = []
     if scenery_capacity(protocol):
@@ -146,7 +151,26 @@ def axes_for(protocol: CareProtocol) -> list[str]:
         axes.append(SOUNDSCAPE)
     if SlotType.ARTWORK in specs:
         axes.append(ART_SUBJECT)
+    if music_refs(protocol):
+        axes.append(MUSIC)
     return axes
+
+
+def music_refs(protocol: CareProtocol) -> list[str]:
+    """사용자가 고르는 검수 음원 목록(PR-05 selection.mode USER_CHOICE). 추천할 곡이 없으면 []."""
+    music = _slot_specs(protocol).get(SlotType.MUSIC)
+    selection = (music or {}).get("selection") or {}
+    curated = selection.get("provider") == "CURATED_ASSET_LIBRARY"
+    if not curated or selection.get("mode") != "USER_CHOICE":
+        return []
+    refs = selection.get("audio_asset_refs") or selection.get("asset_refs") or []
+    return [str(r) for r in refs] if len(refs) > 1 else []
+
+
+def music_choices(protocol: CareProtocol) -> list[str]:
+    """이 활동의 음원 목록에 있는 곡만."""
+    refs = set(music_refs(protocol))
+    return [k for k in selectable(MUSIC) if value(MUSIC, k).asset_ref in refs]
 
 
 def scenery_choices(protocol: CareProtocol) -> list[str]:
@@ -163,20 +187,34 @@ def menu(protocol: CareProtocol) -> list[dict[str, Any]]:
     out = []
     for axis in axes:
         spec = catalog.axes[axis]
-        keys = scenery_choices(protocol) if axis == SCENERY else selectable(axis)
+        if axis == SCENERY:
+            keys = scenery_choices(protocol)
+        elif axis == MUSIC:
+            keys = music_choices(protocol)
+        else:
+            keys = selectable(axis)
+        values = []
+        for k in keys:
+            entry: dict[str, Any] = {
+                "value": k,
+                "label": spec.values[k].label_ko,
+                "evidence": [e.paper_id for e in spec.values[k].evidence],
+            }
+            if spec.values[k].labels:
+                entry["labels"] = spec.values[k].labels
+            values.append(entry)
         item: dict[str, Any] = {
             "field": axis,
             "label": spec.label_ko,
             "max": scenery_capacity(protocol) if axis == SCENERY else 1,
-            "values": [
-                {
-                    "value": k,
-                    "label": spec.values[k].label_ko,
-                    "evidence": [e.paper_id for e in spec.values[k].evidence],
-                }
-                for k in keys
-            ],
+            "values": values,
         }
+        if axis == MUSIC:
+            item["note"] = (
+                "추천만 한다 — 사용자가 목록에서 직접 고르고 추천곡은 맨 앞에 보인다. "
+                "가사 · 종교곡 기피나 잔잔함 · 기악 선호를 따르고, 단서가 없으면 연구 자극(E09)인 "
+                "miserere"
+            )
         if axis == SOUNDSCAPE and SCENERY in axes and video_only(protocol):
             sceneries = catalog.axes[SCENERY].values
             pairs = [
@@ -218,8 +256,15 @@ def sanitize(protocol: CareProtocol, factors: ContentFactors | None) -> ContentF
     art = factors.art_subject if ART_SUBJECT in axes else None
     if art is not None and art.value not in selectable(ART_SUBJECT):
         art = None
+    music: MusicTrack | None = factors.music if MUSIC in axes else None
+    if music is not None and music.value not in music_choices(protocol):
+        music = None
     cleaned = ContentFactors(
-        scenery=scenery, soundscape=soundscape, art_subject=art, reason=factors.reason
+        scenery=scenery,
+        soundscape=soundscape,
+        art_subject=art,
+        music=music,
+        reason=factors.reason,
     )
     return ContentFactors.none() if cleaned.is_empty() else cleaned
 

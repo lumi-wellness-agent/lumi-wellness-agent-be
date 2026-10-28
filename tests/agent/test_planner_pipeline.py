@@ -15,7 +15,7 @@ from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected,
 from app.agent.state import IntakeResult
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
-from app.schemas.content import ArtSubject, ContentFactors, Scenery, Soundscape
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
 
@@ -105,11 +105,16 @@ def test_pipeline_keeps_only_the_content_factors_the_activity_can_use():
         scenery=[Scenery.SEA, Scenery.FOREST, Scenery.SEA],
         soundscape=Soundscape.RAIN,
         art_subject=ArtSubject.LANDSCAPE,
+        music=MusicTrack.MOZART_K448,
         reason="바다를 보고 싶다고 했다",
     )
     plan = run_plan(RecordingPlanner(choice("PR-21"), factors=factors))
     assert plan.content_factors == ContentFactors(
-        scenery=[Scenery.SEA], soundscape=None, art_subject=None, reason="바다를 보고 싶다고 했다"
+        scenery=[Scenery.SEA],
+        soundscape=None,
+        art_subject=None,
+        music=None,
+        reason="바다를 보고 싶다고 했다",
     )
 
 

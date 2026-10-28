@@ -63,7 +63,7 @@ from app.schemas.care import (
     Setting,
     UserProfile,
 )
-from app.schemas.content import ArtSubject, ContentFactors, Scenery, Soundscape
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import (
     Effect,
     InterventionOrder,
@@ -129,6 +129,7 @@ STATE_TYPES = (
     Scenery,
     Soundscape,
     ArtSubject,
+    MusicTrack,
     # Reference 카드(CarePlan.reference_card)
     ReferenceCard,
     CardBadge,

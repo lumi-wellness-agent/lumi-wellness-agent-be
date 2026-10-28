@@ -48,6 +48,19 @@ class ArtSubject(StrEnum):
     LANDSCAPE = "landscape"  # 풍경 — E06(landscape artworks)
 
 
+class MusicTrack(StrEnum):
+    """이완 음악(PR-05) 검수 3곡. LLM은 추천만 하고 고르는 것은 사용자다.
+
+    E08은 연구자가 만든 목록에서 사용자가 고른 음악의 효과를 g = 0.38(연구 1편)로 보고했다 — 대신
+    정하지 않고 추천곡을 목록 맨 앞에 둔다(resolver). 곡마다 라벨(형태 · 가사 · 종교곡 · 성격)은
+    data/content_factors.json에 있다.
+    """
+
+    MISERERE = "miserere"  # 알레그리 무반주 라틴어 합창 — E09가 쓴 자극
+    MOZART_K448 = "mozart_k448"  # 두 대의 피아노 소나타, 기악 — E08 표(Scheufele 2000)
+    VIVALDI_SPRING = "vivaldi_spring"  # 사계 봄, 현악 — E08 표(Chafin 2004)
+
+
 class FactorSource(StrEnum):
     """자산의 Factor를 누가 정했나 — FE 문구가 다르다(사용자 칩이면 "좋아하는 ○○")."""
 
@@ -60,18 +73,23 @@ class ContentFactors(BaseModel):
     """LLM 호출 2의 구조화 출력 일부. 필드 설명이 LLM에 보인다.
 
     모든 칸이 필수다(구조화 출력 strict 호환). 고른 활동에 그 칸이 없으면 [] · null로 둔다.
-    몇 개까지 쓰는지(풍경 최대 3 · 사진 1장이면 1)는 코드가 자른다(factors.sanitize).
+    몇 개까지 쓰는지(풍경 최대 4 · 사진 1장이면 1)는 코드가 자른다(factors.sanitize).
     """
 
     scenery: list[Scenery] = Field(
-        description="자연 사진·영상 풍경을 쓰일 순서대로 0~3개. 사진 여러 장이면 연구 자극처럼 "
-        "2~3종을 섞고, 1장이거나 영상이면 1개. 고른 활동에 풍경 칸이 없으면 []"
+        description="자연 사진·영상 풍경을 쓰일 순서대로 0~4개. 사진 여러 장이면 연구 자극"
+        "(P03 호수·강·바다·언덕)처럼 여러 종을 섞고, 1장이거나 영상이면 1개. 고른 활동에 풍경 칸이 "
+        "없으면 []"
     )
     soundscape: Soundscape | None = Field(
         description="자연음 범주 하나. 고른 활동에 자연음 칸이 없으면 null"
     )
     art_subject: ArtSubject | None = Field(
         description="미술 작품 주제 하나. 고른 활동에 작품 칸이 없으면 null"
+    )
+    music: MusicTrack | None = Field(
+        description="이완 음악 추천곡 하나 — 사용자가 3곡 중 직접 고르고, 추천곡은 맨 앞에 보인다. "
+        "고른 활동에 음악 칸이 없으면 null"
     )
     reason: str = Field(
         description="이렇게 고른 이유 한 문장(한국어) — 사용자 표현 · 기피 · 지난 라운드와 다르게. "
@@ -81,7 +99,12 @@ class ContentFactors(BaseModel):
     @classmethod
     def none(cls) -> "ContentFactors":
         """고를 칸이 없거나 LLM이 고르지 않았을 때."""
-        return cls(scenery=[], soundscape=None, art_subject=None, reason="")
+        return cls(scenery=[], soundscape=None, art_subject=None, music=None, reason="")
 
     def is_empty(self) -> bool:
-        return not self.scenery and self.soundscape is None and self.art_subject is None
+        return (
+            not self.scenery
+            and self.soundscape is None
+            and self.art_subject is None
+            and self.music is None
+        )
