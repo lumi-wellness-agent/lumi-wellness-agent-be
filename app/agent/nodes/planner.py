@@ -4,7 +4,9 @@
     후보(코드) → 선택(LLM 1회) → 검색(코드) → 검증(코드) → 설명(LLM 1회) → CarePlan
 
 LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동을 고를지(제약 · 장소 · 자유 텍스트 대조)와
-검증된 근거를 어떻게 설명할지. 나머지(후보 정렬 · 검색 필터 · 검증 · usable만 남기기 · 활동 시간)는
+검증된 근거를 어떻게 설명할지. 설명과 함께(같은 호출) 고른 활동의 콘텐츠 Factor(풍경 · 자연음 · 작품
+주제)를 카탈로그 값 안에서 고르고, 코드가 활동에 맞게 다듬는다(app/content/factors.sanitize).
+나머지(후보 정렬 · 검색 필터 · 검증 · usable만 남기기 · 활동 시간)는
 규칙이라 코드가 한다. 처음에는 create_agent Tool 루프였는데 gpt-4o-mini가 검색을 건너뛰고, 인자를
 빠뜨리고, 제외한 활동을 다시 고르고, 한 번은 10분 넘게 돌았다(2026-10-26 실측). 절차를 코드로 옮기니
 종료가 보장되고 모델 호출이 4~5회에서 2회로 준다. 적응은 이 노드 안의 루프가 아니라 측정 → 평가 →
@@ -12,7 +14,9 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 
 후보는 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로 거른다. 다 맞는 것이 없으면
 사용자 상태 → 환경 순으로 풀고(protocols.plan_candidates), 푼 조건을 CarePlan.relaxed에, 고른 활동이
-환경에서 어려운 이유를 environment_gaps에 남긴다. 시간은 풀지 않는다.
+환경에서 어려운 이유를 environment_gaps에 남긴다. 시간은 그래도 없을 때만 맨 마지막에
+풀고(짧은 시간 칩), 그때 활동 시간은 줄이지 않고 근거 용량(프로토콜 기본값)을 쓴다 — relaxed에
+minutes가 남는다.
 
 LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
 순서 · 시간 · 환경 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
@@ -44,7 +48,9 @@ from app.agent.prompts import (
     build_rationale_input,
 )
 from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity
+from app.content import factors as content_factors
 from app.retrieval import hybrid
+from app.schemas.content import ContentFactors
 from app.schemas.evidence import study_medium
 from app.schemas.protocol import CareProtocol, Composition
 from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict
@@ -67,9 +73,17 @@ class ActivityChoice(BaseModel):
 
 
 class PlanRationale(BaseModel):
-    """LLM 호출 2의 구조화 출력."""
+    """LLM 호출 2의 구조화 출력 — 추천 이유와 콘텐츠 Factor."""
 
     rationale: str = Field(description="사용자에게 보여 줄 추천 이유 2~3문장(한국어)")
+    content_factors: ContentFactors = Field(
+        description="고른 활동의 콘텐츠 Factor — '## 콘텐츠 Factor' 칸의 값만. 칸이 없으면 비운다"
+    )
+
+    @classmethod
+    def text(cls, rationale: str) -> "PlanRationale":
+        """Factor 없이 추천 이유만 — 테스트 대역 · 콘텐츠 칸이 없는 활동."""
+        return cls(rationale=rationale, content_factors=ContentFactors.none())
 
 
 @dataclass(frozen=True)
@@ -97,7 +111,7 @@ class Planner(Protocol):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> Awaitable[str]: ...
+    ) -> Awaitable[PlanRationale]: ...
 
 
 class PlanRejected(Exception):
@@ -142,7 +156,7 @@ def check_plan(
         problems.append(f"활동 시간 {activity.minutes}분이 최소 {duration.min}분보다 짧다")
     if duration.max is not None and activity.minutes > duration.max:
         problems.append(f"활동 시간 {activity.minutes}분이 최대 {duration.max}분보다 길다")
-    if intake.minutes and activity.minutes > intake.minutes:
+    if "minutes" not in relaxed and intake.minutes and activity.minutes > intake.minutes:
         problems.append(f"활동 시간 {activity.minutes}분이 가용 시간 {intake.minutes}분을 넘는다")
     rounds = state.get("rounds") or []
     if (
@@ -282,7 +296,7 @@ def make_chooser(model: BaseChatModel):
 
 
 def make_explainer(model: BaseChatModel):
-    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓴다."""
+    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓰고 콘텐츠 Factor를 고른다."""
     structured = model.with_structured_output(PlanRationale, method="json_schema")
 
     async def explain(
@@ -290,12 +304,12 @@ def make_explainer(model: BaseChatModel):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> str:
+    ) -> PlanRationale:
         messages = [
             SystemMessage(EXPLAIN_SYSTEM_PROMPT),
             HumanMessage(build_rationale_input(state, choice, protocol, evidence)),
         ]
-        return (await structured.ainvoke(messages)).rationale
+        return await structured.ainvoke(messages)
 
     return explain
 
@@ -318,7 +332,7 @@ class LlmPlanner:
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
-    ) -> str:
+    ) -> PlanRationale:
         return await self._explain(state, choice, protocol, evidence)
 
 
@@ -339,6 +353,8 @@ def make_plan_node(planner: Planner):
         if search.relaxed:
             log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
         by_id = {p.protocol_id: p for p in found}
+        # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
+        available = None if "minutes" in search.relaxed else session.minutes_available
         candidates = [protocols.compact(p) for p in found]
 
         progress({"node": "plan", "step": "choose_activity"})
@@ -350,11 +366,11 @@ def make_plan_node(planner: Planner):
                 problems = [f"{choice.protocol_id}는 후보 목록에 없다"]
                 known = protocols.get_protocol(choice.protocol_id)
                 if known is not None:  # 왜 후보가 아닌지도 알려 준다
-                    minutes = protocols.planned_minutes(known, session.minutes_available)
+                    minutes = protocols.planned_minutes(known, available)
                     activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
                     problems += check_plan(activity, state, search.relaxed)
                 continue
-            minutes = protocols.planned_minutes(protocol, session.minutes_available)
+            minutes = protocols.planned_minutes(protocol, available)
             activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
             problems = check_plan(activity, state, search.relaxed)
             if not problems:
@@ -383,13 +399,22 @@ def make_plan_node(planner: Planner):
             ],
         )
         progress({"node": "plan", "step": "write_rationale"})
-        rationale = await planner.explain(state, choice, protocol, evidence)
+        explained = await planner.explain(state, choice, protocol, evidence)
+        factors = content_factors.sanitize(protocol, explained.content_factors)
+        if not factors.is_empty():
+            log.info(
+                "콘텐츠 Factor %s: %s (%s)",
+                activity.protocol_id,
+                factors.model_dump(mode="json", exclude={"reason"}),
+                factors.reason,
+            )
         activity = activity.model_copy(
             update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
         )
         plan = CarePlan(
             activity=activity,
-            rationale=rationale,
+            rationale=explained.rationale,
+            content_factors=None if factors.is_empty() else factors,
             relaxed=list(search.relaxed),
             environment_gaps=protocols.environment_gaps(protocol, session.environment),
             reference_card=reference_card.build_card(

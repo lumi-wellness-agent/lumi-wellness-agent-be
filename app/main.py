@@ -28,7 +28,7 @@ from app.agent.checkpoint import (
     memory_checkpointer,
     postgres_checkpointer,
 )
-from app.api import internal, me, sessions
+from app.api import internal, me, media, sessions
 from app.api.routes import router
 from app.auth import AuthSessions, SupabaseVerifier
 from app.config import Settings, get_settings
@@ -98,6 +98,7 @@ app.include_router(router)
 app.include_router(sessions.router)
 app.include_router(me.router)
 app.include_router(internal.router)
+app.include_router(media.router)
 app.mount(
     "/assets",
     StaticFiles(directory=Path(__file__).resolve().parent / "static"),

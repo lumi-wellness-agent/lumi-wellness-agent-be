@@ -11,10 +11,11 @@ from langgraph.runtime import Runtime
 
 from app import protocols
 from app.agent.context import AgentContext
-from app.agent.nodes.planner import ActivityChoice, PlanRejected, make_plan_node
+from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, make_plan_node
 from app.agent.state import IntakeResult
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
 
@@ -31,9 +32,15 @@ STATE = {"request": REQUEST, "intake": INTAKE}
 class RecordingPlanner:
     """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다."""
 
-    def __init__(self, *choices: ActivityChoice, rationale: str = "추천 이유"):
+    def __init__(
+        self,
+        *choices: ActivityChoice,
+        rationale: str = "추천 이유",
+        factors: ContentFactors | None = None,
+    ):
         self.choices = list(choices)
         self.rationale = rationale
+        self.factors = factors or ContentFactors.none()
         self.chosen: list[tuple[list[str], list[str]]] = []  # (후보 ID, 거부 사유)
         self.explained: list[tuple[str, str, list[int]]] = []  # (프로토콜, 이유, 인용 근거)
 
@@ -45,7 +52,7 @@ class RecordingPlanner:
         self.explained.append(
             (protocol.protocol_id, choice.reason, [c.evidence_record_id for c in evidence])
         )
-        return self.rationale
+        return PlanRationale(rationale=self.rationale, content_factors=self.factors)
 
 
 def choice(protocol_id: str, query: str = "nature images rumination") -> ActivityChoice:
@@ -90,6 +97,30 @@ def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
     assert plan.activity.evidence_record_ids == [102, 101, 112, 111]
     assert plan.rationale == "추천 이유"
     assert planner.explained == [("PR-21", "-", [102, 101, 112, 111])]
+
+
+def test_pipeline_keeps_only_the_content_factors_the_activity_can_use():
+    # PR-21은 이미지 1장 — 풍경은 하나만, 자연음 · 작품 칸은 없다
+    factors = ContentFactors(
+        scenery=[Scenery.SEA, Scenery.FOREST, Scenery.SEA],
+        soundscape=Soundscape.RAIN,
+        art_subject=ArtSubject.LANDSCAPE,
+        music=MusicTrack.MOZART_K448,
+        reason="바다를 보고 싶다고 했다",
+    )
+    plan = run_plan(RecordingPlanner(choice("PR-21"), factors=factors))
+    assert plan.content_factors == ContentFactors(
+        scenery=[Scenery.SEA],
+        soundscape=None,
+        art_subject=None,
+        music=None,
+        reason="바다를 보고 싶다고 했다",
+    )
+
+
+def test_pipeline_leaves_content_factors_empty_when_the_llm_picks_none():
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+    assert plan.content_factors is None
 
 
 def test_pipeline_builds_the_reference_card_from_the_cited_evidence(fake_backends):
@@ -191,10 +222,15 @@ def test_pipeline_widens_to_the_same_medium_when_its_evidence_does_not_fit(fake_
     assert plan.activity.evidence_record_ids == [152, 151]
 
 
-def test_pipeline_rejects_when_nothing_fits():
+def test_pipeline_relaxes_time_last_when_nothing_fits_the_minutes():
+    # S1 · 2분 — 2분 안의 S1 활동이 없다. 전에는 실패했고, 이제 시간을 마지막에 풀어 가장 짧은
+    # 활동(PR-09 3분 마음챙김)을 근거 용량 그대로 준다
     state = {**STATE, "intake": INTAKE.model_copy(update={"minutes": 2})}
-    with pytest.raises(PlanRejected, match="맞는 검수 프로토콜이 없다"):
-        run_plan(RecordingPlanner(choice("PR-09")), state)
+    planner = RecordingPlanner(choice("PR-09"))
+    plan = run_plan(planner, state)
+    assert planner.chosen[0][0][0] == "PR-09"  # 가장 짧은 활동이 맨 앞
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-09").duration_minutes.default)
 
 
 def test_pipeline_relaxes_the_user_state_when_no_activity_fits_it():
@@ -230,3 +266,17 @@ def test_demo_s2_session_offers_breathing_first():
     ids = [p.protocol_id for p in found]
     assert ids[0] == "PR-06"
     assert ids.index("PR-03") > ids.index("PR-06")
+
+
+def test_short_time_without_a_fitting_activity_keeps_the_evidence_dose():
+    # S3에서 3분 칩 — 3분 안의 S3 활동이 없어 시간을 풀고, 활동은 줄이지 않고 근거 용량(6분)으로
+    state = {
+        "request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S3, order_condition=InterventionOrder.POST_FATIGUE, minutes=3
+        ),
+    }
+    plan = run_plan(RecordingPlanner(choice("PR-01")), state)
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.protocol_id == "PR-01"
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-01").duration_minutes.default)

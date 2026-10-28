@@ -112,10 +112,13 @@ class PixabayProvider:
         self.api_key = api_key
         self.client = client
 
-    def search_images(self, query: str, *, count: int = 1) -> list[ActivityAsset]:
+    def search_images(
+        self, query: str, *, count: int = 1, colors: str | None = None
+    ) -> list[ActivityAsset]:
+        """colors는 Pixabay 색 필터(green · blue …). 사용자 선호 색 사진에만 쓴다."""
         if count < 1 or count > 200:
             raise ValueError("count는 1 이상 200 이하여야 함")
-        cache_key = f"image:{query}:{count}"
+        cache_key = f"image:{query}:{count}:{colors or '-'}"
         if cached := _cached_images("PIXABAY", cache_key):
             return cached
         body = _request_json(
@@ -133,6 +136,7 @@ class PixabayProvider:
                 "min_height": 720,
                 "order": "popular",
                 "per_page": max(20, min(count * 3, 200)),  # 태그로 거르는 몫을 남긴다
+                **({"colors": colors} if colors else {}),
             },
         )
         assets: list[ActivityAsset] = []

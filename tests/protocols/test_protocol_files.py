@@ -108,8 +108,15 @@ def test_candidates_filter_by_environment_and_relax_in_order():
     nothing = Environment(audio=False, screen=False, quiet=False, outdoor=False)
     search = protocols.plan_candidates(CareGoal.S1, minutes=5, environment=nothing)
     assert search.relaxed == ("environment",) and search.protocols
-    # 시간은 풀지 않는다
-    assert protocols.plan_candidates(CareGoal.S1, minutes=2) == protocols.CandidateSearch([])
+    # 시간은 맨 마지막에만 푼다 — 3분 칩인데 S3에 그만큼 짧은 활동이 없다(PR-01 6분)
+    search = protocols.plan_candidates(
+        CareGoal.S3, order=InterventionOrder.POST_FATIGUE, minutes=3, environment=home
+    )
+    assert search.relaxed == ("minutes",)
+    assert search.protocols[0].protocol_id == "PR-01"
+    # 3분에 맞는 활동이 있으면 시간을 풀지 않는다(S2 → 미술 감상 1–2분)
+    search = protocols.plan_candidates(CareGoal.S2, minutes=3, environment=home)
+    assert search.relaxed == () and [p.protocol_id for p in search.protocols] == ["PR-20"]
 
 
 def test_compact_is_what_the_planner_reads():

@@ -72,6 +72,14 @@ S2 스트레스 · 상태 불안 · 정서의 쾌·각성 원형 모델(N04 · N
 텍스트 층이 OCR인 스캔본은 쪽 이미지와 대조했다 — N01(1980)은 OCR 오류(`dis.tress` · `U25°`)를 이미지대로
 바로잡았고, P06(1995) · N07(1992)은 이미지와 같았다. 문장을 바꾸면 같은 방식으로 대조한다.
 
+## content_factors.json — 콘텐츠 Factor 카탈로그
+
+plan LLM이 고르는 콘텐츠 Factor(풍경 · 자연음 · 작품 주제)의 값마다 근거(논문 · 쪽 · 한 줄 요약)와 검수 검색어를
+둔다. `basis`가 `STIMULUS`인 값만 LLM Enum(`app/schemas/content.py`)에 열리고, `DESIGN`(꽃 · 하늘)은 FE 칩으로만
+받는다. 검색어는 프로토콜 selection의 include · exclude 태그를 벗어나지 않게 고르고, 값마다 2~3개를 두어 세션마다
+하나를 쓴다. 값 · 검색어를 바꾸면 `tests/content/test_factors.py`(Enum 일치 · 근거 실재 · Pixabay 태그 필터)를
+돌린다. 읽는 곳은 `app/content/factors.py`.
+
 ## manifest.csv — 논문 83편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·

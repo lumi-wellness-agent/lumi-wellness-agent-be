@@ -63,6 +63,7 @@ from app.schemas.care import (
     Setting,
     UserProfile,
 )
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import (
     Effect,
     InterventionOrder,
@@ -123,6 +124,12 @@ STATE_TYPES = (
     NextStep,
     ReplanProposal,
     Round,
+    # 콘텐츠 Factor(CarePlan.content_factors)
+    ContentFactors,
+    Scenery,
+    Soundscape,
+    ArtSubject,
+    MusicTrack,
     # Reference 카드(CarePlan.reference_card)
     ReferenceCard,
     CardBadge,

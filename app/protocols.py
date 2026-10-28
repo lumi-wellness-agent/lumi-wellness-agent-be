@@ -119,12 +119,18 @@ class CandidateSearch:
 
 # 다 맞는 후보가 없을 때 푸는 순서. 사용자 상태(order)는 근거와 맞는지의 문제라 풀어도 활동은 할
 # 수 있고, 환경(소리 · 조용함 · 화면 · 야외)은 풀면 지금 자리에서 하기 어렵다 — 그래서 상태를 먼저
-# 푼다. 시간은 풀지 않는다(가용 시간을 넘는 활동은 check_plan이 막는다)
+# 푼다. 시간은 맨 마지막에만 푼다(아래). 그 전까지 가용 시간을 넘는 활동은 check_plan이 막는다
 RELAX_STEPS: tuple[tuple[str, ...], ...] = (
     (),
     ("order",),
     ("environment",),
     ("order", "environment"),
+    # 시간은 맨 마지막에 푼다 — 짧은 시간 칩(3분)을 골랐는데 그 목표에 그만큼 짧은 활동이 없을 때
+    # (S3: PR-01 6분). 활동 시간은 줄이지 않고 근거 용량을 그대로 쓴다(plan이 planned_minutes(None))
+    ("minutes",),
+    ("order", "minutes"),
+    ("environment", "minutes"),
+    ("order", "environment", "minutes"),
 )
 
 
@@ -145,13 +151,21 @@ def plan_candidates(
         found = candidates(
             goal,
             order=None if "order" in relaxed else order,
-            minutes=minutes,
+            minutes=None if "minutes" in relaxed else minutes,
             environment=None if "environment" in relaxed else environment,
             exclude=exclude,
         )
         if found:
+            if "minutes" in relaxed:
+                # 시간을 풀었으면 가장 짧은 활동부터. 같은 길이면 원래 순서(목표 · 등급 순)
+                found = sorted(found, key=_shortest)
             return CandidateSearch(found, relaxed)
     return CandidateSearch([])
+
+
+def _shortest(protocol: CareProtocol) -> float:
+    duration = protocol.duration_minutes
+    return duration.min or duration.default
 
 
 def planned_minutes(protocol: CareProtocol, available: int | None) -> int:
