@@ -196,8 +196,8 @@ class Composition(StrEnum):
     """구성 유형(프로토콜 시트). 플래너는 프로토콜을 고를 뿐 임의로 조합하지 않는다."""
 
     SINGLE = "SINGLE"  # 단일
-    VALIDATED_MULTIMODAL = "VALIDATED_MULTIMODAL"  # 조합 자체가 실험 자극 — PR-02 · 10 · 12
-    EXPERIMENTAL = "EXPERIMENTAL"  # 조합 근거 없음. A/B로만 제공, '실험적' 표시 — PR-15 · 21 · 22
+    VALIDATED_MULTIMODAL = "VALIDATED_MULTIMODAL"  # 조합 자체가 실험 자극 — PR-02 · 12
+    EXPERIMENTAL = "EXPERIMENTAL"  # 구성 근거 없음. '실험적' 배지로 제공 — PR-10 · 15 · 21 · 22
     STAGE_MODULE = "STAGE_MODULE"  # 다른 프로토콜의 NOTICE 단계 — PR-16. 단독 활동으로 쓰지 않는다
 
 

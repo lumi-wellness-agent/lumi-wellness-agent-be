@@ -8,11 +8,13 @@
 ## 원칙
 
 - **라운드당 활동 노드 1개.** 플래너는 검수된 프로토콜(`data/protocols/*.json`)에서 고를 뿐 조합하지 않는다.
-  조합은 `VALIDATED_MULTIMODAL` 프로토콜 자체로만 제공한다(PR-02 · 10 · 12).
+  조합은 노드 자체로만 제공한다 — 조합이 곧 실험 자극인 `VALIDATED_MULTIMODAL`(PR-02 · 12). 구성 근거가 없는
+  노드는 `EXPERIMENTAL`(PR-10 · 15 · 21 · 22)로 두고 '실험적'으로 표시한다.
 - **LLM은 두 곳뿐이다.** intake(구조화 출력 2회 — 상황 읽기 · 목표 추론, 글 답이면 읽기 1회 더)와 `plan`(구조화 출력
   2회 — 활동 선택 · 추천 이유). intake의 질문 여부·보기 검증·답 병합과 plan의 후보·검색·검증, 측정·평가·재계획은 코드다.
 - **측정은 RAG가 아니다.** 척도는 `data/instruments/*.json`에 있고 LLM은 문항을 만들거나 바꾸거나 점수를
-  계산하지 않는다. LLM 번역 금지 — 번역·타당화된 문항만 쓴다.
+  계산하지 않는다. 타당화된 한국어판이 아닌 문항(STAI-6 · BSRI 번역 초안, MFVAS)은 `PROVISIONAL`(내부 시험용)로
+  두고 Reference 카드에 밝힌다.
 - **근거는 막지 않는다.** 검증은 출처 실재 · 중재 관련 · 지표 측정 세 가지만 차단하고, AI 생성·조합 콘텐츠는
   `ADAPTED_STIMULUS`로 Reference 카드에 밝힌다(`app/schemas/retrieval.py`).
 - **발표 범위에서 뺀 것.** Docling·LLM 원문 추출

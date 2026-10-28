@@ -36,7 +36,7 @@ from app.schemas.card import (
 from app.schemas.care import CareGoal
 from app.schemas.evidence import Medium, Section
 from app.schemas.intake import GoalSource
-from app.schemas.measure import GOAL_SCALE
+from app.schemas.measure import GOAL_SCALE, InstrumentId
 from app.schemas.protocol import CareProtocol, Composition
 from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict, Flag, PaperRef
 
@@ -87,6 +87,21 @@ MEASURE_GAPS: dict[CareGoal, str] = {
     CareGoal.S3: (
         "근거 연구는 주의 과제 성적을 봤지만, LUMI는 주의 용량을 재지 않고 지금 느끼는 정신 피로로 "
         "변화를 봅니다."
+    ),
+}
+
+# 목표 척도가 PROVISIONAL일 때 밝히는 문장. 원척도가 검증된 번역 초안(STAI-6 · BSRI)과 팀이 만든
+# 문항(MFVAS)은 사정이 달라 척도마다 둔다. 척도 이름은 measured_by에 보이므로 문장에 넣지 않는다
+TRANSLATED_DRAFT_NOTE = (
+    "이 척도는 연구에서 타당성이 확인된 영어판 문항을 LUMI가 한국어로 옮긴 것입니다. 번역본은 아직 "
+    "따로 검증하지 않아, 점수 변화는 참고로 봐 주세요."
+)
+PROVISIONAL_NOTES: dict[InstrumentId, str] = {
+    InstrumentId.STAI6: TRANSLATED_DRAFT_NOTE,
+    InstrumentId.BSRI: TRANSLATED_DRAFT_NOTE,
+    InstrumentId.MFVAS: (
+        "이 척도는 지금 느끼는 정신 피로를 보려고 LUMI가 만든 질문이라, 아직 검증되지 않았습니다. "
+        "점수 변화는 참고로 봐 주세요."
     ),
 }
 
@@ -229,7 +244,7 @@ def goal_section_for(intake: IntakeResult, goal: CareGoal) -> GoalSection:
             provisional=instrument.status == "PROVISIONAL",
         )
         if measure.provisional:
-            notes.append(f"{instrument.name}는 팀이 만든 임시 도구로, 아직 타당화되지 않았습니다.")
+            notes.append(PROVISIONAL_NOTES[scale])
     return GoalSection(
         goal=goal,
         label=label,

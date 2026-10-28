@@ -21,8 +21,9 @@
 ## instruments/ — 측정 도구 4개
 
 `INS-SAM` · `INS-STAI6` · `INS-BSRI` · `INS-MFVAS`. 문항 · 응답 척도 · 채점 규칙(`app/instruments.py`).
-SAM은 READY, STAI-6와 BSRI는 저작권·한국어판 확인 뒤 문항 원문을 채운다(`status: TODO`). MFVAS는 S3용
-임시 도구다 — 팀이 쓴 문항이라 바로 제시하지만 타당화는 없다(`status: PROVISIONAL`). LLM 번역 금지.
+SAM은 READY. STAI-6와 BSRI는 원척도 문항의 한국어 번역 초안, MFVAS는 S3용으로 팀이 쓴 임시 문항이라 셋 다
+`status: PROVISIONAL`(내부 시험용)이다 — 바로 제시하지만 검증된 한국어판이 아니고, Reference 카드가 척도마다 이를
+밝힌다(`reference_card.PROVISIONAL_NOTES`). STAI는 Mind Garden 저작권이라 공개 서비스 전에는 허가가 필요하다.
 
 ## evidence_overrides.json — 사람이 확정한 근거 메타데이터
 
