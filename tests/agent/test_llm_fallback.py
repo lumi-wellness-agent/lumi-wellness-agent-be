@@ -120,6 +120,6 @@ def test_assembly_registers_providers_by_key_and_disables_sdk_retries():
     both = Settings(openai_api_key="o", anthropic_api_key="a")
     assert provider_names(both) == ["openai", "anthropic"]
     models = dict(chat_models(both, max_tokens=64))
-    assert models["openai"].model_name == "gpt-4o-mini" and models["openai"].max_retries == 0
+    assert models["openai"].model_name == "gpt-5.4-mini" and models["openai"].max_retries == 0
     assert models["anthropic"].model == "claude-haiku-5-5" and models["anthropic"].max_retries == 0
     assert models["anthropic"].thinking == {"type": "disabled"}

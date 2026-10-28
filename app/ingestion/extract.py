@@ -45,7 +45,7 @@ MIN_KEEP = 60  # 이보다 짧은 발췌는 쓰지 않는다
 MIN_COVERAGE = 0.6  # 본문에서 확인된 문장 비율이 이보다 낮으면 쓰지 않는다
 SNAP_CUTOFF = 0.85  # 본문 문장으로 바꿀 때의 difflib 유사도
 CONTAIN_CUTOFF = 0.9  # 모델 문장 글자 중 이 비율 이상이 순서대로 든 원문 문장이면 그 문장으로
-INPUT_BUDGET = 60_000  # LLM 입력 글자 상한. gpt-4o-mini 128k 토큰 안에서 넉넉히
+INPUT_BUDGET = 60_000  # LLM 입력 글자 상한. 128k 토큰 컨텍스트 안에서도 넉넉히
 FALLBACK_MIN = 3_000  # METHODS + RESULTS가 이보다 짧으면 다른 섹션을 더한다
 EXCERPT_SECTIONS = (Section.METHODS, Section.RESULTS)
 OTHER_SECTIONS = "ABSTRACT · INTRODUCTION · DISCUSSION"
@@ -447,8 +447,11 @@ def make_picker(*, model: str, api_key: str, timeout: float = 120.0) -> Picker:
     from langchain_core.messages import HumanMessage, SystemMessage
     from langchain_openai import ChatOpenAI
 
+    # gpt-5 계열은 reasoning_effort='none'을 함께 줘야 langchain-openai가 temperature=0을 지우지
+    # 않는다. 비추론 모델(gpt-4o-mini …)은 이 인자를 400으로 거부하므로 gpt-5에만 붙인다
+    reasoning = {"reasoning_effort": "none"} if model.startswith("gpt-5") else {}
     chat = ChatOpenAI(
-        model=model, api_key=api_key, temperature=0, max_tokens=3000, timeout=timeout
+        model=model, api_key=api_key, temperature=0, max_tokens=3000, timeout=timeout, **reasoning
     )
     structured = chat.with_structured_output(ExcerptPick, method="json_schema")
 

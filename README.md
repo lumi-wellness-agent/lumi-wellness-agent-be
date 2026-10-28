@@ -8,7 +8,7 @@ FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. �
 현재는 에이전트 아키텍처 v2의 뼈대 단계입니다. 그래프 배선(intake → 사전 측정 → 계획 → 실행 대기 →
 사후 측정 → 평가 → 재계획 루프 → 종료 측정), 노드 사이 계약, 활동 노드 JSON 21개(담당 셋이 채움, 검수 전)와 측정 도구 4개의
 계약·채점, 근거 계약(스키마·도구 출력·검증 규칙)은 테스트로 확인했습니다. 근거 122건(arm 61개)은 Supabase에
-적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-4o-mini)로 세 시나리오(S1 · S2 · S3)를
+적재해 하이브리드 검색·검증이 돌고, plan은 실제 모델(gpt-5.4-mini)로 세 시나리오(S1 · S2 · S3)를
 통과했습니다(`make plan-trial`). intake는 State(대화) → Goal(단서표 추론) → Context(환경 칩)
 질문 루프로 바꿨고(#49), 대역 모델로 흐름을 테스트했습니다. 목표 추론은 R1 논문의 원문 개념 정의(②)를
 함께 보고, 추론한 목표의 정의를 근거로 남깁니다. 세션 API는 Supabase 로그인 · 게스트 체험 · 세션 기록과 함께
@@ -133,7 +133,7 @@ graph TD;
   루프였지만 gpt-4o-mini가 검색을 건너뛰고, 인자를 빠뜨리고, 한 번은 10분 넘게 돌아(2026-10-26 실측)
   절차를 코드로 옮겼습니다 — 종료가 보장되고 모델 호출이 4~5회에서 2회로 줍니다. 적응은 이 노드 안의
   루프가 아니라 측정 → 평가 → 재계획 → plan 순환에서 옵니다. 선택은 `check_plan`이 후검증하고, 어기면
-  거부 사유를 붙여 한 번 다시 묻습니다. 모델은 OpenAI `gpt-4o-mini` 하나로 통일했고
+  거부 사유를 붙여 한 번 다시 묻습니다. 모델은 OpenAI `gpt-5.4-mini` 하나로 통일했고
   (`LLM_MODEL`), Anthropic 키가 있으면 `claude-haiku-5-5`를 폴백으로 등록합니다(`FALLBACK_MODEL`,
   `app/agent/assembly.py`). 호출 규칙(`app/agent/llm.py`)은 cure-agent-be를 따릅니다 — 5xx·네트워크
   오류는 같은 공급자에 1회 재시도, 4xx는 재시도 없이 바로 폴백, 전부 실패하면 `LlmExhaustedError`.
@@ -524,7 +524,7 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 
 ## 정하지 않은 것
 
-- 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-4o-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
+- 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-5.4-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
 - Replanning 기준. 지금은 임시 규칙(끝까지 못 함 → 활동 변경, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 →
   활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 빼고, 권할
   단계가 선택지에 없으면 종료를 권합니다(`replanner.next_step_options`).
