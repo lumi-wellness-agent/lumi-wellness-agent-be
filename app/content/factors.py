@@ -58,10 +58,22 @@ class FactorAxis(BaseModel):
     values: dict[str, FactorValue]
 
 
+class ColorValue(BaseModel):
+    label_ko: str
+    pixabay: str | None = None  # Pixabay colors 필터 값. None이면 필터로 쓰지 않는다
+    sceneries: list[str] = []  # 이 색이 주로 차지하는 풍경 — 기피하면 LLM 풍경에서 뺀다
+
+
+class ColorTable(BaseModel):
+    pixabay_accepted: list[str]
+    values: dict[str, ColorValue]
+
+
 class FactorCatalog(BaseModel):
     version: str
     axes: dict[str, FactorAxis]
     excluded: list[dict[str, Any]] = []
+    colors: ColorTable | None = None
 
 
 SCENERY = "scenery"
@@ -83,6 +95,27 @@ def value(axis: str, key: str) -> FactorValue | None:
 def selectable(axis: str) -> list[str]:
     """LLM이 고를 수 있는 값 — 근거가 있는(STIMULUS) 것만."""
     return [k for k, v in load_catalog().axes[axis].values.items() if v.basis is Basis.STIMULUS]
+
+
+def preferred_color(colors: list[str]) -> tuple[str, ColorValue] | None:
+    """사진 필터로 쓸 선호 색 — FE 칩 값 중 Pixabay 색이 있는 첫 번째."""
+    table = load_catalog().colors
+    for key in colors:
+        found = table.values.get(key.strip().lower()) if table else None
+        if found and found.pixabay:
+            return key.strip().lower(), found
+    return None
+
+
+def avoided_sceneries(colors: list[str]) -> set[str]:
+    """기피 색이 주로 차지하는 풍경."""
+    table = load_catalog().colors
+    out: set[str] = set()
+    for key in colors:
+        found = table.values.get(key.strip().lower()) if table else None
+        if found:
+            out |= set(found.sceneries)
+    return out
 
 
 def pick_query(queries: list[str], rng: random.Random | None) -> str:

@@ -296,9 +296,15 @@ def _factor_part(state: CareState, protocol: CareProtocol) -> str:
     if not menu:
         return "## 콘텐츠 Factor\n이 활동은 고를 칸이 없다."
     lines = [json.dumps(menu, ensure_ascii=False)]
-    chips = state["request"].profile.preferred_scenery
-    if chips:
-        lines.append(f"- 사용자가 고른 좋아하는 풍경: {', '.join(chips)}")
+    profile = state["request"].profile
+    if profile.preferred_scenery:
+        lines.append(f"- 사용자가 고른 좋아하는 풍경: {', '.join(profile.preferred_scenery)}")
+    avoided = content_factors.avoided_sceneries(profile.avoided_colors)
+    if avoided and any(item["field"] == content_factors.SCENERY for item in menu):
+        lines.append(
+            f"- 사용자가 피하는 색: {', '.join(profile.avoided_colors)} → 고르지 않을 풍경: "
+            + ", ".join(sorted(avoided))
+        )
     used = [
         f"{r.plan.activity.protocol_id} "
         + json.dumps(r.plan.content_factors.model_dump(mode="json", exclude={"reason"}))

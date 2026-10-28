@@ -76,11 +76,47 @@ def scenery_plan(
 ) -> tuple[list[str], FactorSource]:
     """이번 세션의 풍경과 출처 — 사용자 칩 > plan이 고른 풍경 > 없음(기본 검색어)."""
     if chosen := preferred_sceneries(request):
-        return chosen, FactorSource.USER
+        return chosen, FactorSource.USER  # 사용자가 고른 풍경은 기피 색과 겹쳐도 그대로
     picked = [s.value for s in factors.scenery if s.value in SCENERY_QUERIES] if factors else []
+    # 기피 색이 주로 차지하는 풍경은 뺀다(파랑 → 바다 · 호수·강). 다 빠지면 LLM이 고른 그대로
+    avoided = factor_catalog.avoided_sceneries(request.profile.avoided_colors)
+    picked = [s for s in picked if s not in avoided] or picked
     if picked:
         return picked[:MAX_SCENERY], FactorSource.LLM
     return [], FactorSource.DEFAULT
+
+
+COLOR_SHARE = 4  # 선호 색 사진은 4장에 1장꼴
+
+
+def mix_color_photos(
+    pixabay: PixabayProvider,
+    photos: list[ActivityAsset],
+    query: str,
+    colors: list[str],
+) -> tuple[list[ActivityAsset], list[str]]:
+    """사진 여러 장이면 약 1/4을 선호 색 위주로 바꿔 끼운다(4번째마다). 색이 정서에 효과를 낸다는
+    근거는 없어 선호 반영으로만 쓰고, 나머지는 풍경 그대로다. 못 받으면 경고만 남기고 원래 사진을
+    쓴다."""
+    picked = factor_catalog.preferred_color(colors)
+    if not picked or len(photos) < 2:
+        return photos, []
+    key, color = picked
+    slots = list(range(COLOR_SHARE - 1, len(photos), COLOR_SHARE)) or [len(photos) - 1]
+    try:
+        found = pixabay.search_images(query, count=len(slots), colors=color.pixabay)
+    except ContentProviderError as exc:
+        return photos, [f"VISUAL_STILL: 선호 색({color.label_ko}) 사진을 받지 못함 ({exc})"]
+    seen = {a.url for a in photos}
+    mixed = list(photos)
+    for index, asset in zip(slots, (a for a in found if a.url not in seen), strict=False):
+        asset.metadata = {
+            **asset.metadata,
+            "preferred_color": {"value": key, "label_ko": color.label_ko},
+            "query": query,
+        }
+        mixed[index] = asset
+    return mixed, []
 
 
 def _scenery_query(scenery: str, rng: random.Random | None) -> str:
@@ -293,6 +329,17 @@ def resolve_activity_assets(
                             warnings += scenery_warnings
                         else:
                             slot_assets = pixabay.search_images(default_query, count=count)
+                        if request.profile.preferred_colors:
+                            color_query = (
+                                SCENERY_QUERIES[sceneries[0]] if sceneries else default_query
+                            )
+                            slot_assets, color_warnings = mix_color_photos(
+                                pixabay,
+                                slot_assets,
+                                color_query,
+                                request.profile.preferred_colors,
+                            )
+                            warnings += color_warnings
                     else:
                         render = spec.get("render", {})
                         scene = _video_scenery(sceneries)

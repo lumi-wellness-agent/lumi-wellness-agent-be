@@ -598,3 +598,91 @@ def test_artwork_url_is_rewritten_to_the_be_proxy(monkeypatch):
     art = result.assets[0]
     assert art.url == "/media/artic/2d484387-2509-5e8e-2c43-22f9981972eb/843.jpg"
     assert art.metadata["origin_url"] == iiif
+
+
+
+# ── 색 선호 ────────────────────────────────────────────────────────────────────
+
+
+def _fake_pixabay_colors(captured):
+    def fake_search(self, query, *, count=1, colors=None):
+        from app.agent.state import ActivityAsset
+
+        captured.append((query, count, colors))
+        tag = colors or "plain"
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url=f"https://cdn/{tag}-{query.replace(' ', '-')}-{i}.jpg",
+                provider="PIXABAY",
+            )
+            for i in range(count)
+        ]
+
+    return fake_search
+
+
+def test_preferred_color_fills_every_fourth_photo(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay_colors(captured)
+    )
+    result = resolve_activity_assets(
+        get_protocol("PR-01"),
+        CareRequest(text="-", profile=UserProfile(preferred_colors=["black", "green"])),
+        factors=_factors([Scenery.FOREST, Scenery.SEA]),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    # 검정은 필터로 쓰지 않는다 — 초록. 25장 중 4번째마다 6장
+    assert captured[-1] == ("calm forest", 6, "green")
+    colored = [i for i, a in enumerate(result.assets) if "preferred_color" in a.metadata]
+    assert colored == [3, 7, 11, 15, 19, 23]
+    assert result.assets[3].metadata["preferred_color"] == {"value": "green", "label_ko": "초록"}
+    assert len(result.assets) == 25
+
+
+def test_single_photo_activities_keep_the_scenery_photo(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay_colors(captured)
+    )
+    resolve_activity_assets(
+        get_protocol("PR-03"),  # 사진 1장
+        CareRequest(text="-", profile=UserProfile(preferred_colors=["green"])),
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert all(colors is None for _, _, colors in captured)
+
+
+def test_avoided_color_drops_llm_sceneries_but_not_user_chips(monkeypatch):
+    from app.schemas.content import Scenery
+
+    captured = []
+    monkeypatch.setattr(
+        "app.content.resolver.PixabayProvider.search_images", _fake_pixabay_colors(captured)
+    )
+    factors = _factors([Scenery.SEA, Scenery.FOREST, Scenery.LAKE_RIVER])
+    resolve_activity_assets(
+        get_protocol("PR-01"),
+        CareRequest(text="-", profile=UserProfile(avoided_colors=["blue"])),
+        factors=factors,
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert [q for q, _, _ in captured] == ["calm forest"]  # 바다 · 호수는 파랑이라 뺀다
+
+    captured.clear()
+    resolve_activity_assets(
+        get_protocol("PR-01"),
+        CareRequest(
+            text="-", profile=UserProfile(preferred_scenery=["sea"], avoided_colors=["blue"])
+        ),
+        factors=factors,
+        settings=Settings(pixabay_api_key="secret"),
+        client=_no_network(),
+    )
+    assert [q for q, _, _ in captured] == ["calm sea horizon"]  # 사용자가 고른 풍경은 그대로

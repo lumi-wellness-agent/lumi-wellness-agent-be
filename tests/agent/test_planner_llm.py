@@ -163,6 +163,17 @@ def test_explainer_shows_chips_and_factors_used_in_earlier_rounds():
     assert '- 지난 라운드에 쓴 Factor: PR-01 {"scenery": ["sea", "forest"]' in text
 
 
+def test_explainer_tells_which_sceneries_the_avoided_colors_rule_out():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    state = {
+        "request": CareRequest(text="-", profile=UserProfile(avoided_colors=["blue"])),
+        "intake": S1_STATE["intake"],
+    }
+    asyncio.run(make_explainer(model)(state, CHOICE, protocols.get_protocol("PR-01"), []))
+    text = model.inputs[0][1].content
+    assert "- 사용자가 피하는 색: blue → 고르지 않을 풍경: lake river, sea, sky" in text
+
+
 class ClientError(Exception):
     status_code = 401
 

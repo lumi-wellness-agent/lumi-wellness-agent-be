@@ -457,5 +457,88 @@
       "evidence": [],
       "reason": "PR-02 · 04가 급류·폭포 근접음을 뺀다. 영상과 소리가 어긋나지 않게 풍경에서도 제외"
     }
-  ]
+  ],
+  "colors": {
+    "description": "색 선호(profile.preferred_colors · avoided_colors) — FE 색 칩 값 → Pixabay colors 필터 · 그 색이 주로 차지하는 풍경. 색이 정서에 효과를 낸다는 근거는 없다(P11은 선별 참고). 선호 색은 사진 일부(약 1/4)를 그 색 위주로 받고, 기피 색은 LLM이 고른 풍경에서 그 색 풍경을 뺀다(사용자 칩은 그대로). 검정 · 진한 보라 · 베이지는 Pixabay 색으로 옮기면 어둡거나 엉뚱한 사진이 나와 필터로 쓰지 않는다.",
+    "pixabay_accepted": [
+      "grayscale",
+      "transparent",
+      "red",
+      "orange",
+      "yellow",
+      "green",
+      "turquoise",
+      "blue",
+      "lilac",
+      "pink",
+      "white",
+      "gray",
+      "black",
+      "brown"
+    ],
+    "values": {
+      "green": {
+        "label_ko": "초록",
+        "pixabay": "green",
+        "sceneries": [
+          "forest",
+          "meadow",
+          "mountain"
+        ]
+      },
+      "blue": {
+        "label_ko": "파랑",
+        "pixabay": "blue",
+        "sceneries": [
+          "sea",
+          "lake river",
+          "sky"
+        ]
+      },
+      "sky blue": {
+        "label_ko": "하늘색",
+        "pixabay": "blue",
+        "sceneries": [
+          "sky",
+          "sea"
+        ]
+      },
+      "beige": {
+        "label_ko": "베이지",
+        "pixabay": null,
+        "sceneries": []
+      },
+      "pink": {
+        "label_ko": "분홍",
+        "pixabay": "pink",
+        "sceneries": [
+          "flowers"
+        ]
+      },
+      "yellow": {
+        "label_ko": "노랑",
+        "pixabay": "yellow",
+        "sceneries": [
+          "flowers"
+        ]
+      },
+      "purple": {
+        "label_ko": "보라",
+        "pixabay": "lilac",
+        "sceneries": [
+          "flowers"
+        ]
+      },
+      "black": {
+        "label_ko": "검정",
+        "pixabay": null,
+        "sceneries": []
+      },
+      "dark purple": {
+        "label_ko": "진한 보라",
+        "pixabay": null,
+        "sceneries": []
+      }
+    }
+  }
 }

@@ -165,3 +165,20 @@ def test_scenery_menu_asks_for_four_kinds_when_there_is_no_cue():
     assert "단서가 없으면 서로 다른 값 4개" in scenery["note"]
     # 사진 1장(PR-03)은 섞지 않는다
     assert "note" not in factors.menu(protocols.get_protocol("PR-03"))[0]
+
+
+def test_color_table_maps_fe_chips_to_pixabay_and_sceneries():
+    table = factors.load_catalog().colors
+    fe_chips = {
+        *("green", "blue", "sky blue", "beige", "pink", "yellow", "purple"),
+        *("black", "dark purple"),
+    }
+    assert set(table.values) == fe_chips  # FE COLOR_CHOICES와 같다
+    sceneries = set(factors.load_catalog().axes[factors.SCENERY].values)
+    for key, color in table.values.items():
+        assert color.pixabay is None or color.pixabay in table.pixabay_accepted, key
+        assert set(color.sceneries) <= sceneries, key
+    # 어두운 사진 필터는 쓰지 않는다
+    assert factors.preferred_color(["black", "dark purple"]) is None
+    assert factors.preferred_color(["purple"])[1].pixabay == "lilac"
+    assert factors.avoided_sceneries(["blue"]) == {"sea", "lake river", "sky"}

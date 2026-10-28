@@ -143,6 +143,12 @@ graph TD;
 - 자산 `metadata.content_factor`에 축 · 값 · 출처(`USER` · `LLM`) · 근거 논문 · 검색어가 남습니다.
   `preferred_scenery`는 사용자 칩일 때만 남겨 FE가 LLM이 고른 풍경을 "좋아하는 ○○"라고 쓰지 않습니다.
 - Factor는 연구 자극 범위 안의 개인화이지 효과를 키운다는 근거가 아닙니다. 추천 이유(rationale)에도 쓰지 않습니다.
+- **색 선호(profile.preferred_colors · avoided_colors)**: 선호 색은 사진 여러 장일 때 4장에 1장꼴을 Pixabay 색 필터로
+  받고(`preferred_color` 메타데이터), 기피 색은 LLM이 고른 풍경에서 그 색이 주로 차지하는 풍경을 뺍니다(파랑 → 바다 ·
+  호수·강). 사용자 칩 풍경은 그대로 둡니다. 표는 카탈로그의 `colors`이고, 색이 정서에 효과를 낸다는 근거는 없습니다.
+- **이미지 프록시(`/media`, `app/api/media.py`)**: 미술관 IIIF(Cloudflare가 브라우저 직접 호출을 막음)와 Pixabay 사진
+  (영구 핫링크 금지)은 BE가 받아 전달합니다. 자산 주소가 `/media/…`로 바뀌고 원래 주소는 `metadata.origin_url`에
+  남습니다. 상위 주소는 고정 템플릿이라 오픈 프록시가 아닙니다(`app/content/proxy.py`).
 
 ### LangGraph·LangChain을 쓰는 곳
 
