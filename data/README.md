@@ -33,6 +33,10 @@ SAM은 READY. STAI-6와 BSRI는 원척도 문항의 한국어 번역 초안, MFV
 원문이 다른 값이 생긴다 — 검토 목록(`evidence_review.csv`)에서 골라 원문으로 확정한 값을 여기에 적고 적재를
 다시 돌린다. 시트에 없는 키나 `EvidenceMetadata`에 없는 필드가 있으면 적재가 멈춘다.
 
+연구 매체(`media`)는 시트에 열이 없어 그 행을 인용한 활동 JSON의 `media`에서 온다. 활동의 제공 방식만 바뀌어도
+(PR-10이 #63에서 영상 모드가 됐다) 연구 매체가 따라 바뀌므로, 그런 연구는 여기에 연구 매체를 고정한다 — 실제
+자연환경 명상 연구가 영상 연구로 적재되면 영상 제공의 자극 변형(ADAPTED_STIMULUS)이 사라진다.
+
 ## evidence_excerpts.json — 레코드별 원문 발췌
 
 `scripts/extract_excerpts.py`(`make extract-excerpts`)가 만든다. 키는 `evidence_overrides.json`과 같고

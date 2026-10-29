@@ -147,6 +147,21 @@ def test_fuse_breaks_ties_by_id():
     assert [hit.evidence_record_id for hit in hybrid.fuse(rows, limit=5)] == [102, 141]
 
 
+def test_top_records_keep_every_chunk_of_the_first_k_records():
+    # 점수 순 chunk: P24 RESULTS · P24 METHODS · P33 RESULTS · P03 METHODS · P33 METHODS ·
+    # N19 METHODS. chunk로 셋을 자르면 P24가 두 자리를 차지해 레코드가 둘뿐이다. 레코드 셋을
+    # 고르면 P03까지 들고 그 레코드의 chunk(P33 METHODS)도 남는다 — 순서는 그대로
+    hits = [BY_ID[i] for i in (102, 101, 112, 121, 111, 141)]
+    kept = hybrid.top_records(hits, k=3)
+    assert [hit.evidence_record_id for hit in kept] == [102, 101, 112, 121, 111]
+    assert {hybrid.record_key(hit) for hit in kept} == {
+        ("P24", "P24-E1"),
+        ("P33", "P33-E1"),
+        ("P03", "P03-E1"),
+    }
+    assert hybrid.top_records([], k=3) == []
+
+
 def test_without_pool_returns_nothing(caplog):
     with caplog.at_level(logging.WARNING, logger=hybrid.__name__):
         hits = asyncio.run(

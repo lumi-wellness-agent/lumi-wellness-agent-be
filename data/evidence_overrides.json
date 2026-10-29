@@ -233,7 +233,7 @@
     ]
   },
   "E12-E1": {
-    "_why": "PR-19가 인용하는 조건(세 가지 좋은 일)은 효과 없음 — 시트 결과와 비고 'PR-19 상충'",
+    "_why": "PR-19가 인용하는 조건(세 가지 좋은 일)은 효과 없음 — 시트 결과와 비고 'PR-19 상충'. 2026-10-29 원문 대조(Tagalidou 2019 표 2 · 3.3절): 행복 · 우울 말고 상태 기분(STCI-S bad mood)도 쟀고 세 가지 좋은 일은 변화가 없다 — AFFECT를 더한다(시트에 없어 S2 검색에서 빠졌다)",
     "results": [
       {
         "outcome": "OTHER",
@@ -241,6 +241,46 @@
         "measure": "행복·우울",
         "comparison": "세 가지 좋은 일 vs 위약",
         "note": "세 가지 좋은 일·웃긴 일 효과 없음; 코핑 유머만 유의"
+      },
+      {
+        "outcome": "AFFECT",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "STCI-S 상태 bad mood",
+        "comparison": "세 가지 좋은 일 vs 위약(초기 기억)",
+        "timepoint": "사전 → 사후 → 추적",
+        "stat": "세 가지 좋은 일 1.54 → 1.49 → 1.54; 집단 × 시간 상호작용은 세 가지 웃긴 일만(F(2, 60.86) = 7.35, p = .001)",
+        "note": "세 가지 좋은 일은 상태 기분 변화 없음"
+      }
+    ]
+  },
+  "E15": {
+    "_why": "2026-10-29 원문 대조(Hoult 2025 초록): 긍정 표현적 글쓰기 51편 체계적 고찰 — '가장 일관된 이득은 웰빙과 긍정 정서, 부정 정서는 덜 일관'. 시트 결과 열에 지표 결과가 없어 UNCLEAR였다. 통합 효과크기 없는 서술 종합이지만 긍정 정서 이득이 일관돼 AFFECT POSITIVE로 둔다(사용자 결정)",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "긍정 정서",
+        "comparison": "긍정 표현적 글쓰기 vs 중립 글쓰기 등(51편 체계적 고찰)",
+        "note": "서술 종합 — 통합 효과크기 없음. 가장 일관된 이득은 웰빙 · 긍정 정서, 부정 정서는 덜 일관"
+      },
+      {
+        "outcome": "OTHER",
+        "effect": "UNCLEAR",
+        "measure": "웰빙·건강",
+        "note": "웰빙은 일관된 이득, 주관적 건강 · 심리 건강은 덜 일관"
+      }
+    ]
+  },
+  "E21": {
+    "_why": "2026-10-29 원문 대조(Chen 2026 초록): 음미 개입 무작위 실험 20편 메타분석 — 정서 결과 통합 g = 0.51(유의). 시트 결과 열이 효과크기만 적어 UNCLEAR였다",
+    "results": [
+      {
+        "outcome": "AFFECT",
+        "effect": "POSITIVE",
+        "measure": "정서 결과(통합)",
+        "comparison": "음미 개입 vs 통제(무작위 실험 20편 · 효과 45개)",
+        "stat": "g = 0.51, 95% CI [0.26, 0.77], p < .001; 긍정 심리 상태 g = 0.50, 95% CI [0.24, 0.75]; 부정 정서 상태 g = 0.33",
+        "note": "3수준 랜덤효과 · CR2. 범주별 추정은 기술용이고 범주가 효과를 조절하지 않았다"
       }
     ]
   },
@@ -292,5 +332,47 @@
     "verification": "FULL_TEXT",
     "exposure_minutes": 10,
     "population_detail": "대학생(미국 델라웨어대, 남 60 · 여 60)"
+  },
+  "P38-E1": {
+    "_why": "연구 매체 고정 — 실제 자연환경에서 하는 명상(ReST)이다. 매체는 그 행을 인용한 프로토콜 JSON에서 오는데 PR-10이 #63에서 영상 모드(MINDFULNESS · VIDEO)로 바뀌어, 고정하지 않으면 연구가 영상을 쓴 것으로 적재되고 PR-10 영상 제공의 자극 변형(ADAPTED_STIMULUS)이 사라진다(2026-10-29 lumi-pg 재적재에서 발견). 값은 #63 이전 적재와 같다",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
+  },
+  "P22-E1": {
+    "_why": "연구 매체 고정 — P38-E1과 같다(ReST, 자연환경 명상 과정)",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
+  },
+  "P39-E1": {
+    "_why": "연구 매체 고정 — P38-E1과 같다(ReST, 자연환경 명상 과정)",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
+  },
+  "P23-E1": {
+    "_why": "연구 매체 고정 — P38-E1과 같다(ReST 추적, 자연환경 명상 과정)",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
+  },
+  "P20": {
+    "_why": "연구 매체 고정 — P38-E1과 같다(자연 기반 마음챙김 메타분석, 실제 자연환경)",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
+  },
+  "P21": {
+    "_why": "연구 매체 고정 — P38-E1과 같다(자연 기반 마음챙김 범위 고찰, 숲이 가장 흔한 환경)",
+    "media": [
+      "OUTDOOR_WALK",
+      "MINDFULNESS"
+    ]
   }
 }

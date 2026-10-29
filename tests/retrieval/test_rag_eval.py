@@ -18,9 +18,11 @@ from scripts import rag_eval
 A, B, C = ("P16", "P16-E1"), ("P15", "P15-E1"), ("E08", None)
 
 
-def test_record_ranks_take_the_best_chunk_of_each_record():
+def test_record_ranks_count_records_in_the_order_they_first_appear():
+    # chunk 순서 A, C, A, B → 레코드 차례 A 1 · C 2 · B 3. A의 둘째 chunk가 자리를 차지하지 않는다 —
+    # plan이 서로 다른 레코드 상위 5개를 인용하는 것과 같다(hybrid.top_records)
     key_of = {1: A, 2: A, 3: C, 4: B}
-    assert rag_eval.record_ranks([2, 3, 1, 4], key_of) == {A: 1, C: 2, B: 4}
+    assert rag_eval.record_ranks([2, 3, 1, 4], key_of) == {A: 1, C: 2, B: 3}
 
 
 def test_metrics_count_records_not_chunks():
