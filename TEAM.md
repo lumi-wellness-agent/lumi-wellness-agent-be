@@ -35,7 +35,7 @@ plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(
 prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_words)
 measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
-evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로↓)
+evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로 10점 이상↓)
 replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외)
 confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
 measure_final ⏸ 종료 경로에서 STAI-6 · BSRI 1회 (라운드마다 잰 S3는 건너뜀)
