@@ -1,12 +1,15 @@
 import httpx
 import pytest
 
+from app.content.image import nature_prompt
 from app.content.providers import (
     AIHordeProvider,
     ArtInstituteProvider,
+    ContentProviderError,
     FreesoundProvider,
     PixabayProvider,
 )
+from app.schemas.care import UserProfile
 
 
 def client_for(handler):
@@ -195,6 +198,56 @@ def test_ai_horde_marks_generation_unverified(monkeypatch):
     assert asset.generated is True
     assert asset.verification == "UNVERIFIED"
     assert asset.metadata["request_id"] == "job"
+
+
+def test_ai_horde_drops_censored_result_and_retries_once(monkeypatch):
+    # 자연 그림도 NSFW 오탐으로 "CENSORED" 안내 이미지가 올 수 있다 — 버리고 한 번 더 요청한다
+    jobs = iter(["job-1", "job-2"])
+    results = {
+        "job-1": [{"img": "https://cdn/censored.webp", "censored": True}],
+        "job-2": [{"img": "https://cdn/ok.webp", "censored": False}],
+    }
+
+    def handler(request):
+        if request.method == "POST":
+            return httpx.Response(200, json={"id": next(jobs)})
+        if "/check/" in request.url.path:
+            return httpx.Response(200, json={"done": True})
+        return httpx.Response(
+            200, json={"generations": results[request.url.path.rsplit("/", 1)[-1]]}
+        )
+
+    monkeypatch.setattr("app.content.providers.time.sleep", lambda _: None)
+    asset = AIHordeProvider(
+        "secret", client_for(handler), poll_timeout_seconds=5, poll_interval_seconds=0
+    ).generate_image("nature")
+    assert asset.url == "https://cdn/ok.webp"
+
+
+def test_ai_horde_censored_twice_raises_so_caller_uses_photos(monkeypatch):
+    def handler(request):
+        if request.method == "POST":
+            return httpx.Response(200, json={"id": "job"})
+        if "/check/" in request.url.path:
+            return httpx.Response(200, json={"done": True})
+        return httpx.Response(
+            200, json={"generations": [{"img": "https://cdn/x.webp", "censored": True}]}
+        )
+
+    monkeypatch.setattr("app.content.providers.time.sleep", lambda _: None)
+    provider = AIHordeProvider(
+        "secret", client_for(handler), poll_timeout_seconds=5, poll_interval_seconds=0
+    )
+    with pytest.raises(ContentProviderError, match="검열"):
+        provider.generate_image("nature")
+
+
+def test_nature_prompt_puts_exclusions_in_the_negative_prompt():
+    prompt = nature_prompt(UserProfile(preferred_scenery=["forest"], avoided_colors=["black"]))
+    positive, negative = prompt.split(" ### ")
+    assert "forest" in positive
+    assert "people" not in positive and "no " not in positive
+    assert "people" in negative and "nsfw" in negative and "black" in negative
 
 
 def test_ai_horde_splits_batches_at_twenty(monkeypatch):
