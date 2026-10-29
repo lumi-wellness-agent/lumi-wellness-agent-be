@@ -1,19 +1,34 @@
 """세션 기록의 행 — 분석 테이블에 글이 새지 않는지, SAFETY 세션이 끝난 사실만 남기는지."""
 
+import asyncio
 import re
+import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app import records
-from app.agent.state import IntakeResult, NextStep, SessionEnd
+from app.agent.state import (
+    CarePlan,
+    IntakeResult,
+    NextStep,
+    OutcomeEvaluation,
+    PlannedActivity,
+    ReplanProposal,
+    Round,
+    Selection,
+    SelectionMethod,
+    SessionEnd,
+    SessionReport,
+)
 from app.api.sessions import Step
 from app.schemas.care import CareGoal, CareRequest, Setting, UserProfile
 
-MIGRATION = Path(__file__).parents[1] / "supabase/migrations/20261027000000_care_records.sql"
+MIGRATIONS = sorted((Path(__file__).parents[1] / "supabase/migrations").glob("*.sql"))
 
 
 def allowed(column: str) -> set[str]:
     """마이그레이션의 check (column in (...)) 값."""
-    sql = MIGRATION.read_text()
+    sql = "\n".join(path.read_text() for path in MIGRATIONS)
     match = re.search(rf"check \({column} in \(([^)]*)\)\)", sql)
     assert match, column
     return set(re.findall(r"'([A-Z_0-9]+)'", match.group(1)))
@@ -25,6 +40,7 @@ def test_the_migration_checks_match_the_code_values():
     assert allowed("goal") == {goal.value for goal in CareGoal}
     assert allowed("end_reason") == {"DONE"} | {end.value for end in SessionEnd}
     assert allowed("recommended") == allowed("next_step") == {s.value for s in NextStep}
+    assert allowed("rule_recommended") == {s.value for s in NextStep}
 
 
 def test_every_intake_field_is_either_a_record_or_a_text():
@@ -91,6 +107,91 @@ def test_a_guest_session_keeps_only_its_progress():
         "ended": False,
         **records.NO_CONTENT,
     }
+
+
+def finished_round(protocol_id: str, next_step: NextStep, proposal: ReplanProposal) -> Round:
+    plan = CarePlan(
+        activity=PlannedActivity(protocol_id=protocol_id, minutes=5),
+        rationale="-",
+        selection=Selection(
+            method=SelectionMethod.WEIGHTED,
+            order=["PR-07", protocol_id],
+            weights={"PR-07": 4.0, protocol_id: 4.0},
+            probability=0.5,
+            position=1,
+        ),
+    )
+    return Round(
+        plan=plan,
+        report=SessionReport(completed=True, notice_words=["아직 떨림"]),
+        pre=[],
+        post=[],
+        evaluation=OutcomeEvaluation(
+            goal=CareGoal.S2, round=1, deltas={}, improved=True, completed=True
+        ),
+        next_step=next_step,
+        proposal=proposal,
+    )
+
+
+def test_rounds_keep_how_the_activity_and_the_next_step_were_picked():
+    by_llm = ReplanProposal(
+        recommended=NextStep.ADDITIONAL_SESSION,
+        reason="아직 떨림이 남았다면 한 번 더 해 볼까요?",
+        options=list(NextStep),
+        rule_recommended=NextStep.END,
+        by_llm=True,
+    )
+    row = records.round_row(1, finished_round("PR-06", NextStep.ADDITIONAL_SESSION, by_llm))
+    assert row["selection"] == {
+        "method": "WEIGHTED",
+        "order": ["PR-07", "PR-06"],
+        "weights": {"PR-07": 4.0, "PR-06": 4.0},
+        "probability": 0.5,
+        "position": 1,
+    }
+    assert (row["recommended"], row["rule_recommended"], row["recommended_by_llm"]) == (
+        "ADDITIONAL_SESSION",
+        "END",
+        True,
+    )
+    assert "reason" not in row  # LLM이 쓴 이유는 사용자 글에서 나온 글이라 원문으로만
+    values = {
+        "request": CareRequest(text="-"),
+        "rounds": [finished_round("PR-06", NextStep.END, by_llm)],
+    }
+    assert records.text_row(values)["rounds"][0]["proposal_reason"] == by_llm.reason
+    rule = by_llm.model_copy(
+        update={"recommended": NextStep.END, "reason": "사전보다 나아졌다", "by_llm": False}
+    )
+    values["rounds"] = [finished_round("PR-06", NextStep.END, rule)]
+    assert records.text_row(values)["rounds"][0]["proposal_reason"] is None
+
+
+def test_recent_protocols_are_the_users_latest_rounds_without_repeats():
+    clock = iter(datetime(2026, 10, 29, 9, tzinfo=UTC) + timedelta(hours=h) for h in range(10))
+    store = records.MemoryStore(clock=lambda: next(clock))
+    alice, bob = uuid.uuid4(), uuid.uuid4()
+    rule = ReplanProposal(recommended=NextStep.END, reason="-", options=[NextStep.END])
+    view = {"step": "CONFIRM", "node": "confirm", "payload": {}}
+
+    async def session(user: uuid.UUID, *protocol_ids: str) -> None:
+        sid = str(uuid.uuid4())
+        await store.create(sid, user, CareRequest(text="-"))
+        rounds = [finished_round(p, NextStep.CHANGE_ACTIVITY, rule) for p in protocol_ids]
+        values = {"request": CareRequest(text="-"), "rounds": rounds}
+        await store.save(records.SessionRecord(id=sid, user_id=user), values, view)
+
+    async def scenario() -> None:
+        await session(alice, "PR-06", "PR-07")
+        await session(bob, "PR-19")
+        await session(alice, "PR-20", "PR-06")
+        # 최근 라운드부터 — 새 세션의 2라운드 · 1라운드, 그다음 지난 세션
+        assert await store.recent_protocols(alice, 2) == ["PR-06", "PR-20"]
+        assert await store.recent_protocols(alice, 5) == ["PR-06", "PR-20", "PR-07"]  # 중복 없이
+        assert await store.recent_protocols(uuid.uuid4(), 5) == []
+
+    asyncio.run(scenario())
 
 
 def test_intake_records_carry_definition_papers_not_sentences():

@@ -92,7 +92,7 @@ graph TD;
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
 | `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로 10점 이상↓ | `nodes/evaluator.py` |
-| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션(같은 활동 한 번 더) 중 하나를 제안하고 고를 수 있는 선택지를 정한다 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘 활동이면 추가 세션을 뺀다 (임시 규칙) | `nodes/replanner.py` |
+| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션(같은 활동 한 번 더) 중 고를 수 있는 선택지와 규칙 제안을 코드가 정하고 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘 활동이면 추가 세션을 뺀다 (임시 규칙) — LLM(`NextStepChoice`)이 규칙 제안을 기본으로 멈춘 이유 · 감정 단어 · Δ를 보고 선택지 안에서 권할 단계와 이유를 고른다. 실패하면 규칙 제안 | `nodes/replanner.py` |
 | `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값). 활동 변경은 바꾸기로 한 활동을 세션 내내 후보에서 빼고, 추가 세션은 활동을 다시 고르지 않고 같은 활동에 콘텐츠만 새로 고른다 | `nodes/replanner.py` |
 | `measure_final` ⏸ | measure (코드) | 종료 경로에서 사전·종료에만 재는 목표 척도(STAI-6 · BSRI) 1회 → 세션 Δ. S3는 라운드마다 재서 건너뛴다 | `nodes/measure.py` |
 
@@ -155,13 +155,15 @@ graph TD;
 - **LangGraph — 세션 그래프 전체.** Replanning → Planner 순환, 사용자 선택에 따른 분기, 사용자가
   활동을 마치거나 동의할 때까지 멈췄다가 이어 가는 interrupt가 필요합니다. 상태가 체크포인터에 남아
   HTTP 요청이 나뉘어도 세션이 이어집니다.
-- **LangChain — intake와 plan의 구조화 출력.** LLM 호출은 네 곳 모두 `with_structured_output`(json_schema)
-  한 번씩입니다 — intake의 상황 읽기 `StateReading`과 목표 추론 `GoalInference`, plan의 활동 선택
-  `ActivityChoice`, 추천 이유 `PlanRationale`. intake의 질문 여부 · 보기 검증 · 답 병합 · 종료는 코드다
+- **LangChain — intake · plan · replan의 구조화 출력.** LLM 호출은 다섯 곳 모두
+  `with_structured_output`(json_schema) 한 번씩입니다 — intake의 상황 읽기 `StateReading`과 목표 추론
+  `GoalInference`, plan의 활동 선택 `ActivityChoice`, 추천 이유 `PlanRationale`, replan의 다음 단계 추천
+  `NextStepChoice`. intake의 질문 여부 · 보기 검증 · 답 병합 · 종료는 코드다
   (`app/agent/intake_rules.py`) — 질문을 몇 번 해도 LLM은 2회이고, 시점 질문에 글로 답할 때만 한 번 더 읽는다.
   plan은 고정 절차입니다: 코드가 후보를 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로
-  거르고 목표 1차 지표 등급 순으로 정렬해 주면 LLM이 하나를 고르고
-  (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 `evidence[]` 안에서(맞는 레코드가 없으면 같은 매체
+  거르고 등급 가중 추첨 순서로 세워 주면(`protocols.recommendation_order` — 세션 ID 시드, 목표 1차 지표
+  최고 등급 A 4 · B 3 · C 2 · 그 밖 1, 최근에 한 활동 × 0.3) LLM이 앞 5개를 rank와 함께 보고 rank 1을
+  고르고(제약 · 장소 · 꺼린 활동 · 직전 거부 사유일 때만 다음 것 — 자유 텍스트 대조), 코드가 그 활동의 `evidence[]` 안에서(맞는 레코드가 없으면 같은 매체
   연구 전체에서) 매체 · 사용자 상태 · 목표 지표로 근거를 검색·검증해 usable만 남기고, LLM이 그 근거로 추천
   이유를 씁니다. 처음에는 `create_agent` Tool
   루프였지만 gpt-4o-mini가 검색을 건너뛰고, 인자를 빠뜨리고, 한 번은 10분 넘게 돌아(2026-10-26 실측)
@@ -380,7 +382,8 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 ## 데이터베이스 (Supabase)
 
 1. Supabase 프로젝트에 마이그레이션을 이름 순서대로 적용합니다 — `supabase/migrations/20261021000000_init_evidence.sql`,
-   `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`.
+   `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`,
+   `supabase/migrations/20261029000000_care_rounds_selection.sql`.
    대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은
    `papers`·`evidence_records`가 비어 있을 때만 적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다. 세 번째
    파일은 세션 기록 테이블이고 `auth.users`(Supabase Auth)를 참조합니다.
@@ -454,7 +457,8 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
   -c 'create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users on delete cascade, created_at timestamptz default now(), updated_at timestamptz default now(), refreshed_at timestamp, not_after timestamptz)' \
   -f supabase/migrations/20261021000000_init_evidence.sql \
   -f supabase/migrations/20261026000000_evidence_contracts.sql \
-  -f supabase/migrations/20261027000000_care_records.sql
+  -f supabase/migrations/20261027000000_care_records.sql \
+  -f supabase/migrations/20261029000000_care_rounds_selection.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
@@ -587,6 +591,32 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
   빠듯한 칩에서는 남은 후보로 옮겨 간다(예: 발표 앞 · 사무실 · 이어폰 없음 · 5분 → PR-19 글쓰기).
 - 계획 한 번에 평균 3.1초, 토큰 4,091/202(선택 · 설명 두 번 호출)였다.
 
+2026-10-29부터 후보 순서가 등급 가중 추첨이라, 평가도 시나리오마다 세션 ID를 `<--seed>:<시나리오>`(기본
+`plan-eval`)로 두어 운영처럼 돌립니다. 요약에 첫 계획에서 고른 활동의 종 수와 LLM이 추천 순서 맨 앞을 고른
+비율이 함께 나옵니다. 위 측정은 등급 순 시절 결과입니다(`--seed ''`로 재현). 등급 순에서는 입력 조합 420개
+(목표 × 사용자 상태 × 시간 칩 × 장소 · 이어폰) 중 1순위가 될 수 있는 활동이 20개 중 11개였고, 장소를 모르는 기본
+경로에서는 목표마다 PR-09 · PR-06 · PR-01로 고정됐습니다 — 가중 추첨으로는 19개입니다(PR-12는 30분이라 20분
+칩에서도 후보가 아니다).
+
+2026-10-29 측정(gpt-5.4-mini, lumi-pg, `--seed plan-eval`) — 계획 36개:
+
+| | 등급 순(10-28) | 가중 추첨 · 후보 전체 | 가중 추첨 · rank + 앞 5개 |
+| --- | --- | --- | --- |
+| 규칙 6개 | 모두 통과 | 모두 통과 | 모두 통과 |
+| 첫 계획에서 고른 활동 | 7종 | 10종 | 13종 |
+| 추천 순서 맨 앞을 고름 | — | 27/36 | 35/36 |
+| Reference 카드에 근거가 있다 | 35/36 | 34/36 | 34/36 |
+
+- 후보를 모두 보이고 "맨 앞을 고른다"고만 하면 '5분이라 부담이 적다'며 PR-06 · PR-01로 내려가고(9번째까지),
+  6번째를 고르고도 '맨 앞'이라고 적었다. 후보에 rank를 붙이고 건너뛸 사유를 넷(제약 · 장소 · 꺼린 활동 · 직전
+  거부 사유)으로 못 박고 앞 5개만 보이자 35/36이 맨 앞을 골랐다(남은 하나는 야외 · 자연음 활동을 건너뛴
+  S3-daily-b).
+- 첫 계획에서 고른 활동은 S1 PR-09 5 · PR-15 4 · PR-21 1, S2 PR-01 3 · PR-19 2 · PR-06 · PR-07 · PR-08 ·
+  PR-14 · PR-18 각 1, S3 PR-01 6 · PR-11 2 · PR-04 · PR-10 각 1이다. S1 · S3는 후보가 적어(10분이면 2개) 여전히
+  두세 활동에 모인다 — 공급 문제다.
+- 근거 없는 카드가 하나 늘었다(S1-fatigue-b PR-15) — 근거가 약한 활동도 앞에 서기 때문이다. 카드는 근거를
+  찾지 못했다고 밝힌다.
+
 ## 배포 (Vercel)
 
 FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나로 올립니다. 저장소를 Vercel 프로젝트에
@@ -637,10 +667,15 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 ## 정하지 않은 것
 
 - 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-5.4-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
+- 후보 추천 순서의 가중치. 목표 1차 지표 최고 등급으로 A 4 · B 3 · C 2 · 그 밖 1, 이 사용자가 최근 5라운드에
+  한 활동 × 0.3입니다(`protocols.GRADE_WEIGHT` · `RECENT_FACTOR` · `RECENT_ROUNDS`). 라운드 기록의
+  `selection`(순서 · 가중치 · 맨 앞 확률 · 고른 위치)으로 무작위성을 보정해 분석하고, 활동별 Δ가 쌓이면
+  가중치를 다시 정합니다.
 - Replanning 기준. 지금은 임시 규칙(끝까지 못 함 → 활동 변경, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 →
   활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘
   활동이면 추가 세션(같은 활동 한 번 더)을 빼고, 권할 단계가 선택지에 없으면 종료를 권합니다
-  (`replanner.next_step_options`).
+  (`replanner.next_step_options`). LLM은 이 규칙 제안을 기본으로 받아 멈춘 이유 · 감정 단어 · 처음 입력에
+  다른 신호가 있을 때만 바꿉니다 — 라운드 기록의 `rule_recommended` · `recommended_by_llm`으로 비교합니다.
 - S3의 순간 피로 자가보고 척도. 13편 안에 검증된 도구가 없어 임시 도구 `INS-MFVAS`(정신 피로 VAS 3문항, 팀 작성·미검증)로
   사전·라운드마다 재고, 피로가 10점 이상 줄었는지로 판정합니다(문턱도 임시). 주의 용량은 재지 않습니다(근거의 S3 1차
   지표 ATTENTION은 과제) — 사용자 데이터로 문항 신뢰도와 문턱을 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.

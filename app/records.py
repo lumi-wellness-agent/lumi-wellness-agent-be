@@ -146,14 +146,15 @@ def session_columns(values: dict, view: dict, *, guest: bool = False) -> dict:
 
 
 def round_row(number: int, finished: Round) -> dict:
-    activity, proposal = finished.plan.activity, finished.proposal
+    plan, proposal = finished.plan, finished.proposal
+    activity = plan.activity
     return {
         "round": number,
         "protocol_id": activity.protocol_id,
         "minutes": activity.minutes,
         "evidence_record_ids": list(activity.evidence_record_ids),
-        "relaxed": list(finished.plan.relaxed),
-        "environment_gaps": list(finished.plan.environment_gaps),
+        "relaxed": list(plan.relaxed),
+        "environment_gaps": list(plan.environment_gaps),
         "completed": finished.report.completed,
         "pre": [m.model_dump(mode="json") for m in finished.pre],
         "post": [m.model_dump(mode="json") for m in finished.post],
@@ -162,6 +163,13 @@ def round_row(number: int, finished: Round) -> dict:
         "recommended": proposal.recommended.value if proposal else None,
         "options": [step.value for step in proposal.options] if proposal else [],
         "next_step": finished.next_step.value,
+        # 후보 순서 · 고른 위치(등급 가중 추첨의 확률) — 분석에서 무작위성을 보정한다
+        "selection": plan.selection.model_dump(mode="json") if plan.selection else None,
+        # 규칙 제안과 LLM이 권했는지 — LLM 추천이 규칙과 다를 때 사용자가 따랐는지 본다
+        "rule_recommended": (
+            proposal.rule_recommended.value if proposal and proposal.rule_recommended else None
+        ),
+        "recommended_by_llm": proposal.by_llm if proposal else None,
     }
 
 
@@ -190,6 +198,8 @@ def text_row(values: dict) -> dict:
                 "rationale": r.plan.rationale,
                 "stopped_reason": r.report.stopped_reason,
                 "notice_words": list(r.report.notice_words),
+                # LLM이 쓴 다음 단계 이유 — 멈춘 이유 · 감정 단어에서 나온 글이라 원문으로
+                "proposal_reason": r.proposal.reason if r.proposal and r.proposal.by_llm else None,
             }
             for i, r in enumerate(values.get("rounds") or [], start=1)
         ],
@@ -214,6 +224,11 @@ class SessionStore(Protocol):
     ) -> None: ...
 
     async def session(self, session_id: str) -> SessionRecord | None: ...
+
+    async def recent_protocols(self, user_id: UUID, limit: int) -> list[str]:
+        """이 사용자의 지난 라운드에서 한 활동 — 최근 것부터 limit개(중복 없이). 새 세션의 후보
+        추천 순서에서 가중치를 낮춘다(protocols.RECENT_FACTOR)."""
+        ...
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         """그래프가 멈춘 뒤의 상태(values)와 응답(view)으로 행을 다시 쓴다. 원문은 쓰는 순간에
@@ -326,6 +341,17 @@ class MemoryStore:
             expired=row["expired_at"] is not None,
         )
 
+    async def recent_protocols(self, user_id: UUID, limit: int) -> list[str]:
+        mine = sorted(
+            (
+                (self.sessions[sid]["created_at"], number, row["protocol_id"])
+                for (sid, number), row in self.rounds.items()
+                if self.sessions[sid]["user_id"] == user_id
+            ),
+            reverse=True,
+        )
+        return list(dict.fromkeys(pid for *_, pid in mine[:limit]))
+
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         now, row = self.clock(), self.sessions[record.id]
         columns = session_columns(values, view, guest=record.guest)
@@ -422,12 +448,22 @@ where id = %(id)s
 ROUND_SQL = """
 insert into public.care_rounds (
   session_id, round, protocol_id, minutes, evidence_record_ids, relaxed, environment_gaps,
-  completed, pre, post, deltas, improved, recommended, options, next_step
+  completed, pre, post, deltas, improved, recommended, options, next_step, selection,
+  rule_recommended, recommended_by_llm
 ) values (
   %(session_id)s, %(round)s, %(protocol_id)s, %(minutes)s, %(evidence_record_ids)s, %(relaxed)s,
   %(environment_gaps)s, %(completed)s, %(pre)s, %(post)s, %(deltas)s, %(improved)s,
-  %(recommended)s, %(options)s, %(next_step)s
+  %(recommended)s, %(options)s, %(next_step)s, %(selection)s, %(rule_recommended)s,
+  %(recommended_by_llm)s
 ) on conflict (session_id, round) do nothing
+"""
+# 이 사용자의 최근 라운드 활동 — 새 세션의 추천 순서(protocols.RECENT_FACTOR)
+RECENT_SQL = """
+select r.protocol_id from public.care_rounds r
+join public.care_sessions s on s.id = r.session_id
+where s.user_id = %s
+order by r.created_at desc, r.round desc
+limit %s
 """
 # 원문 동의가 있을 때만 쓴다 — 동의는 쓰는 순간의 값을 본다
 TEXT_SQL = """
@@ -517,6 +553,11 @@ class PostgresStore:
         user_id, end_summary, expired = row
         return SessionRecord(session_id, user_id, end_summary, expired)
 
+    async def recent_protocols(self, user_id: UUID, limit: int) -> list[str]:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(RECENT_SQL, (user_id, limit))
+            return list(dict.fromkeys(pid for (pid,) in await cur.fetchall()))
+
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         columns = session_columns(values, view, guest=record.guest)
         params = {
@@ -532,6 +573,7 @@ class PostgresStore:
                 **r,
                 "session_id": UUID(record.id),
                 **{key: Jsonb(r[key]) for key in ("pre", "post", "deltas")},
+                "selection": _json(r["selection"]),
             }
             for r in ([] if record.guest else round_rows(values))
         ]

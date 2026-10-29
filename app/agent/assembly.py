@@ -8,7 +8,8 @@
   벤더 SDK의 자체 재시도는 끈다(max_retries=0). 호출 1회는 LLM_TIMEOUT_SECONDS에서 끊는다 —
   SDK 기본값(OpenAI 600초)은 Vercel 함수 한도(Hobby 300초)보다 길다. 타임아웃은 재시도 대상이다.
 - LLM 호출은 전부 구조화 출력 1회(json_schema)다 — intake의 상황 읽기(StateReading)와 목표 추론
-  (GoalInference), plan의 활동 선택(ActivityChoice)과 추천 이유(PlanRationale). Tool 루프는 없다.
+  (GoalInference), plan의 활동 선택(ActivityChoice)과 추천 이유(PlanRationale), replan의 다음 단계
+  추천(NextStepChoice). Tool 루프는 없다.
   Haiku는 thinking을 끈다 — 짧은 분류·문장이라 필요 없고, 켜 두면 langchain-anthropic이
   구조화 출력의 강제 tool_choice를 떼어 낸다.
 - 테스트는 대역(tests/agent/fakes.py · test_graph.py)을 쓰고 공급자 패키지를 읽지 않는다.
@@ -21,6 +22,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agent.graph import build_graph
 from app.agent.nodes.intake import LlmIntaker
 from app.agent.nodes.planner import LlmPlanner
+from app.agent.nodes.replanner import LlmReplanner
 from app.config import Settings, get_settings
 
 LLM_TIMEOUT_SECONDS = 30  # 호출 1회. 구조화 출력 한 번은 보통 1~3초
@@ -79,4 +81,6 @@ def build_session_graph(
         raise RuntimeError(
             "OPENAI_API_KEY와 ANTHROPIC_API_KEY가 모두 비어 있습니다. .env를 채우세요."
         )
-    return build_graph(LlmPlanner(models), LlmIntaker(models), checkpointer)
+    return build_graph(
+        LlmPlanner(models), LlmIntaker(models), checkpointer, replanner=LlmReplanner(models)
+    )

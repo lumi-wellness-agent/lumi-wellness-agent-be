@@ -83,6 +83,26 @@ class PlannedActivity(BaseModel):
     )
 
 
+class SelectionMethod(StrEnum):
+    """LLM에 보인 후보 순서를 정한 방식."""
+
+    WEIGHTED = "WEIGHTED"  # 등급 가중 추첨 — 세션 id로 시드를 고정한 가중 무작위 순서(운영)
+    RANKED = "RANKED"  # 등급 순 — 시드가 없을 때(평가 스크립트 · 테스트)
+    SHORTEST = "SHORTEST"  # 시간 조건을 풀어 짧은 활동부터
+    REPEAT = "REPEAT"  # 한 번 더 — 직전 활동을 그대로(LLM 선택 없음)
+
+
+class Selection(BaseModel):
+    """활동을 고른 과정. 분석에서 추천 순서의 무작위성을 보정하는 데 쓴다(care_rounds.selection)."""
+
+    method: SelectionMethod
+    order: list[str] = []  # LLM에 보인 후보 순서(protocol_id)
+    weights: dict[str, float] = {}  # 순서를 정한 가중치(WEIGHTED)
+    # 고른 활동이 순서 맨 앞에 설 확률 = 가중치 / 가중치 합(WEIGHTED). 그 밖은 None
+    probability: float | None = None
+    position: int = 0  # 고른 활동이 순서에서 몇 번째였나(0 = 맨 앞). LLM이 건너뛰었으면 1 이상
+
+
 def default_environment() -> Environment:
     """장소를 끝내 모를 때의 가정 — 혼자 조용히 소리를 들을 수 있다. 활동 시작 화면이 "소리가
     나와요" 안내와 "지금은 어려워요"(활동 변경)를 함께 보여 주는 조건이다(missing_slots)."""
@@ -113,6 +133,8 @@ class CarePlan(BaseModel):
     # 근거 검색 질의(LLM 호출 1의 search_query). '한 번 더'(ADDITIONAL_SESSION)는 활동을 다시 고르지
     # 않고 이 질의로 근거를 다시 찾는다
     search_query: str | None = None
+    # 후보 순서와 고른 위치(protocols.recommendation_order). 이 필드 전의 체크포인트는 None
+    selection: Selection | None = None
 
 
 class ContentStep(BaseModel):
@@ -195,10 +217,14 @@ class ReplanProposal(BaseModel):
     """④ Replanning이 사용자에게 보여 주는 제안."""
 
     recommended: NextStep
-    reason: str
-    # 고를 수 있는 다음 단계 — 라운드 상한이면 END만, 바꿀 활동이 없으면 CHANGE_ACTIVITY를 뺀다
-    # (replanner.next_step_options). confirm payload의 options이고 세션 API가 결정을 이것으로 거른다
+    reason: str  # by_llm이면 사용자에게 보일 문장(LLM), 아니면 규칙의 이유
+    # 고를 수 있는 다음 단계 — 라운드 상한이면 END만, 바꿀 활동이 없으면 CHANGE_ACTIVITY를, 멈춘
+    # 활동이면 ADDITIONAL_SESSION을 뺀다(replanner.next_step_options). confirm payload의 options이고
+    # 세션 API가 결정을 이것으로 거른다
     options: list[NextStep] = Field(default_factory=lambda: list(NextStep))
+    # 규칙이 권한 단계 — LLM 추천과 비교해 기록한다. 이 필드 전의 체크포인트는 None
+    rule_recommended: NextStep | None = None
+    by_llm: bool = False  # recommended · reason을 LLM이 정했다(False = 규칙 그대로)
 
 
 class ReplanDecision(BaseModel):
@@ -232,6 +258,9 @@ class CareState(TypedDict):
     """세션 하나(LangGraph thread 하나)의 상태. 라운드마다 plan~next_step을 덮어쓴다."""
 
     request: CareRequest  # 사용자 자유 입력 + 환경 칩 + 프로필
+    # 이 사용자가 지난 세션들에서 최근에 한 활동 — 세션 API가 시작할 때 기록에서 읽는다. 후보 추천
+    # 순서에서 가중치를 낮춘다(protocols.RECENT_FACTOR). 게스트 · 첫 세션은 비어 있다
+    recent_protocol_ids: NotRequired[list[str]]
     intake: NotRequired[IntakeResult]  # Goal · State · Context. intake 단계마다 갱신된다
     # intake 진행 — 질문과 답(쌓인다), 대기 중인 질문
     intake_turns: NotRequired[Annotated[list[IntakeTurn], operator.add]]

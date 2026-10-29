@@ -76,7 +76,7 @@ async def drive(store, record, graph, inputs) -> dict:
     for value in inputs:
         finish = sessions.recorder(graph, store, record)
         async for name, data in sessions.run_events(
-            graph, record.id, value, AgentContext(db_pool=None), finish
+            graph, record.id, value, AgentContext(db_pool=None, session_id=record.id), finish
         ):
             if name == "result":
                 view = data
@@ -139,6 +139,16 @@ def test_a_finished_session_is_recorded_and_follows_consent_and_account_removal(
             ["END", "CHANGE_ACTIVITY", "ADDITIONAL_SESSION"],
             "END",
         )
+        # 고른 과정(등급 가중 추첨 — 세션 ID 시드)과 추천의 출처(대역 그래프라 규칙 그대로)
+        picked = await one(
+            conn,
+            "select selection->>'method', selection->'order' ? 'PR-06',"
+            " (selection->>'probability')::float > 0, rule_recommended, recommended_by_llm"
+            " from public.care_rounds where session_id = %s",
+            uuid.UUID(record.id),
+        )
+        assert picked == ("WEIGHTED", True, True, "END", False)
+        assert await store.recent_protocols(user_id, 5) == ["PR-06"]
         text = await one(
             conn,
             "select request_text, rounds->0->'notice_words',"

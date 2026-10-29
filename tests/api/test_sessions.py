@@ -13,8 +13,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app import protocols
 from app.agent.checkpoint import memory_checkpointer
+from app.agent.context import AgentContext
 from app.agent.graph import build_graph
+from app.agent.nodes.planner import CHOICE_WINDOW, planner_context, search_candidates
+from app.agent.state import SelectionMethod
 from app.api import internal, me, sessions
 from app.auth import User, current_user
 from app.config import Settings
@@ -454,6 +458,47 @@ def run_s2_to_end(client: TestClient, **report) -> str:
     final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
     assert client.post(f"/sessions/{sid}/measure", json=final).json()["step"] == "END"
     return sid
+
+
+class OrderPlanner(FakePlanner):
+    """FakePlanner + choose가 받은 후보 순서를 남긴다."""
+
+    def __init__(self, *plans):
+        super().__init__(*plans)
+        self.orders: list[list[str]] = []
+
+    async def choose(self, state, candidates, problems):
+        self.orders.append([c["protocol_id"] for c in candidates])
+        return await super().choose(state, candidates, problems)
+
+
+def state_of(client: TestClient, sid: str) -> dict:
+    graph = client.app.state.session_graph
+    return asyncio.run(graph.aget_state({"configurable": {"thread_id": sid}})).values
+
+
+def test_a_session_orders_candidates_by_its_id_and_the_users_recent_activities():
+    planner = OrderPlanner(BREATHING, BREATHING)
+    client = client_for(planner)
+    run_s2_to_end(client)  # 1라운드 PR-06
+    sid = start(client)
+    assert client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()["step"] == "RUN"
+
+    values = state_of(client, sid)
+    assert values["recent_protocol_ids"] == ["PR-06"]  # 지난 세션에서 한 활동
+    session = planner_context(AgentContext(session_id=sid), values)
+    expected = protocols.recommendation_order(
+        search_candidates(session), CareGoal.S2, seed=sid, recent=["PR-06"]
+    )
+    assert expected.weights["PR-06"] == pytest.approx(4.0 * protocols.RECENT_FACTOR)
+    order = [p.protocol_id for p in expected.protocols]
+    assert planner.orders[1] == order[:CHOICE_WINDOW]  # 세션 ID가 시드, LLM에는 앞 5개
+    selection = values["plan"].selection
+    assert (selection.method, selection.order) == (SelectionMethod.WEIGHTED, order)
+
+    # 게스트는 기록이 없어 최근 활동도 없다
+    login(client.app, GUEST)
+    assert state_of(client, start(client))["recent_protocol_ids"] == []
 
 
 def test_records_follow_the_session_and_the_checkpoint_goes_at_the_end():

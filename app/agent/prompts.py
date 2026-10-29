@@ -1,15 +1,17 @@
-"""intake · Planner 프롬프트와 입력 메시지. 문구는 각 담당이 다듬는다(intake 담당 · plan 담당).
+"""intake · Planner · Replanning 프롬프트와 입력 메시지. 문구는 각 담당이 다듬는다(intake 담당 ·
+plan 담당).
 
 LLM이 읽는 사용 설명서는 구조화 출력 모델의 Field(description)에도 있다
 (app/agent/intake_rules.py의 StateReading · GoalInference, app/agent/nodes/planner.py의
-ActivityChoice · PlanRationale).
+ActivityChoice · PlanRationale, app/agent/nodes/replanner.py의 NextStepChoice).
 """
 
 import json
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from app.agent.state import CareState, IntakeResult, NextStep, changed_away
+from app import protocols
+from app.agent.state import CareState, IntakeResult, NextStep, ReplanProposal, changed_away
 from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
@@ -124,19 +126,28 @@ def build_goal_input(request: CareRequest, intake: IntakeResult) -> str:
 
 # ── Planner — 고정 절차의 LLM 호출 2회(활동 선택 · 추천 이유). 절차는 nodes/planner.py ──────────
 
-# 목록 순서·이름에 끌려 등급이 낮은 활동을 고르는 일이 있어(2026-10-26 gpt-4o-mini 실측) 고르는
-# 규칙을 그대로 적는다. 후보 목록은 코드가 등급 순으로 정렬해 싣는다
+# 후보 목록은 코드가 등급 가중 추첨 순서로 싣는다(protocols.recommendation_order) — 등급 순으로만
+# 세우면 목표마다 같은 활동이 고정돼 20개 중 11개만 추천됐다(2026-10-29). 순서를 '맨 앞'이라고만
+# 하면 gpt-5.4-mini가 '5분이라 부담이 적다'며 익숙한 활동으로 내려가고, 6번째를 고르고도 '맨
+# 앞'이라고 적었다(2026-10-29 plan_eval 36번 중 9번). 그래서 rank를 붙이고 건너뛸 사유를 넷으로
+# 못 박는다
 CHOOSE_SYSTEM_PROMPT = """\
 너는 LUMI의 케어 세션 플래너다. 후보 프로토콜 목록에서 사용자 상태에 맞는 활동 하나를 고른다.
 
 - 활동은 후보 목록에서만 고른다. 라운드당 1개이고 프로토콜을 임의로 조합하지 않는다.
-- 목록은 주 목표가 맞는 것부터, 목표 1차 지표의 등급(A > B > C > 미확인 > D > —)이 높은 순이다.
-  맨 앞의 것을 고른다. 이름이나 요약이 사용자 상황과 비슷해 보여도 등급이 낮은 것을 앞세우지 않는다.
-- 맨 앞의 것을 건너뛰는 경우는 사용자 제약(이명 · 멀미 · 눈 피로 · 소리를 틀 수 없음 …)이나 장소에
-  걸릴 때, 직전 계획의 거부 사유에 해당할 때뿐이다. 그러면 다음 것을 고른다.
+- 목록은 코드가 정한 이번 세션의 추천 순서다(rank 1이 맨 앞). 근거 등급으로 가중한 추첨이라 같은
+  상황에서도 사용자마다 다른 활동이 앞에 선다 — 여러 활동을 고르게 써 보게 하려는 것이다.
+- rank 1부터 차례로 보며 건너뛸 사유가 있는지만 확인하고, 사유가 없으면 그 활동을 고른다. 건너뛸
+  사유는 넷뿐이다.
+  1. 사용자 제약에 걸린다(이명 · 멀미 · 눈 피로 · 소리를 틀 수 없음 …).
+  2. 장소에 걸린다.
+  3. 사용자 입력에 그 활동을 꺼리는 표현이 있다(글쓰기는 싫어요 · 가만히 못 있겠어요 …).
+  4. 직전 계획의 거부 사유에 해당한다.
+  더 짧다 · 더 무난하다 · 상황에 더 맞아 보인다 · 등급이 더 높다 · 익숙하다는 건너뛸 사유가 아니다.
 - search_query: 고른 활동의 연구 근거를 찾을 영어 질의. 활동(매체)과 목표 지표를 논문 용어로
   3~6단어. 예: slow breathing anxiety stress · mindfulness rumination · nature images attention
-- reason: 고른 이유 한 문장(한국어). 제약·장소 때문에 앞의 것을 건너뛰었으면 그 이유를 적는다."""
+- reason: 고른 이유 한 문장(한국어). rank 1이 아니면 몇 번째를 위 사유 중 무엇으로 건너뛰었는지
+  사용자 표현과 함께 적는다."""
 
 # 플래그 이름을 문장에 그대로 쓰고(2026-10-28 gpt-5.4-mini 실측, S1 6회 중 4회 "ADAPTED_STIMULUS가
 # 있어"), 등급 B인 활동을 '실험적'이라 부르는 일이 있어 이름 대신 뜻을, '실험적'은 조건을 적는다
@@ -235,13 +246,14 @@ def _history_parts(state: CareState) -> list[str]:
 def build_choice_input(
     state: CareState, candidates: Sequence[dict], problems: Sequence[str]
 ) -> str:
-    """LLM 호출 1의 사용자 메시지. 입력 · 상태 · 이력 · 후보 목록(등급 순) · 거부 사유."""
+    """LLM 호출 1의 사용자 메시지. 입력 · 상태 · 이력 · 후보 목록(추천 순) · 거부 사유."""
     request, intake = state["request"], state["intake"]
     parts = [
         f"## 사용자 입력\n{request.text}",
         "## 사용자 상태\n" + "\n".join(_state_lines(request, intake)),
         *_history_parts(state),
-        "## 후보 프로토콜 (등급 순)\n" + json.dumps(list(candidates), ensure_ascii=False),
+        "## 후보 프로토콜 (추천 순 — rank 1이 맨 앞)\n"
+        + json.dumps(list(candidates), ensure_ascii=False),
     ]
     if problems:
         parts.append("## 직전 계획의 거부 사유\n" + "\n".join(f"- {p}" for p in problems))
@@ -316,3 +328,84 @@ def _factor_part(state: CareState, protocol: CareProtocol) -> str:
     if used:
         lines.append(f"- 지난 라운드에 쓴 Factor: {' / '.join(used)}")
     return "## 콘텐츠 Factor (고를 칸)\n" + "\n".join(lines)
+
+
+# ── Replanning — 다음 단계 추천(LLM 1회). 절차는 nodes/replanner.py ────────────────────────────
+
+# 규칙 제안을 기본값으로 주고 사용자 글(멈춘 이유 · 감정 단어 · 처음 입력)에서 다른 신호가 있을 때만
+# 바꾸게 한다 — 규칙은 '한 번 더'를 권하지 않고 멈춘 이유를 읽지 않는다(FE 멈춤 화면은 "멈춘 이유를
+# 고르면 다음 추천에 참고해요"라고 적는다)
+RECOMMEND_SYSTEM_PROMPT = """\
+너는 LUMI의 케어 세션 코치다. 방금 끝난 활동의 결과를 보고 선택지 중 사용자에게 권할 다음 단계
+하나와 그 이유를 쓴다. 사용자는 선택지 중 무엇이든 고를 수 있고, 권한 단계가 먼저 보인다.
+
+선택지의 뜻
+- END: 여기서 마친다.
+- CHANGE_ACTIVITY: 같은 목표로 다른 활동을 한다.
+- ADDITIONAL_SESSION: 같은 활동을 한 번 더 한다(사진 · 소리 같은 콘텐츠는 새로 고른다).
+
+판단
+- 선택지에 있는 단계만 권한다.
+- 기본은 '규칙 제안'이다. 아래 신호가 있을 때만 바꾼다.
+  - 멈춘 이유가 시간이 없거나 그만하고 싶다는 뜻이면 마치기를, 불편 · 어지러움이면 다른 활동을
+    권한다.
+  - 끝까지 했고 감정 단어나 처음 입력에 아직 남은 긴장 · 생각 · 피로가 보이면, 나아졌어도 한 번
+    더나 다른 활동을 권할 수 있다.
+  - 끝까지 했고 감정 단어가 편안 · 차분처럼 긍정적이면, 측정 변화가 작아도 한 번 더를 권할 수
+    있다.
+- 측정 변화는 사용자가 매긴 자기보고다. 판정(나아짐 · 큰 변화 없음)을 뒤집어 말하지 않는다.
+
+reason — 사용자에게 보여 줄 1~2문장(한국어, '~해요' 체). 무엇이 어떻게 달라졌는지 쉬운 말로 짚고
+(긴장이 조금 내려갔어요) 무엇을 권하는지 말한다. 숫자 · 척도 이름(SAM · MFVAS …) · enum(END ·
+CHANGE_ACTIVITY …)을 쓰지 않는다. 치료 효과를 단정하거나 진단하지 않는다."""
+
+# evaluator.deltas_between의 키 — SAM valence · arousal, S3는 MFVAS도
+DELTA_NAMES: dict[str, str] = {
+    "valence": "기분(쾌) — 높을수록 좋다",
+    "arousal": "긴장(각성) — 낮을수록 차분하다",
+    "fatigue": "정신 피로 — 낮을수록 좋다",
+    "concentration": "집중하기 어려움 — 낮을수록 좋다",
+    "energy": "기운 — 높을수록 좋다",
+}
+NEXT_STEP_NAMES: dict[NextStep, str] = {
+    NextStep.END: "여기서 마친다",
+    NextStep.CHANGE_ACTIVITY: "같은 목표로 다른 활동을 한다",
+    NextStep.ADDITIONAL_SESSION: "같은 활동을 한 번 더 한다(콘텐츠는 새로)",
+}
+IMPROVED_NAMES: dict[bool | None, str] = {
+    True: "나아졌다",
+    False: "큰 변화 없음",
+    None: "세션 안에서 판정할 기준이 없다",
+}
+
+
+def build_recommend_input(state: CareState, rule: ReplanProposal) -> str:
+    """replan LLM의 사용자 메시지 — 입력 · 상태 · 이력 · 이번 활동 · 측정 변화 · 규칙 제안 ·
+    선택지."""
+    request, intake = state["request"], state["intake"]
+    activity, report = state["plan"].activity, state["report"]
+    evaluation = state["evaluation"]
+    protocol = protocols.get_protocol(activity.protocol_id)
+    name = protocol.name if protocol else activity.protocol_id
+    deltas = [f"- {DELTA_NAMES.get(k, k)}: {v:+g}" for k, v in evaluation.deltas.items()]
+    return "\n\n".join(
+        [
+            f"## 사용자 입력\n{request.text}",
+            "## 사용자 상태\n" + "\n".join(_state_lines(request, intake)),
+            *_history_parts(state),
+            "## 이번 활동\n"
+            + "\n".join(
+                [
+                    f"- {activity.protocol_id} {name} · {activity.minutes}분"
+                    f" — {evaluation.round}번째 활동",
+                    f"- 끝까지 함: {'예' if report.completed else '아니오'}",
+                    f"- 멈춘 이유: {report.stopped_reason or '-'}",
+                    f"- 감정 단어: {', '.join(report.notice_words) or '-'}",
+                ]
+            ),
+            "## 측정 변화(사후 − 사전, 자기보고)\n"
+            + "\n".join([*deltas, f"- 판정: {IMPROVED_NAMES[evaluation.improved]}"]),
+            f"## 규칙 제안\n- {rule.recommended.value}: {rule.reason}",
+            "## 선택지\n" + "\n".join(f"- {s.value}: {NEXT_STEP_NAMES[s]}" for s in rule.options),
+        ]
+    )
