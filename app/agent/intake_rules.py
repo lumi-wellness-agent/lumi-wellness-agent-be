@@ -5,7 +5,11 @@
     ① 상황 읽기(LLM) → safety면 end_for_safety() · OFF_TOPIC이면 restate_question()(입구 되묻기)
        → compose()로 State · Context 채움 → state_question()으로 시점 질문 여부
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
-    ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
+       상황은 분명한데 증상이 다른 목표를 가리키면 → mismatch_question()으로 지금 상태 재질문
+       남의 위험만 이야기했으면 → restate_question()이 고정 문장(109 안내)으로 되묻기
+       진단 · 처방만 물었으면 → restate_question()이 고정 문장(진단하지 않음)으로 되묻기
+    ③ 목표 추론(LLM) → apply_goal()   단서가 없으면(두 질문 모두 모름 · 그냥 시작 · 단서 없음)
+       S1 · S2 · S3 중 무작위 DEFAULT(2026-10-29 결정 — 전에는 S2 고정)
        입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
     ④ context_groups()로 후보를 바꾸는 환경 칸만 → context_question()
     답 → apply_answer() · merge_values()     끝 → finish()
@@ -17,6 +21,7 @@ MAX_STATE_TURNS회 — 입구 되묻기(restate)는 세지 않는다(counted). �
 안전 판단은 ①의 safety 칸 하나다(정규식 목록 없음). 글 답은 모두 ①을 다시 지난다.
 """
 
+import random
 from collections.abc import Sequence
 from enum import StrEnum
 from typing import Any
@@ -85,7 +90,8 @@ class StateReading(BaseModel):
     relevance: Relevance = Field(
         description="가장 최근 사용자 글(처음 입력, 되묻기에 답했으면 그 답)이 지금 상태·상황·"
         "하루에 대해 아무것도 말하지 않으면 OFF_TOPIC(점심 메뉴 추천해줘 · 코드 짜줘 · ㅋㅋ · "
-        "asdf). '그냥 그래요' · '피곤해' · '별로'처럼 짧아도 상태를 말하면 RELEVANT"
+        "asdf). '그냥 그래요' · '피곤해' · '별로'처럼 짧아도 상태를 말하면 RELEVANT. 진단 · 처방 "
+        "질문이 섞여도 자기 상태를 말했으면 RELEVANT(요즘 계속 불안한데 불안장애인가요?)"
     )
     restate_text: str | None = Field(
         description="OFF_TOPIC일 때만 — 사용자 말을 가볍게 받아 주고, 오늘 상황이나 하루를 한두 "
@@ -105,6 +111,26 @@ class StateReading(BaseModel):
     )
     stress_fatigue_ambiguous: bool = Field(
         description="지친 원인이 압박·사건인지 오래 이어진 집중인지 말로 갈리지 않으면 true"
+    )
+    symptom_mismatch: bool = Field(
+        default=False,
+        description="상황(order_condition)은 정했는데 증상이 상황과 다른 목표를 가리키면 true — "
+        "POST_FATIGUE인데 긴장·초조·예민·짜증이 중심이거나(S2 쪽), PRE_STRESS·POST_STRESS인데 "
+        "멍함·집중 안 됨·손에 안 잡힘·눈에 안 들어옴·머리가 안 돌아감이 중심일 때(S3 쪽). 사건이 "
+        "있었다는 것만으로 S2가 아니다 — 증상을 본다. 상황과 증상이 같은 쪽이거나 반복 생각(S1)이 "
+        "중심이면 false",
+    )
+    third_party_risk: bool = Field(
+        default=False,
+        description="다른 사람(친구·가족 …)이 죽고 싶어 한다·스스로를 해치려 한다는 이야기이고 "
+        "사용자 자신의 그런 뜻은 드러나지 않으면 true(이때 safety는 false). 사용자 자신의 뜻이 "
+        "조금이라도 보이면 safety = true이고 이 칸은 false",
+    )
+    diagnosis_request: bool = Field(
+        default=False,
+        description="진단 · 처방을 묻는 말(저 우울증인가요? · 약 먹어야 하나요?)이 있으면 true. "
+        "자기 상태를 함께 말했으면(요즘 계속 불안한데 불안장애인가요?) 상태만 읽고 relevance는 "
+        "RELEVANT, 진단 · 처방 질문만 있으면 OFF_TOPIC",
     )
     cues: list[str] = Field(description="판단에 쓴 사용자 표현 그대로 최대 3개")
     constraints: list[str] = Field(description="활동 제약 — 이명 · 멀미 · 눈 피로 … 없으면 []")
@@ -212,6 +238,14 @@ FOLLOWUP_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
     ("신경 쓰이는 일이 있었어요", {"order_condition": "POST_STRESS", "goal_hint": ["S2"]}),
     ("둘 다예요", {"order_condition": "POST_STRESS", "goal_hint": ["S2", "S3"]}),
 )
+# 상황은 분명한데 증상이 다른 목표를 가리킬 때(symptom_mismatch) — 원인이 아니라 지금 상태를 묻는다.
+# 예: "야근하고 나니 신경이 곤두서 있어요"(피로 후 + 긴장)
+#     "곧 시험인데 머리가 안 돌아가요"(시험 전 + 멍함)
+MISMATCH_TEXT = "지금은 어느 쪽에 더 가까워요?"
+MISMATCH_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
+    ("긴장되거나 예민해요", {"goal_hint": ["S2"]}),
+    ("머리가 멍하고 지쳐요", {"goal_hint": ["S3"]}),
+)
 LLM_MAX_OPTIONS = MAX_OPTIONS - 1  # 잘 모르겠어요 자리를 남긴다
 
 
@@ -302,6 +336,60 @@ def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Intake
     )
 
 
+def mismatch_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+    """상황은 정했는데 증상이 다른 목표를 가리키면 지금 상태를 묻는 고정 재질문(slot은 재질문).
+
+    시점 질문을 하지 않은 경우만이라 State 예산(시점 + 재질문)을 넘지 않는다. 답의 goal_hint는
+    apply_goal이 목표로 쓴다. '잘 모르겠어요'면 단서 없이 ③ 목표 추론에 맡긴다.
+    """
+    if not reading.symptom_mismatch or reading.order_condition is None:
+        return None
+    return _current_state_question(turns)
+
+
+# 상황이 가리키는 목표 — 사건 전·후는 긴장(S2), 오래 집중한 뒤는 피로(S3). 계기 없음 · 미상은 없다
+ORDER_GOAL: dict[InterventionOrder, CareGoal] = {
+    InterventionOrder.PRE_STRESS: CareGoal.S2,
+    InterventionOrder.POST_STRESS: CareGoal.S2,
+    InterventionOrder.POST_FATIGUE: CareGoal.S3,
+}
+
+
+def goal_mismatch_question(
+    intake: IntakeResult, turns: Sequence[IntakeTurn]
+) -> IntakeQuestion | None:
+    """목표 추론 뒤 코드로 한 번 더 — 추론한 목표(S2 · S3)가 상황이 가리키는 목표와 다르면 지금
+    상태를 묻는다. ① 읽기의 symptom_mismatch만으로는 절반쯤 놓쳤다(2026-10-29 intake 평가: LLM은
+    "앞둔 사건이 있지만 집중 저하라 S3"라고 적고도 칸을 비웠다). 반복 생각(S1) · 재질문 답 · 칩 ·
+    기본값은 건드리지 않는다.
+    """
+    if intake.goal_source is not GoalSource.INFERRED or intake.goal_hint:
+        return None
+    if intake.goal not in (CareGoal.S2, CareGoal.S3) or intake.order_condition is None:
+        return None
+    implied = ORDER_GOAL.get(intake.order_condition)
+    if implied is None or implied is intake.goal:
+        return None
+    return _current_state_question(turns)
+
+
+def _current_state_question(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+    if _state_turns(turns) or len(counted(turns)) >= MAX_TURNS:
+        return None
+    turn = len(counted(turns)) + 1
+    options = [QuestionOption(label=label, set=values) for label, values in MISMATCH_FIXED]
+    return IntakeQuestion(
+        question_id=f"q{turn}",
+        slot=QuestionSlot.STATE_FOLLOWUP,
+        turn=turn,
+        text=MISMATCH_TEXT,
+        groups=[
+            QuestionGroup(key=QuestionSlot.STATE_FOLLOWUP.value, options=_with_unknown(options))
+        ],
+        allow_free_text=True,
+    )
+
+
 def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
     """시점 질문에 '잘 모르겠어요'로 답했으면 원인을 묻는 고정 재질문(읽기 없이). 예산 안에서만."""
     asked = _state_turns(turns)
@@ -318,6 +406,17 @@ def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None
 RESTATE_FIXED = (
     "오늘 하루는 어떠셨어요? 지금 상황을 한두 마디로 들려주세요. 예: 발표 끝나고 계속 생각나요"
 )
+# 남의 위험을 이야기했을 때(third_party_risk) — LLM 문장 대신 고정 문장. 도울 곳(109)을 먼저 알리고
+# 사용자 자신의 이야기를 묻는다. 109는 자살예방상담전화(24시간)
+THIRD_PARTY_TEXT = (
+    "걱정되는 분이 있다면 자살예방상담전화 109에서 함께 도울 방법을 들을 수 있어요. "
+    "지금은 당신의 이야기를 듣고 싶어요. 오늘 하루는 어떠셨어요?"
+)
+# 진단 · 처방만 물었을 때(diagnosis_request) — 진단하지 않고 지금 상태를 묻는 고정 문장
+DIAGNOSIS_TEXT = (
+    "LUMI는 진단은 하지 못해요. 걱정되면 전문가와 이야기해 보세요. "
+    "지금 상태를 한두 마디로 들려주시면 쉬어 갈 활동을 찾아 드릴게요."
+)
 
 
 def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
@@ -325,10 +424,19 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
 
     문장은 LLM이 사용자 말에 맞춰 만들고, 비었으면 고정 문장을 쓴다.
     """
-    if reading.relevance is not Relevance.OFF_TOPIC or counted(turns):
+    if counted(turns):
+        return None
+    # 남의 위험 이야기는 relevance와 관계없이 되묻는다 — LLM이 "친구가 죽고 싶대요"를 RELEVANT로
+    # 읽어 109 안내 없이 지나갔다(2026-10-29 intake 평가 0/3)
+    if reading.relevance is not Relevance.OFF_TOPIC and not reading.third_party_risk:
         return None
     n = len(turns) + 1  # 앞선 것은 모두 되묻기다
-    text = (reading.restate_text or "").strip() or RESTATE_FIXED
+    if reading.third_party_risk:
+        text = THIRD_PARTY_TEXT
+    elif reading.diagnosis_request:
+        text = DIAGNOSIS_TEXT
+    else:
+        text = (reading.restate_text or "").strip() or RESTATE_FIXED
     return IntakeQuestion(
         question_id=f"r{n}",
         slot=QuestionSlot.RESTATE,
@@ -340,12 +448,12 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
 
 
 def entry_skipped(turns: Sequence[IntakeTurn]) -> bool:
-    """되묻기에서 '그냥 시작할게요'를 눌렀나 → 추론 없이 S2 DEFAULT."""
+    """되묻기에서 '그냥 시작할게요'를 눌렀나 → 추론 없이 무작위 DEFAULT."""
     return any(t.skipped for t in turns)
 
 
 def both_state_unknown(turns: Sequence[IntakeTurn]) -> bool:
-    """State 두 질문(시점 + 재질문)이 모두 '잘 모르겠어요'인가 → 추론 없이 S2 DEFAULT."""
+    """State 두 질문(시점 + 재질문)이 모두 '잘 모르겠어요'인가 → 추론 없이 무작위 DEFAULT."""
     asked = _state_turns(turns)
     return len(asked) == MAX_STATE_TURNS and all(t.answer == {} for t in asked)
 
@@ -475,38 +583,60 @@ def apply_answer(
 
 # ── ③ 목표 · 끝 ──────────────────────────────────────────────────────────────────────────
 
+# 단서가 없을 때 고르는 목표 — 세 목표 중 무작위(2026-10-29, 전에는 DEFAULT_GOAL S2 고정)
+DEFAULT_CHOICES = (CareGoal.S1, CareGoal.S2, CareGoal.S3)
+_default_rng = random.Random()
+
+
+# 판단 이유에 남기지 않는 진단명(사용자가 말했어도)
+DIAGNOSIS_WORDS = ("우울증", "불안장애", "공황장애", "ADHD", "장애", "질환")
+
+
+def default_goal(rng: random.Random | None = None) -> CareGoal:
+    return (rng or _default_rng).choice(DEFAULT_CHOICES)
+
+
 
 def apply_goal(
     intake: IntakeResult,
     inference: GoalInference | None,
     request: CareRequest,
     turns: Sequence[IntakeTurn] = (),
+    rng: random.Random | None = None,
 ) -> IntakeResult:
-    """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(S2 DEFAULT) > 추론 >
-    재질문 목표 단서 > 기본값(S2, 화면에 밝힌다). 추론한 목표(INFERRED)면 그 목표와 부목표의 개념
-    정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 · 기본값은 정의로 판단한 것이
-    아니라 비운다."""
+    """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(무작위 DEFAULT) >
+    추론 > 재질문 목표 단서 > 단서 없음(무작위 DEFAULT, 화면에 밝힌다). 추론한 목표(INFERRED)면
+    그 목표와 부목표의 개념 정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 ·
+    기본값은 정의로 판단한 것이 아니라 비운다. rng는 테스트가 무작위를 고정할 때."""
     if request.goal is not None:
         update: dict[str, Any] = {"goal": request.goal, "goal_source": GoalSource.CHIP}
     elif entry_skipped(turns):
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골랐다",
+            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골라 목표를 무작위로 정했다",
         }
     elif both_state_unknown(turns):
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답했다",
+            "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답해 목표를 무작위로 정했다",
         }
     elif inference is not None and inference.has_cues:
-        secondary = inference.secondary_goal
+        goal, secondary, reason = inference.goal, inference.secondary_goal, inference.reason
+        # 재질문에서 지금 상태를 하나 골랐으면 그 답이 추론보다 앞선다(사용자가 직접 말한 상태)
+        if len(intake.goal_hint) == 1 and intake.goal_hint[0] is not goal:
+            goal, secondary = intake.goal_hint[0], goal
+            reason = "재질문에서 고른 지금 상태를 따랐다"
+        # 사용자가 말한 진단명을 판단 이유에 옮겨 쓰면 진단처럼 읽힌다 — 프롬프트로 막아도 남았다
+        # (2026-10-29 intake 평가)
+        if any(word in reason for word in DIAGNOSIS_WORDS):
+            reason = "사용자가 말한 지금 상태 표현이 이 목표의 단서에 맞았다"
         update = {
-            "goal": inference.goal,
-            "secondary_goal": secondary if secondary is not inference.goal else None,
+            "goal": goal,
+            "secondary_goal": secondary if secondary is not goal else None,
             "goal_source": GoalSource.INFERRED,
-            "goal_reason": inference.reason,
+            "goal_reason": reason,
         }
     elif intake.goal_hint:
         hint = intake.goal_hint
@@ -518,9 +648,9 @@ def apply_goal(
         }
     else:
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "목표를 가를 단서가 없어 가볍게 긴장을 푸는 활동부터 시작한다",
+            "goal_reason": "목표를 가를 단서가 없어 세 목표 중 하나를 무작위로 정했다",
         }
     update["target_outcomes"] = list(GOAL_OUTCOMES[update["goal"]].primary)
     update["goal_evidence"] = (
