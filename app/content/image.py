@@ -25,12 +25,27 @@ def nature_prompt(
         scenery_text,
         "soft natural light",
         "stable horizon",
-        "no people, no text, no logo, no buildings, no threatening animals",
     ]
     if colors:
         parts.append(f"subtle palette of {colors}")
-    if profile.avoided_colors:
-        parts.append(f"avoid these colors: {', '.join(profile.avoided_colors)}")
     if meditation:
         parts.append("simple quiet composition suitable for a fifteen minute meditation")
-    return ", ".join(parts)
+    # 빼고 싶은 것은 Horde 부정 프롬프트(" ### " 뒤)로 보낸다. 긍정 문장에 "no people"을 쓰면 오히려
+    # 사람 · 글자가 그려지고 NSFW 검열 오탐이 잦아진다
+    negative = [*NEGATIVE_TERMS, *profile.avoided_colors]
+    return ", ".join(parts) + " ### " + ", ".join(negative)
+
+
+NEGATIVE_TERMS = [
+    "people",
+    "person",
+    "face",
+    "body",
+    "nude",
+    "nsfw",
+    "text",
+    "watermark",
+    "logo",
+    "buildings",
+    "threatening animals",
+]

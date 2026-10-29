@@ -127,23 +127,23 @@ def test_compact_is_what_the_planner_reads():
     assert "evidence" not in compact and "content_spec" not in compact
 
 
-def test_delivered_media_follows_the_image_preference():
+def test_delivered_media_marks_ai_image_where_it_is_the_default():
     curated, generated = ContentType.CURATED_PHOTO, ContentType.AI_IMAGE
-    # PR-01은 대안(STATIC_IMAGE · AI_IMAGE)을 함께 적었다 → 선호에 맞는 하나만
-    assert protocols.delivered_media(LOADED["PR-01"], curated) == [Medium.STATIC_IMAGE]
-    assert protocols.delivered_media(LOADED["PR-01"], generated) == [Medium.AI_IMAGE]
-    # 정지 이미지 슬롯이 생성을 허용하면 AI 생성 이미지로 바꾼다
-    assert protocols.delivered_media(LOADED["PR-21"], generated) == [
-        Medium.AI_IMAGE,
-        Medium.MINDFULNESS,
-    ]
-    assert protocols.delivered_media(LOADED["PR-21"], curated) == LOADED["PR-21"].media
+    # PR-01은 대안(STATIC_IMAGE · AI_IMAGE)을 함께 적었지만 25장이라 늘 사진이다(10-29)
+    for chosen in (curated, generated):
+        assert protocols.delivered_media(LOADED["PR-01"], chosen) == [Medium.STATIC_IMAGE]
+    # PR-21은 사진 한 장 모드라 AI 그림이 기본이다 — 사용자가 고르지 않는다
+    for chosen in (curated, generated):
+        assert protocols.delivered_media(LOADED["PR-21"], chosen) == [
+            Medium.AI_IMAGE,
+            Medium.MINDFULNESS,
+        ]
     assert protocols.delivered_media(LOADED["PR-06"], generated) == [Medium.BREATHING]
     # 생성을 막은 슬롯이면 그대로 둔다
-    forbidden = LOADED["PR-03"].model_copy(deep=True)
+    forbidden = LOADED["PR-21"].model_copy(deep=True)
     for slot in forbidden.content_spec.slots:
         slot.source_policy["generated"] = "FORBIDDEN"
-    assert protocols.delivered_media(forbidden, generated) == [Medium.STATIC_IMAGE]
+    assert protocols.delivered_media(forbidden, generated) == LOADED["PR-21"].media
 
 
 def test_body_invariants():

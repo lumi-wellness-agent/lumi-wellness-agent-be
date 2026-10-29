@@ -407,6 +407,8 @@ class ArtInstituteProvider:
 
 class AIHordeProvider:
     base_url = "https://stablehorde.net/api/v2"
+    # 검열(NSFW 오탐)로 버린 장수를 다시 요청하는 횟수까지 합친 시도 수
+    max_attempts = 2
 
     def __init__(
         self,
@@ -447,9 +449,35 @@ class AIHordeProvider:
         return str(request_id)
 
     def generate_images(self, prompt: str, *, count: int = 1) -> list[ActivityAsset]:
-        """최대 20장인 Horde 배치 제한에 맞춰 요청하고 하나의 제한 시간 안에서 회수한다."""
+        """최대 20장인 Horde 배치 제한에 맞춰 요청하고 하나의 제한 시간 안에서 회수한다.
+
+        Horde 검열(censor_nsfw)이 걸린 결과는 그림 대신 "CENSORED" 안내 이미지라 버린다.
+        자연 그림도 오탐으로 걸리기 때문에 모자란 장수만 한 번 더 요청하고, 그래도 모자라면
+        실패로 넘긴다(호출부가 Pixabay 사진으로 받는다).
+        """
         if count < 1:
             raise ValueError("count는 1 이상이어야 함")
+        deadline = time.monotonic() + self.poll_timeout_seconds
+        assets: list[ActivityAsset] = []
+        censored = 0
+        for _attempt in range(self.max_attempts):
+            missing = count - len(assets)
+            if missing <= 0 or time.monotonic() >= deadline:
+                break
+            got, dropped = self._collect(prompt, missing, deadline)
+            assets.extend(got)
+            censored += dropped
+        if len(assets) < count:
+            if censored:
+                raise ContentProviderError(
+                    f"AI Horde 결과 {censored}장이 검열(NSFW 오탐)되어 쓸 수 없음"
+                )
+            raise ContentProviderError("AI Horde가 요청한 수량의 이미지 URL을 반환하지 않음")
+        return assets[:count]
+
+    def _collect(
+        self, prompt: str, count: int, deadline: float
+    ) -> tuple[list[ActivityAsset], int]:
         request_ids: list[str] = []
         remaining = count
         while remaining:
@@ -457,9 +485,9 @@ class AIHordeProvider:
             request_ids.append(self._submit(prompt, batch_size))
             remaining -= batch_size
 
-        deadline = time.monotonic() + self.poll_timeout_seconds
         pending = set(request_ids)
         assets: list[ActivityAsset] = []
+        censored = 0
         while pending and time.monotonic() < deadline:
             for request_id in tuple(pending):
                 check = _request_json(
@@ -479,6 +507,9 @@ class AIHordeProvider:
                     headers=self.headers,
                 )
                 for generation in status.get("generations", []):
+                    if generation.get("censored"):
+                        censored += 1
+                        continue
                     if not generation.get("img"):
                         continue
                     assets.append(
@@ -501,9 +532,7 @@ class AIHordeProvider:
                 time.sleep(self.poll_interval_seconds)
         if pending:
             raise ContentProviderError("AI Horde 이미지 생성 대기 시간 초과")
-        if len(assets) < count:
-            raise ContentProviderError("AI Horde가 요청한 수량의 이미지 URL을 반환하지 않음")
-        return assets[:count]
+        return assets, censored
 
     def generate_image(self, prompt: str) -> ActivityAsset:
         return self.generate_images(prompt, count=1)[0]
