@@ -1,6 +1,9 @@
+import random
+
 import httpx
 import pytest
 
+from app.content import providers
 from app.content.providers import (
     AIHordeProvider,
     ArtInstituteProvider,
@@ -40,6 +43,38 @@ def test_pixabay_selects_hd_video_and_keeps_attribution():
     assert asset.license == "Pixabay Content License"
     assert asset.verification == "PENDING_CONTENT_REVIEW"
     assert asset.metadata["loop_required"] is True
+
+
+def _video_hit(i: int, duration: int, width: int = 1920, height: int = 1080) -> dict:
+    return {
+        "id": i,
+        "user": f"maker{i}",
+        "pageURL": f"https://pixabay.com/videos/id-{i}/",
+        "duration": duration,
+        "videos": {"large": {"url": f"https://cdn/{i}.mp4", "width": width, "height": height}},
+    }
+
+
+def test_pixabay_video_is_random_among_the_longest_that_pass(monkeypatch):
+    monkeypatch.setattr("app.content.providers._image_search_cache", {})
+    calls = []
+    hits = [_video_hit(i, 30 + i) for i in range(12)]  # 12개 통과 → 긴 순 VIDEO_POOL개만 후보
+    hits += [_video_hit(90, 20), _video_hit(91, 300, width=640, height=360)]  # 짧음 · 저화질
+
+    def handler(request):
+        calls.append(request.url.params["q"])
+        return httpx.Response(200, json={"hits": hits})
+
+    provider = PixabayProvider("secret", client_for(handler))
+    longest = provider.search_video("stream")
+    assert longest.metadata["id"] == 11  # rng가 없으면 가장 긴 것(이전 동작)
+    picked = {
+        provider.search_video("stream", rng=random.Random(n)).metadata["id"] for n in range(40)
+    }
+    pool = set(range(12 - providers.VIDEO_POOL, 12))
+    assert picked <= pool and len(picked) > 1  # 세션마다 다른 영상
+    assert not picked & {90, 91}
+    assert calls == ["stream"]  # 후보 목록은 캐시하고 고르기만 다시 한다
 
 
 def test_pixabay_returns_requested_horizontal_nature_images():

@@ -357,6 +357,7 @@ def resolve_activity_assets(
                                 selection.get("min_source_duration_seconds", 30)
                             ),
                             session_duration_seconds=int(render.get("duration_seconds", 600)),
+                            rng=rng,
                         )
                         if scene:
                             video.metadata = {
