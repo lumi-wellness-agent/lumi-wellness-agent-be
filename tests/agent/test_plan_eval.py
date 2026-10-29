@@ -8,7 +8,8 @@ import asyncio
 import pytest
 
 from app.agent.nodes.planner import ActivityChoice, PlanRationale
-from app.schemas.care import Place, Setting, environment_for
+from app.schemas.care import CareGoal, Place, Setting, environment_for
+from app.schemas.retrieval import GOAL_OUTCOMES
 from scripts import plan_eval
 from scripts.rag_eval import load_scenarios
 from tests.agent import fakes
@@ -66,6 +67,18 @@ def test_a_valid_first_choice_passes_every_check(fake_backends):
     assert all(run.checks.values()), run.checks
     assert "changed" not in run.checks  # 첫 라운드에는 없다
     assert run.cited and run.borrowed == []  # fixture 근거는 PR-01의 evidence[]다
+
+
+def test_the_rationale_and_what_the_explainer_saw_are_saved(fake_backends):
+    run = plan(ScriptedPlanner("PR-01"), "S3-unknown-a")
+    assert run.rationale == "추천 이유"
+    assert run.explain_input and "## 검증된 근거" in run.explain_input
+    assert {e["key"] for e in run.evidence} == set(run.cited)  # 카드에 실린 근거를 설명했다
+    assert all({"authors", "year", "outcomes", "flags"} <= e.keys() for e in run.evidence)
+    assert run.composition and set(run.grades) == {
+        o.value for o in GOAL_OUTCOMES[CareGoal.S3].primary
+    }
+    assert run.factors is None  # 대역은 Factor를 고르지 않는다
 
 
 def test_a_rejected_first_choice_fails_first_try_only(fake_backends):

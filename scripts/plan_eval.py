@@ -16,6 +16,8 @@
 - 후보 순서는 운영처럼 등급 가중 추첨이다 — 시나리오마다 세션 ID를 '<--seed>:<시나리오>'로 둔다
   (같은 시드면 같은 순서). 첫 계획에서 고른 활동이 몇 종인지와 LLM이 순서 맨 앞을 고른 비율을
   함께 본다. --seed ''이면 등급 순(2026-10-29 이전 동작)이다.
+- 추천 이유와 그 설명 호출이 본 입력(사용자 메시지 · 근거 · 구성 · 등급 · 카드 배지)을 결과 JSON에
+  남긴다. 채점은 scripts/rationale_eval.py가 한다.
 - 근거 DB는 lumi-pg로 돌린다(운영 Supabase의 session pooler는 클라이언트 한도가 15).
 """
 
@@ -42,12 +44,14 @@ from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.nodes.planner import (  # noqa: E402
     ActivityChoice,
+    CitedEvidence,
     LlmPlanner,
     Planner,
     PlanRejected,
     check_plan,
     make_plan_node,
 )
+from app.agent.prompts import build_rationale_input  # noqa: E402
 from app.agent.state import IntakeResult  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import create_pool  # noqa: E402
@@ -61,12 +65,15 @@ CHECKS = ("planned", "first_try", "in_candidates", "relaxed", "constraints", "ch
 
 
 class CountingPlanner:
-    """Planner를 감싸 choose 호출 수와 마지막 선택을 남긴다. 2회면 첫 선택이 거부됐다."""
+    """Planner를 감싸 choose 호출 수와 마지막 선택을 남긴다. 2회면 첫 선택이 거부됐다.
+    explain이 받은 사용자 메시지와 근거도 남긴다 — 추천 이유 채점의 입력이다."""
 
     def __init__(self, inner: Planner):
         self.inner = inner
         self.calls = 0
         self.last: ActivityChoice | None = None
+        self.explain_input: str | None = None
+        self.evidence: list[CitedEvidence] = []
 
     async def choose(self, state, candidates, problems):
         self.calls += 1
@@ -74,7 +81,23 @@ class CountingPlanner:
         return self.last
 
     async def explain(self, state, choice, protocol, evidence):
+        self.explain_input = build_rationale_input(state, choice, protocol, evidence)
+        self.evidence = list(evidence)
         return await self.inner.explain(state, choice, protocol, evidence)
+
+
+def evidence_row(cited: CitedEvidence) -> dict[str, Any]:
+    """설명 호출이 받은 근거 하나 — 추천 이유의 인용(저자 · 연도)과 지표 · 플래그를 대조할 것만."""
+    hit, verdict = cited.hit, cited.verdict
+    return {
+        "id": hit.evidence_record_id,
+        "key": hit.experiment_id or hit.paper.paper_id,
+        "authors": hit.paper.authors,
+        "year": hit.paper.year,
+        "supports_goal": verdict.supports_goal,
+        "outcomes": [o.value for o in verdict.supported_outcomes],
+        "flags": [f.value for f in verdict.flags],
+    }
 
 
 def scenario_state(scenario: Scenario) -> dict:
@@ -133,6 +156,14 @@ class PlanRun:
     borrowed: list[str] = field(default_factory=list)  # 그중 그 활동 evidence[] 밖
     seconds: float = 0.0
     tokens: tuple[int, int] = (0, 0)  # 입력 · 출력
+    # 추천 이유 채점(scripts/rationale_eval.py)용 — 설명 호출(LLM 호출 2)의 출력과 입력
+    rationale: str | None = None
+    factors: dict[str, Any] | None = None  # 같은 호출이 고른 콘텐츠 Factor(sanitize 뒤)
+    explain_input: str | None = None  # 설명 호출이 본 사용자 메시지 그대로
+    evidence: list[dict[str, Any]] = field(default_factory=list)  # 설명 호출이 받은 근거
+    composition: str | None = None
+    grades: dict[str, str] = field(default_factory=dict)  # 목표 1차 지표 등급
+    badges: list[str] = field(default_factory=list)  # Reference 카드 배지
 
     @property
     def checks(self) -> dict[str, bool]:
@@ -192,8 +223,19 @@ async def plan_once(
         run.problems = check_plan(plan.activity, state, plan.relaxed)
         run.cited = [e.experiment_id or e.paper.paper_id for e in card]
         run.borrowed = [key for key in run.cited if key not in own]
+        run.rationale = plan.rationale
+        if plan.content_factors:
+            run.factors = plan.content_factors.model_dump(mode="json")
+        if protocol:
+            run.composition = protocol.composition.value
+            primary = GOAL_OUTCOMES[scenario.goal].primary
+            run.grades = {o.value: protocol.grades[o].grade.value for o in primary}
+        if plan.reference_card:
+            run.badges = [b.value for b in plan.reference_card.badges]
     run.calls = counting.calls
     run.query = counting.last.search_query if counting.last else None
+    run.explain_input = counting.explain_input
+    run.evidence = [evidence_row(c) for c in counting.evidence]
     run.seconds = time.perf_counter() - started
     if usage:
         run.tokens = (usage.input - before[0], usage.output - before[1])
