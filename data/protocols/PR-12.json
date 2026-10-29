@@ -289,7 +289,9 @@
         ],
         "recording_phase": "AFTER_ACTIVITY",
         "minimum_count": 1,
-        "maximum_count": 3
+        "maximum_count": 3,
+        "max_characters_per_item": 20,
+        "whitespace_normalization": "COLLAPSE_CONSECUTIVE_TO_SINGLE_SPACE"
       },
       "self_report": {
         "fields": {

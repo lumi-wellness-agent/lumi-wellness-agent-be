@@ -172,6 +172,8 @@
       },
       "completion_rule": {
         "required_completed_designs": 1,
+        "required_design_position": "FIRST_DESIGN",
+        "minimum_completion_percent": 80,
         "minimum_elapsed_seconds": 960
       },
       "verification": {
