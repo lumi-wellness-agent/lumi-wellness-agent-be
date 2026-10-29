@@ -7,6 +7,7 @@
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
     .venv/bin/python scripts/plan_trial.py S3 --no-db --content --repeat 2
     .venv/bin/python scripts/plan_trial.py --text "긴장이 안 풀려요" --protocol PR-05 --content
+    .venv/bin/python scripts/plan_trial.py S2 --seed session-7   # 운영처럼 등급 가중 추첨 순서
 
 - 발표 리허설과 RAG 평가셋 질의 수집용이다. intake는 질문 없이 한 번에 돈다(nodes/intake.intake_once
   — 상황 읽기 → 목표 추론(단서표) → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
@@ -220,7 +221,8 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     started = time.perf_counter()
     plan_node = make_plan_node(planner)
     try:
-        out = await plan_node(state, Runtime(context=AgentContext(db_pool=pool)))
+        context = AgentContext(db_pool=pool, session_id=args.seed)
+        out = await plan_node(state, Runtime(context=context))
     except PlanRejected as exc:
         print(f"계획 실패: {exc}")
         return {"scenario": name, "rejected": str(exc)}
@@ -235,6 +237,10 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     activity = plan.activity
     cited = activity.evidence_record_ids
     print(f"plan    {activity.protocol_id} {activity.minutes}분 · 근거 {cited}")
+    if selection := plan.selection:
+        print(
+            f"order   {selection.method.value} {selection.order} → {selection.position + 1}번째"
+        )
     print(f"        {plan.rationale}")
     if factors := plan.content_factors:
         picked = factors.model_dump(mode="json", exclude={"reason"})
@@ -276,6 +282,9 @@ async def main() -> None:
     parser.add_argument("--no-db", action="store_true", help="근거 DB 없이(검색 0건)")
     parser.add_argument("--content", action="store_true", help="콘텐츠를 실제로 받아 본다")
     parser.add_argument("--protocol", help="활동을 이 프로토콜로 정한다(예: PR-05)")
+    parser.add_argument(
+        "--seed", help="후보 추천 순서의 시드(운영은 세션 ID). 없으면 등급 순"
+    )
     args = parser.parse_args()
 
     # 선택 이유·질의(plan 노드 INFO 로그)를 같이 보여 준다

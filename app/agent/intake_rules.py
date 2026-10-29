@@ -7,12 +7,12 @@
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
     ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
        입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
-    ④ context_groups()로 추천을 바꾸는 환경 칸만 → context_question()
+    ④ context_groups()로 후보를 바꾸는 환경 칸만 → context_question()
     답 → apply_answer() · merge_values()     끝 → finish()
 
 우선순위: 요청 칩 > 질문 답(칩) > 문장에서 읽은 값 > 기본값. 질문은 합계 MAX_TURNS회, State는
-MAX_STATE_TURNS회 — 입구 되묻기(restate)는 세지 않는다(counted). 무엇을 물을지는 "그 칸이 1순위
-활동을 바꾸는가"로 정한다.
+MAX_STATE_TURNS회 — 입구 되묻기(restate)는 세지 않는다(counted). 무엇을 물을지는 "그 칸이 후보
+활동을 바꾸는가"로 정한다 — plan이 후보를 등급 가중 추첨 순서로 세워 어느 후보든 추천될 수 있다.
 
 안전 판단은 ①의 safety 칸 하나다(정규식 목록 없음). 글 답은 모두 ①을 다시 지난다.
 """
@@ -361,11 +361,12 @@ SETTING_OPTIONS: tuple[tuple[str, Setting], ...] = (
 EARPHONE_OPTIONS: tuple[tuple[str, bool], ...] = (("있어요", True), ("없어요", False))
 
 
-def top_activity(intake: IntakeResult, **override: Any) -> str | None:
-    """이 조건일 때 후보 1순위. 플래너와 같은 후보 조회(protocols.plan_candidates — 환경 필터 ·
-    완화 순서)를 봐야 '이 칸이 추천을 바꾸는가'가 실제 계획과 맞는다."""
+def candidate_ids(intake: IntakeResult, **override: Any) -> frozenset[str]:
+    """이 조건일 때 후보 활동. 플래너와 같은 후보 조회(protocols.plan_candidates — 환경 필터 ·
+    완화 순서)를 봐야 '이 칸이 추천을 바꾸는가'가 실제 계획과 맞는다. plan은 후보를 등급 가중 추첨
+    순서로 세우므로(protocols.recommendation_order) 1순위가 아니라 후보 묶음 전체를 본다."""
     if intake.goal is None:
-        return None
+        return frozenset()
     setting = override.get("setting", intake.setting)
     earphones = override.get("earphones", intake.earphones)
     found = protocols.plan_candidates(
@@ -374,33 +375,33 @@ def top_activity(intake: IntakeResult, **override: Any) -> str | None:
         minutes=override.get("minutes", intake.minutes),
         environment=environment_for(setting, earphones),
     ).protocols
-    return found[0].protocol_id if found else None
+    return frozenset(p.protocol_id for p in found)
 
 
 def context_groups(intake: IntakeResult) -> list[str]:
-    """물어볼 환경 칸 — 비어 있고, 값에 따라 1순위 활동이 달라지는 것만.
+    """물어볼 환경 칸 — 비어 있고, 값에 따라 후보 활동이 달라지는 것만.
 
     setting · earphones · minutes 순서다.
     """
     groups: list[str] = []
     if intake.setting is None:
         earphones = bool(intake.earphones)
-        tops = {
-            top_activity(intake, setting=setting, earphones=earphones)
+        sets = {
+            candidate_ids(intake, setting=setting, earphones=earphones)
             for _, setting in SETTING_OPTIONS
         }
-        if len(tops) > 1:
+        if len(sets) > 1:
             groups.append("setting")
     if intake.earphones is None:
         places = [intake.setting] if intake.setting else [s for _, s in SETTING_OPTIONS]
         if any(
-            top_activity(intake, setting=s, earphones=True)
-            != top_activity(intake, setting=s, earphones=False)
+            candidate_ids(intake, setting=s, earphones=True)
+            != candidate_ids(intake, setting=s, earphones=False)
             for s in places
         ):
             groups.append("earphones")
     if intake.minutes is None:
-        if len({top_activity(intake, minutes=m) for m in MINUTES_ASK_BOUNDARIES}) > 1:
+        if len({candidate_ids(intake, minutes=m) for m in MINUTES_ASK_BOUNDARIES}) > 1:
             groups.append("minutes")
     return groups
 

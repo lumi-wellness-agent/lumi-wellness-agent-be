@@ -93,3 +93,17 @@ def test_summary_counts_each_check_over_the_runs_it_applies_to(fake_backends):
     assert runs[1].borrowed == ["P01", "P04"]
     assert summary["borrowed"] == ["S3-fatigue-a PR-10"] and summary["empty_cards"] == []
     assert summary["chosen"] == {"S3 PR-01": 1}
+    # 세션 ID가 없으면 등급 순 — S3 · 미상의 맨 앞은 PR-10인데 대본이 PR-01(2번째)을 골랐고,
+    # 변경 라운드(PR-11을 뺐다)의 PR-10은 맨 앞이다
+    assert summary["first_in_order"] == [1, 2]
+    assert "첫 계획에서 고른 활동 1종: S3 PR-01 ×1" in plan_eval.format_summary(summary)
+
+
+def test_a_session_id_orders_the_candidates_like_production(fake_backends):
+    run = asyncio.run(
+        plan_eval.plan_once(
+            ScriptedPlanner("PR-04"), SCENARIOS["S3-unknown-a"], session_id="plan-eval:S3-unknown-a"
+        )
+    )
+    assert run.protocol_id == "PR-04" and run.position is not None
+    assert all(run.checks.values()), run.checks

@@ -40,6 +40,8 @@ from app.agent.state import (
     PlannedActivity,
     ReplanProposal,
     Round,
+    Selection,
+    SelectionMethod,
     SessionEnd,
     SessionReport,
 )
@@ -124,6 +126,9 @@ STATE_TYPES = (
     NextStep,
     ReplanProposal,
     Round,
+    # 후보 순서와 고른 위치(CarePlan.selection)
+    Selection,
+    SelectionMethod,
     # 콘텐츠 Factor(CarePlan.content_factors)
     ContentFactors,
     Scenery,

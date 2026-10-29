@@ -18,7 +18,7 @@
      run_session  FE 실행 대기 ⏸                                  nodes/executor.py
      measure_post 코드 ⏸ SAM (+ S3는 MFVAS)                      nodes/measure.py
   ③ evaluate      Outcome Evaluator                               nodes/evaluator.py
-  ④ replan        Replanning 규칙                                 nodes/replanner.py
+  ④ replan        Replanning 선택지 · 규칙 제안(코드) + 추천(LLM 1회) nodes/replanner.py
      confirm      사용자 선택·동의 대기 ⏸                         nodes/replanner.py
      measure_final 코드 ⏸ STAI-6 · BSRI(라운드마다 잰 S3는 없음)  nodes/measure.py
 
@@ -43,7 +43,12 @@ from app.agent.nodes.intake import (
 )
 from app.agent.nodes.measure import measure_final, measure_post, measure_pre
 from app.agent.nodes.planner import Planner, make_plan_node
-from app.agent.nodes.replanner import confirm, replan, route_after_confirm
+from app.agent.nodes.replanner import (
+    Replanner,
+    confirm,
+    make_replan_node,
+    route_after_confirm,
+)
 from app.agent.state import CareState
 
 
@@ -51,8 +56,12 @@ def build_graph(
     planner: Planner,
     intaker: Intaker,
     checkpointer: BaseCheckpointSaver | None = None,
+    replanner: Replanner | None = None,
 ) -> CompiledStateGraph:
-    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py)."""
+    """세션 그래프. interrupt가 있어 실행하려면 checkpointer가 필요하다(checkpoint.py).
+
+    replanner가 없으면 replan이 규칙 제안만 낸다(테스트 · Mermaid).
+    """
     builder = StateGraph(CareState, context_schema=AgentContext)
     for name, node in make_intake_nodes(intaker).items():
         builder.add_node(name, node)
@@ -62,7 +71,7 @@ def build_graph(
     builder.add_node("run_session", run_session)
     builder.add_node("measure_post", measure_post)
     builder.add_node("evaluate", evaluate)
-    builder.add_node("replan", replan)
+    builder.add_node("replan", make_replan_node(replanner))
     builder.add_node("confirm", confirm)
     builder.add_node("measure_final", measure_final)
     builder.add_edge(START, "intake_read")

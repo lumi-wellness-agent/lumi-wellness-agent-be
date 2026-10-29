@@ -82,7 +82,7 @@ def test_chooser_sends_state_candidates_and_problems():
     assert "- 목표: S1 — 반복되는 생각에서 벗어나기(반추 완화)" in text
     assert "- 사용자 상태: 스트레스를 겪은 뒤(POST_STRESS)" in text
     assert "AI 생성 이미지" in text
-    assert "## 후보 프로토콜 (등급 순)" in text
+    assert "## 후보 프로토콜 (추천 순)" in text
     assert text.index('"PR-09"') < text.index('"PR-21"')  # 코드가 정렬한 순서 그대로
     assert "## 직전 계획의 거부 사유\n- PR-99는 검수된 프로토콜이 아니다" in text
 
@@ -205,6 +205,12 @@ def test_planner_context_carries_the_session():
         environment=Environment(),  # 인테이크가 환경을 모른다 — 거르지 않는다
         content_type=ContentType.AI_IMAGE,
     )
+
+
+def test_planner_context_carries_the_seed_and_the_recent_activities():
+    state = {**S1_STATE, "recent_protocol_ids": ["PR-09", "PR-15"]}
+    context = planner_context(AgentContext(session_id="session-1"), state)
+    assert (context.session_id, context.recent_protocol_ids) == ("session-1", ("PR-09", "PR-15"))
 
 
 def test_planner_context_excludes_the_activity_the_user_changed_away_from():

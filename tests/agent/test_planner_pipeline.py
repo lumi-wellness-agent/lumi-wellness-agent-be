@@ -17,6 +17,8 @@ from app.agent.nodes.planner import (
     PlanRationale,
     PlanRejected,
     make_plan_node,
+    planner_context,
+    search_candidates,
 )
 from app.agent.state import (
     CarePlan,
@@ -24,6 +26,8 @@ from app.agent.state import (
     NextStep,
     OutcomeEvaluation,
     Round,
+    Selection,
+    SelectionMethod,
     SessionReport,
 )
 from app.schemas.card import CardBadge
@@ -85,9 +89,10 @@ def fake_backends(monkeypatch):
     return searches
 
 
-def run_plan(planner, state=STATE):
+def run_plan(planner, state=STATE, session_id: str | None = None):
     node = make_plan_node(planner)
-    return asyncio.run(node(state, Runtime(context=AgentContext())))["plan"]
+    context = AgentContext(session_id=session_id)
+    return asyncio.run(node(state, Runtime(context=context)))["plan"]
 
 
 def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
@@ -293,6 +298,7 @@ def test_one_more_round_repeats_the_activity_without_choosing_again(fake_backend
     again = run_plan(planner, {**STATE, "rounds": rounds})
 
     assert planner.chosen == []
+    assert again.selection == Selection(method=SelectionMethod.REPEAT, order=["PR-21"])
     assert again.activity.protocol_id == "PR-21"
     assert again.activity.minutes == first.activity.minutes
     # 같은 질의로 근거를 다시 찾고, 설명(콘텐츠 Factor)만 새로 쓴다
@@ -310,6 +316,34 @@ def test_one_more_round_without_a_saved_query_searches_by_the_activity_name(fake
     name = protocols.get_protocol("PR-21").name
     assert again.search_query == name
     assert fake_backends and all(s["query"] == name for s in fake_backends)
+
+
+def test_a_session_shows_the_candidates_in_its_weighted_order(fake_backends):
+    session = planner_context(AgentContext(session_id="session-1"), STATE)
+    expected = protocols.recommendation_order(
+        search_candidates(session), CareGoal.S1, seed="session-1"
+    )
+    order = [p.protocol_id for p in expected.protocols]
+    assert order != ["PR-09", "PR-15", "PR-21", "PR-14"]  # 등급 순과 다르다(이 시드에서)
+    planner = RecordingPlanner(choice(order[1]))  # 맨 앞을 건너뛰었다
+
+    plan = run_plan(planner, session_id="session-1")
+
+    assert planner.chosen == [(order, [])]
+    assert plan.selection == Selection(
+        method=SelectionMethod.WEIGHTED,
+        order=order,
+        weights=expected.weights,
+        probability=expected.probability(order[1]),
+        position=1,
+    )
+
+
+def test_without_a_session_the_candidates_stay_ranked(fake_backends):
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+    assert plan.selection == Selection(
+        method=SelectionMethod.RANKED, order=["PR-09", "PR-15", "PR-21", "PR-14"], position=2
+    )
 
 
 def test_demo_s2_session_offers_breathing_first():

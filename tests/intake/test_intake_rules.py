@@ -265,17 +265,23 @@ def test_safety_is_read_by_the_llm_not_a_word_list():
 # ── ④ 환경 질문 ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_context_asks_only_slots_that_change_the_top_activity():
+def test_context_asks_only_slots_that_change_the_candidates():
+    # plan이 후보를 등급 가중 추첨 순서로 세워 어느 후보든 추천될 수 있다 — 1순위가 아니라 후보
+    # 묶음을 바꾸는 칸을 묻는다
     s2_home = IntakeResult(goal=CareGoal.S2, setting=Setting.HOME)
-    assert rules.context_groups(s2_home) == []  # 시간이 달라도 1순위 PR-06
+    assert rules.context_groups(s2_home) == ["minutes"]  # 5분 · 10분 · 20분의 후보가 다르다
+    # 집에서는 이어폰이 환경을 바꾸지 않는다 — 모르는 칸이어도 묻지 않는다
+    assert rules.context_groups(s2_home.model_copy(update={"minutes": 10})) == []
     s1 = IntakeResult(goal=CareGoal.S1)
-    assert rules.context_groups(s1) == ["setting", "earphones"]  # 시간은 1순위를 안 바꾼다
-    s1_office = IntakeResult(goal=CareGoal.S1, setting=Setting.OFFICE_CAFE)
+    assert rules.context_groups(s1) == ["setting", "earphones", "minutes"]  # 20분이면 PR-21
+    s1_office = IntakeResult(goal=CareGoal.S1, setting=Setting.OFFICE_CAFE, minutes=10)
     assert rules.context_groups(s1_office) == ["earphones"]
-    assert rules.top_activity(s1_office, earphones=False) == "PR-15"  # 소리 활동은 빠진다
-    assert rules.top_activity(s1_office, earphones=True) == "PR-09"
+    assert rules.candidate_ids(s1_office, earphones=False) == {"PR-15"}  # 소리 활동은 빠진다
+    assert rules.candidate_ids(s1_office, earphones=True) == {"PR-09", "PR-15"}
     s3_home = IntakeResult(goal=CareGoal.S3, setting=Setting.HOME)
-    assert rules.context_groups(s3_home) == ["minutes"]  # 10분 PR-01 · 20분 PR-10
+    assert rules.context_groups(s3_home) == ["minutes"]
+    assert rules.candidate_ids(s3_home, minutes=10) == {"PR-01", "PR-04"}
+    assert rules.candidate_ids(s3_home, minutes=20) == {"PR-01", "PR-04", "PR-10"}
 
     q = rules.context_question(["setting", "earphones", "minutes"], 2)
     assert q.slot is QuestionSlot.CONTEXT and q.question_id == "q2" and not q.allow_free_text

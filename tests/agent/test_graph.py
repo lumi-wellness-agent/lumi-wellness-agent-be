@@ -17,7 +17,7 @@ from app.agent.graph import build_graph
 from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
 from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
-from app.agent.nodes.replanner import next_step_options, route_after_confirm
+from app.agent.nodes.replanner import NextStepChoice, next_step_options, route_after_confirm
 from app.agent.state import (
     ActivityContent,
     CarePlan,
@@ -164,6 +164,21 @@ class FakePlanner:
 
     async def explain(self, state, choice, protocol, evidence):
         return PlanRationale.text("-")
+
+
+class FakeReplanner:
+    """다음 단계 추천을 차례로 낸다(예외면 던진다). recommend 호출마다 받은 규칙 제안을 남긴다."""
+
+    def __init__(self, *outputs: NextStepChoice | BaseException):
+        self.outputs = list(outputs)
+        self.rules: list[ReplanProposal] = []
+
+    async def recommend(self, state, rule):
+        self.rules.append(rule)
+        output = self.outputs.pop(0)
+        if isinstance(output, BaseException):
+            raise output
+        return output
 
 
 def run(graph, value):
@@ -322,8 +337,8 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     out = run(graph, answer("q1", order_condition="POST_STRESS"))
     q2 = out["__interrupt__"][0].value
     assert q2["slot"] == "context" and q2["question_id"] == "q2" and not q2["allow_free_text"]
-    # S1은 시간이 1순위를 안 바꾼다. 이어폰은 있어요/없어요 single
-    assert [g["key"] for g in q2["groups"]] == ["setting", "earphones"]
+    # S1 · 스트레스 뒤는 20분이면 PR-21 · PR-14도 후보라 시간도 묻는다. 이어폰은 single
+    assert [g["key"] for g in q2["groups"]] == ["setting", "earphones", "minutes"]
     assert [o["set"] for o in q2["groups"][1]["options"]] == [
         {"earphones": True},
         {"earphones": False},
@@ -631,7 +646,30 @@ def test_third_round_offers_only_to_end():
         "recommended": "END",
         "reason": "라운드 3회를 채웠다",
         "options": ["END"],
+        "rule_recommended": "END",
+        "by_llm": False,
     }
+
+
+def test_the_replanner_recommends_on_the_confirm_screen():
+    choice = NextStepChoice(
+        recommended=NextStep.ADDITIONAL_SESSION, reason="긴장이 내려갔어요. 한 번 더 해 볼까요?"
+    )
+    replanner = FakeReplanner(choice)
+    intaker = FakeIntaker(S2_READING, goal=inference(CareGoal.S2))
+    graph = build_graph(FakePlanner(BREATHING), intaker, memory_checkpointer(), replanner)
+    run(graph, {"request": CareRequest(text="발표 앞두고 긴장돼요")})
+    run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
+    run(graph, Command(resume={"completed": True}))
+    confirm = run(graph, Command(resume=sam(5, 4)))["__interrupt__"][0].value
+    assert confirm["proposal"] == {
+        "recommended": "ADDITIONAL_SESSION",
+        "reason": choice.reason,
+        "options": ["END", "CHANGE_ACTIVITY", "ADDITIONAL_SESSION"],
+        "rule_recommended": "END",  # 규칙은 나아졌으면 종료
+        "by_llm": True,
+    }
+    assert [r.recommended for r in replanner.rules] == [NextStep.END]
 
 
 def test_routes():

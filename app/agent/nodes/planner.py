@@ -1,7 +1,7 @@
 """① Adaptive Care Planning — 이번 라운드의 활동 노드 1개를 고르고 근거를 찾아 검증한다.
 고정 절차다.
 
-    후보(코드) → 선택(LLM 1회) → 검색(코드) → 검증(코드) → 설명(LLM 1회) → CarePlan
+    후보 · 추천 순서(코드) → 선택(LLM 1회) → 검색(코드) → 검증(코드) → 설명(LLM 1회) → CarePlan
 
 LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동을 고를지(제약 · 장소 · 자유 텍스트 대조)와
 검증된 근거를 어떻게 설명할지. 설명과 함께(같은 호출) 고른 활동의 콘텐츠 Factor(풍경 · 자연음 · 작품
@@ -11,6 +11,11 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 빠뜨리고, 제외한 활동을 다시 고르고, 한 번은 10분 넘게 돌았다(2026-10-26 실측). 절차를 코드로 옮기니
 종료가 보장되고 모델 호출이 4~5회에서 2회로 준다. 적응은 이 노드 안의 루프가 아니라 측정 → 평가 →
 재계획 → plan 순환(graph.py)에서 온다.
+
+후보의 순서는 등급 가중 추첨이다(protocols.recommendation_order — 세션 ID 시드, 이 사용자가
+최근에 한 활동은 가중치를 낮춘다). 등급 순으로만 세우면 목표마다 같은 활동이 1순위로 고정됐다.
+LLM은 맨 앞을 고르고 제약 · 장소 · 사용자가 꺼린 활동일 때만 건너뛴다. 순서와 고른 위치를
+CarePlan.selection에 남겨 분석에서 무작위성을 보정한다.
 
 후보는 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로 거른다. 다 맞는 것이 없으면
 사용자 상태 → 환경 순으로 풀고(protocols.plan_candidates), 푼 조건을 CarePlan.relaxed에, 고른 활동이
@@ -51,7 +56,15 @@ from app.agent.prompts import (
     build_choice_input,
     build_rationale_input,
 )
-from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity, changed_away
+from app.agent.state import (
+    CarePlan,
+    CareState,
+    NextStep,
+    PlannedActivity,
+    Selection,
+    SelectionMethod,
+    changed_away,
+)
 from app.content import factors as content_factors
 from app.retrieval import hybrid
 from app.schemas.content import ContentFactors
@@ -185,16 +198,19 @@ def repeated_plan(state: CareState) -> CarePlan | None:
 
 
 def planner_context(context: AgentContext | None, state: CareState) -> PlannerContext:
-    """그래프 컨텍스트에 이번 세션의 정해진 값(인테이크 · 이미지 선호 · 뺄 활동)을 더한 컨텍스트."""
+    """그래프 컨텍스트에 이번 세션의 정해진 값(인테이크 · 이미지 선호 · 뺄 활동 · 최근에 한 활동)을
+    더한 컨텍스트."""
     intake = state["intake"]
     return PlannerContext(
         db_pool=context.db_pool if context else None,
+        session_id=context.session_id if context else None,
         goal=intake.goal,
         user_order=intake.order_condition,
         minutes_available=intake.minutes,
         environment=intake.environment,
         content_type=state["request"].profile.content_type,
         excluded_protocol_ids=excluded_protocols(state),
+        recent_protocol_ids=tuple(state.get("recent_protocol_ids") or ()),
     )
 
 
@@ -343,14 +359,20 @@ class LlmPlanner:
 
 REPEAT_REASON = "사용자가 같은 활동을 한 번 더 하기로 했다"
 
-Selected = tuple[CareProtocol, ActivityChoice, PlannedActivity, tuple[str, ...]]
+@dataclass(frozen=True)
+class Selected:
+    """고른 활동 — 프로토콜 · 선택 · 시간을 정한 활동 · 후보 조회가 푼 조건 · 고른 과정."""
+
+    protocol: CareProtocol
+    choice: ActivityChoice
+    activity: PlannedActivity
+    relaxed: tuple[str, ...]
+    selection: Selection
 
 
 async def choose_activity(planner: Planner, state: CareState, session: PlannerContext) -> Selected:
-    """후보(코드) → 선택(LLM 호출 1) → 후검증(check_plan). 어기면 거부 사유를 붙여 한 번 더 묻는다.
-
-    (프로토콜, 선택, 활동, 후보 조회가 푼 조건)을 돌려준다.
-    """
+    """후보(코드) → 추천 순서(코드) → 선택(LLM 호출 1) → 후검증(check_plan). 어기면 거부 사유를 붙여
+    한 번 더 묻는다."""
     search = search_candidates(session)
     found = search.protocols
     if not found:
@@ -363,7 +385,11 @@ async def choose_activity(planner: Planner, state: CareState, session: PlannerCo
     by_id = {p.protocol_id: p for p in found}
     # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
     available = None if "minutes" in search.relaxed else session.minutes_available
-    candidates = [protocols.compact(p) for p in found]
+    order = protocols.recommendation_order(
+        search, session.goal, seed=session.session_id, recent=session.recent_protocol_ids
+    )
+    ids = [p.protocol_id for p in order.protocols]
+    candidates = [protocols.compact(p) for p in order.protocols]
 
     problems: list[str] = []
     for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
@@ -381,7 +407,14 @@ async def choose_activity(planner: Planner, state: CareState, session: PlannerCo
         activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
         problems = check_plan(activity, state, search.relaxed)
         if not problems:
-            return protocol, choice, activity, search.relaxed
+            selection = Selection(
+                method=SelectionMethod(order.method),
+                order=ids,
+                weights=order.weights,
+                probability=order.probability(protocol.protocol_id),
+                position=ids.index(protocol.protocol_id),
+            )
+            return Selected(protocol, choice, activity, search.relaxed, selection)
     raise PlanRejected("; ".join(problems), retryable=True)
 
 
@@ -398,7 +431,8 @@ def repeat_activity(previous: CarePlan, state: CareState) -> Selected:
     # 질의를 남기기 전의 계획이면 활동 이름으로 찾는다 — 검색은 그 활동의 evidence[]부터 본다
     query = previous.search_query or protocol.name
     choice = ActivityChoice(protocol_id=protocol_id, search_query=query, reason=REPEAT_REASON)
-    return protocol, choice, activity, relaxed
+    selection = Selection(method=SelectionMethod.REPEAT, order=[protocol_id])
+    return Selected(protocol, choice, activity, relaxed, selection)
 
 
 def make_plan_node(planner: Planner):
@@ -409,15 +443,19 @@ def make_plan_node(planner: Planner):
         if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
             raise PlanRejected("목표가 없어 계획할 수 없다")
         if (previous := repeated_plan(state)) is not None:
-            protocol, choice, activity, relaxed = repeat_activity(previous, state)
+            selected = repeat_activity(previous, state)
         else:
             progress({"node": "plan", "step": "choose_activity"})
-            protocol, choice, activity, relaxed = await choose_activity(planner, state, session)
+            selected = await choose_activity(planner, state, session)
+        protocol, choice, activity = selected.protocol, selected.choice, selected.activity
+        relaxed = selected.relaxed
         log.info(
-            "계획 선택 %s %d분 (%s) — 질의 %r",
+            "계획 선택 %s %d분 (%s · %s %d번째) — 질의 %r",
             activity.protocol_id,
             activity.minutes,
             choice.reason,
+            selected.selection.method.value,
+            selected.selection.position + 1,
             choice.search_query,
         )
 
@@ -462,6 +500,7 @@ def make_plan_node(planner: Planner):
                 relaxed=relaxed,
             ),
             search_query=choice.search_query,
+            selection=selected.selection,
         )
         return {"plan": plan}
 
