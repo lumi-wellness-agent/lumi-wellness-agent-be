@@ -358,6 +358,11 @@ class LlmPlanner:
 
 
 REPEAT_REASON = "사용자가 같은 활동을 한 번 더 하기로 했다"
+# LLM에 보이는 후보 수 — 추천 순서 앞에서부터. 제약 · 꺼린 활동이면 건너뛸 여지는 두되, 뒤쪽의
+# 익숙한 활동(PR-06 · PR-01)을 찾아 내려가 추첨을 되돌리지 못하게 한다. 전부 보였을 때
+# gpt-5.4-mini가 맨 앞을 고른 것은 36번 중 27번이었고, '5분이라 부담이 적다'며 9번째까지
+# 내려갔다(2026-10-29 plan_eval)
+CHOICE_WINDOW = 5
 
 @dataclass(frozen=True)
 class Selected:
@@ -382,14 +387,17 @@ async def choose_activity(planner: Planner, state: CareState, session: PlannerCo
         )
     if search.relaxed:
         log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
-    by_id = {p.protocol_id: p for p in found}
     # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
     available = None if "minutes" in search.relaxed else session.minutes_available
     order = protocols.recommendation_order(
         search, session.goal, seed=session.session_id, recent=session.recent_protocol_ids
     )
     ids = [p.protocol_id for p in order.protocols]
-    candidates = [protocols.compact(p) for p in order.protocols]
+    by_id = {p.protocol_id: p for p in found}
+    # LLM에는 앞 CHOICE_WINDOW개만 보인다. 검증은 후보 전체로 한다 — 보이지 않은 활동은 LLM이 고를
+    # 수 없고, 대역(테스트)이 고른 활동도 후보면 받는다
+    shown = order.protocols[:CHOICE_WINDOW]
+    candidates = [{"rank": i, **protocols.compact(p)} for i, p in enumerate(shown, start=1)]
 
     problems: list[str] = []
     for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더

@@ -82,7 +82,7 @@ def test_chooser_sends_state_candidates_and_problems():
     assert "- 목표: S1 — 반복되는 생각에서 벗어나기(반추 완화)" in text
     assert "- 사용자 상태: 스트레스를 겪은 뒤(POST_STRESS)" in text
     assert "AI 생성 이미지" in text
-    assert "## 후보 프로토콜 (추천 순)" in text
+    assert "## 후보 프로토콜 (추천 순 — rank 1이 맨 앞)" in text
     assert text.index('"PR-09"') < text.index('"PR-21"')  # 코드가 정렬한 순서 그대로
     assert "## 직전 계획의 거부 사유\n- PR-99는 검수된 프로토콜이 아니다" in text
 

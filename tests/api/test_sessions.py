@@ -17,7 +17,7 @@ from app import protocols
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
-from app.agent.nodes.planner import planner_context, search_candidates
+from app.agent.nodes.planner import CHOICE_WINDOW, planner_context, search_candidates
 from app.agent.state import SelectionMethod
 from app.api import internal, me, sessions
 from app.auth import User, current_user
@@ -491,9 +491,10 @@ def test_a_session_orders_candidates_by_its_id_and_the_users_recent_activities()
         search_candidates(session), CareGoal.S2, seed=sid, recent=["PR-06"]
     )
     assert expected.weights["PR-06"] == pytest.approx(4.0 * protocols.RECENT_FACTOR)
-    assert planner.orders[1] == [p.protocol_id for p in expected.protocols]  # 세션 ID가 시드
+    order = [p.protocol_id for p in expected.protocols]
+    assert planner.orders[1] == order[:CHOICE_WINDOW]  # 세션 ID가 시드, LLM에는 앞 5개
     selection = values["plan"].selection
-    assert (selection.method, selection.order) == (SelectionMethod.WEIGHTED, planner.orders[1])
+    assert (selection.method, selection.order) == (SelectionMethod.WEIGHTED, order)
 
     # 게스트는 기록이 없어 최근 활동도 없다
     login(client.app, GUEST)

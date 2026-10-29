@@ -12,6 +12,7 @@ from langgraph.runtime import Runtime
 from app import protocols
 from app.agent.context import AgentContext
 from app.agent.nodes.planner import (
+    CHOICE_WINDOW,
     REPEAT_REASON,
     ActivityChoice,
     PlanRationale,
@@ -337,6 +338,32 @@ def test_a_session_shows_the_candidates_in_its_weighted_order(fake_backends):
         probability=expected.probability(order[1]),
         position=1,
     )
+
+
+def test_the_llm_sees_the_first_five_of_the_order_with_ranks(fake_backends):
+    state = {
+        "request": CareRequest(text="발표 앞두고 긴장돼요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+        ),
+    }
+    session = planner_context(AgentContext(session_id="session-1"), state)
+    order = protocols.recommendation_order(search_candidates(session), CareGoal.S2, seed="s1")
+    ids = [p.protocol_id for p in order.protocols]
+    seen: list[dict] = []
+
+    class Seeing(RecordingPlanner):
+        async def choose(self, state, candidates, problems):
+            seen.extend(candidates)
+            return await super().choose(state, candidates, problems)
+
+    plan = run_plan(Seeing(choice(ids[0], "slow breathing stress")), state, session_id="s1")
+
+    assert len(ids) > CHOICE_WINDOW
+    assert [(c["rank"], c["protocol_id"]) for c in seen] == list(
+        enumerate(ids[:CHOICE_WINDOW], start=1)
+    )
+    assert plan.selection.order == ids  # 기록은 순서 전체 — 맨 앞 확률은 후보 전체로 정한다
 
 
 def test_without_a_session_the_candidates_stay_ranked(fake_backends):

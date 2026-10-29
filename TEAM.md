@@ -125,7 +125,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
-| 후보 프로토콜 | `protocols.plan_candidates()` → `recommendation_order()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 단계 모듈과 이번 세션에서 바꾸기로 한 활동 제외. LLM에 보이는 순서는 등급 가중 추첨(세션 ID 시드, 최근에 한 활동은 가중치 ↓) — 순서 · 고른 위치는 `CarePlan.selection` | `app/protocols.py` |
+| 후보 프로토콜 | `protocols.plan_candidates()` → `recommendation_order()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 단계 모듈과 이번 세션에서 바꾸기로 한 활동 제외. LLM에 보이는 순서는 등급 가중 추첨(세션 ID 시드, 최근에 한 활동은 가중치 ↓)이고 앞 5개만 rank와 함께 보인다 — 순서 · 고른 위치는 `CarePlan.selection` | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
 | 세션 종료 | `final`(목표 척도). intake는 ① 상황 읽기(LLM)가 처음 입력이나 글 답에서 안전 신호를 볼 때만 닫는다(`ended = SAFETY`). 목표 단서가 없거나 되묻기에서 '그냥 시작할게요'면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 
