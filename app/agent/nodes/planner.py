@@ -28,6 +28,10 @@ LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check
 다시 묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
 evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
 
+추천 이유도 글자 규칙(app/agent/rationale_rules.py — 다른 문자 · ID · 통계값 · Factor 이름 ·
+근거 밖 연도 …)으로 후검증하고, 어기면 사유를 붙여 설명을 한 번 다시 묻는다(write_rationale).
+그래도 어기면 두 번째 것을 쓰고 남긴다 — 문장 때문에 계획을 막지 않는다.
+
 직전 라운드에서 '한 번 더'(ADDITIONAL_SESSION)를 골랐으면 활동을 다시 고르지 않는다. 직전 계획의
 활동 · 시간 · 푼 조건 · 검색 질의를 그대로 쓰고(LLM 호출 1 없음), 근거 검색 · 검증 · 설명만 다시
 돈다 — 설명이 지난 라운드와 다른 콘텐츠 Factor를 고른다.
@@ -47,7 +51,7 @@ from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field
 
 from app import protocols
-from app.agent import reference_card, validation
+from app.agent import rationale_rules, reference_card, validation
 from app.agent.context import AgentContext, PlannerContext
 from app.agent.llm import with_fallback
 from app.agent.prompts import (
@@ -67,6 +71,7 @@ from app.agent.state import (
 )
 from app.content import factors as content_factors
 from app.retrieval import hybrid
+from app.schemas.card import ReferenceCard
 from app.schemas.content import ContentFactors
 from app.schemas.evidence import study_medium
 from app.schemas.protocol import CareProtocol, Composition
@@ -92,7 +97,10 @@ class ActivityChoice(BaseModel):
 class PlanRationale(BaseModel):
     """LLM 호출 2의 구조화 출력 — 추천 이유와 콘텐츠 Factor."""
 
-    rationale: str = Field(description="사용자에게 보여 줄 추천 이유 2~3문장(한국어)")
+    rationale: str = Field(
+        description="사용자에게 보여 줄 추천 이유 2~3문장(한국어). 꼭 밝힐 것이 있으면 '다만 …' "
+        "한 문장을 더한다(최대 4문장)"
+    )
     content_factors: ContentFactors = Field(
         description="고른 활동의 콘텐츠 Factor — '## 콘텐츠 Factor' 칸의 값만. 칸이 없으면 비운다"
     )
@@ -128,6 +136,7 @@ class Planner(Protocol):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
+        problems: Sequence[str] = (),
     ) -> Awaitable[PlanRationale]: ...
 
 
@@ -325,10 +334,11 @@ def make_explainer(model: BaseChatModel):
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
+        problems: Sequence[str] = (),
     ) -> PlanRationale:
         messages = [
             SystemMessage(EXPLAIN_SYSTEM_PROMPT),
-            HumanMessage(build_rationale_input(state, choice, protocol, evidence)),
+            HumanMessage(build_rationale_input(state, choice, protocol, evidence, problems)),
         ]
         return await structured.ainvoke(messages)
 
@@ -353,8 +363,9 @@ class LlmPlanner:
         choice: ActivityChoice,
         protocol: CareProtocol,
         evidence: Sequence[CitedEvidence],
+        problems: Sequence[str] = (),
     ) -> PlanRationale:
-        return await self._explain(state, choice, protocol, evidence)
+        return await self._explain(state, choice, protocol, evidence, problems)
 
 
 REPEAT_REASON = "사용자가 같은 활동을 한 번 더 하기로 했다"
@@ -363,6 +374,7 @@ REPEAT_REASON = "사용자가 같은 활동을 한 번 더 하기로 했다"
 # gpt-5.4-mini가 맨 앞을 고른 것은 36번 중 27번이었고, '5분이라 부담이 적다'며 9번째까지
 # 내려갔다(2026-10-29 plan_eval)
 CHOICE_WINDOW = 5
+
 
 @dataclass(frozen=True)
 class Selected:
@@ -443,6 +455,35 @@ def repeat_activity(previous: CarePlan, state: CareState) -> Selected:
     return Selected(protocol, choice, activity, relaxed, selection)
 
 
+async def write_rationale(
+    planner: Planner,
+    state: CareState,
+    choice: ActivityChoice,
+    protocol: CareProtocol,
+    evidence: Sequence[CitedEvidence],
+    card: ReferenceCard,
+) -> tuple[str, ContentFactors]:
+    """설명(LLM 호출 2) + 후검증 — 추천 이유와 다듬은 콘텐츠 Factor.
+
+    추천 이유가 글자 규칙(rationale_rules)을 어기면 사유를 붙여 한 번 더 묻는다. 2026-10-29
+    plan eval에서 한국어 문장에 아랍 · 데바나가리 문자가 섞이거나(108개 중 3개) 활동 ID · 고른
+    Factor를 문장에 썼다(scripts/rationale_eval.py). 그래도 어기면 두 번째 것을 쓰고 남긴다.
+    """
+    cited = [(c.hit, c.verdict) for c in evidence]
+    badges = [b.value for b in card.badges]
+    problems: list[str] = []
+    for attempt in (1, 2):
+        explained = await planner.explain(state, choice, protocol, evidence, problems)
+        factors = content_factors.sanitize(protocol, explained.content_factors)
+        chosen = None if factors.is_empty() else factors.model_dump(mode="json")
+        facts = rationale_rules.facts_for(protocol, state["intake"].goal, cited, badges, chosen)
+        problems = rationale_rules.problems(explained.rationale, facts)
+        if not problems:
+            break
+        log.warning("추천 이유 규칙 위반 %s (%d번째): %s", protocol.protocol_id, attempt, problems)
+    return explained.rationale, factors
+
+
 def make_plan_node(planner: Planner):
     async def plan(state: CareState, runtime: Runtime[AgentContext]) -> dict:
         # 단계마다 세션 API의 SSE progress(custom)를 낸다. 스트리밍이 아니면 아무 일도 하지 않는다
@@ -480,9 +521,20 @@ def make_plan_node(planner: Planner):
                 for c in evidence
             ],
         )
+        activity = activity.model_copy(
+            update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
+        )
+        # 카드는 LLM 없이 근거로 만든다 — 추천 이유 후검증이 배지('실험적' 허용)를 본다
+        card = reference_card.build_card(
+            state["intake"],
+            protocol,
+            activity,
+            [(c.hit, c.verdict) for c in evidence],
+            delivered=protocols.delivered_media(protocol, session.content_type),
+            relaxed=relaxed,
+        )
         progress({"node": "plan", "step": "write_rationale"})
-        explained = await planner.explain(state, choice, protocol, evidence)
-        factors = content_factors.sanitize(protocol, explained.content_factors)
+        rationale, factors = await write_rationale(planner, state, choice, protocol, evidence, card)
         if not factors.is_empty():
             log.info(
                 "콘텐츠 Factor %s: %s (%s)",
@@ -490,23 +542,13 @@ def make_plan_node(planner: Planner):
                 factors.model_dump(mode="json", exclude={"reason"}),
                 factors.reason,
             )
-        activity = activity.model_copy(
-            update={"evidence_record_ids": [c.evidence_record_id for c in evidence]}
-        )
         plan = CarePlan(
             activity=activity,
-            rationale=explained.rationale,
+            rationale=rationale,
             content_factors=None if factors.is_empty() else factors,
             relaxed=list(relaxed),
             environment_gaps=protocols.environment_gaps(protocol, session.environment),
-            reference_card=reference_card.build_card(
-                state["intake"],
-                protocol,
-                activity,
-                [(c.hit, c.verdict) for c in evidence],
-                delivered=protocols.delivered_media(protocol, session.content_type),
-                relaxed=relaxed,
-            ),
+            reference_card=card,
             search_query=choice.search_query,
             selection=selected.selection,
         )

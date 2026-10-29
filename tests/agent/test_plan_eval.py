@@ -28,7 +28,7 @@ class ScriptedPlanner:
             protocol_id=self.protocol_ids.pop(0), search_query="nature images attention", reason="-"
         )
 
-    async def explain(self, state, choice, protocol, evidence):
+    async def explain(self, state, choice, protocol, evidence, problems=()):
         return PlanRationale.text("추천 이유")
 
 

@@ -8,13 +8,10 @@ LLM Judge로 채점한다. 같은 시나리오를 여러 번 돌린 결과 파�
     .venv/bin/python scripts/rationale_eval.py sheet judged.json --out review.csv    # 사람 확인용
     .venv/bin/python scripts/rationale_eval.py agree judged.json review.csv
 
-- 규칙(코드) — 설명 프롬프트(EXPLAIN_SYSTEM_PROMPT)의 지시 중 글자로 판정되는 것.
-  sentences(2~3문장) · script(글자는 한글 · 라틴 문자뿐 — 2026-10-29 108개 중 3개에
-  아랍 · 데바나가리 문자가 섞였다) · codes(enum · 플래그 · ID를 그대로 쓰지 않는다) ·
-  stats(p · g · SMD 같은 통계값을 쓰지 않는다) · factors(고른 콘텐츠 Factor의 이름을 쓰지
-  않는다 — 화면이 따로 보인다) · experimental('실험적'은 구성이 EXPERIMENTAL이거나 목표 지표
-  등급이 D뿐일 때만) · years(인용한 연도가 근거 목록에 있다) · no_evidence(근거가 없으면
-  찾지 못했다고 밝힌다 — 근거가 있으면 해당 없음).
+- 규칙(코드) — 설명 프롬프트(EXPLAIN_SYSTEM_PROMPT)의 지시 중 글자로 판정되는 것 8개
+  (app/agent/rationale_rules.py — plan 노드가 같은 규칙으로 후검증하고 어기면 한 번 다시
+  묻는다). sentences · script(한글 · 라틴 문자뿐) · codes(enum · ID) · stats · factors(고른
+  콘텐츠 Factor 이름) · experimental · years(인용 연도가 근거 목록에) · no_evidence.
 - Judge(LLM) — 뜻을 읽어야 하는 것. faithful(근거 · 발췌에 없는 연구 · 결과를 말하지
   않는다) · outcomes(개선 지표에 있는 것만 개선으로 말한다) · hedged(효과를 단정하거나
   임상으로 넓히지 않는다) · disclosure(플래그 · 근거 없음을 뜻으로 밝힌다) ·
@@ -34,10 +31,8 @@ import asyncio
 import csv
 import json
 import random
-import re
 import sys
 import time
-import unicodedata
 from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,55 +45,15 @@ from langchain_core.language_models import BaseChatModel  # noqa: E402
 from langchain_core.messages import HumanMessage, SystemMessage  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from app.agent import rationale_rules  # noqa: E402
+from app.agent.rationale_rules import RationaleFacts  # noqa: E402
 from app.config import Settings, get_settings  # noqa: E402
-from app.content import factors as content_factors  # noqa: E402
-from app.schemas.care import CareGoal, ContentType  # noqa: E402
-from app.schemas.evidence import InterventionOrder, Outcome  # noqa: E402
-from app.schemas.protocol import Composition, Grade  # noqa: E402
-from app.schemas.retrieval import Flag  # noqa: E402
 from scripts.plan_trial import Usage  # noqa: E402
 
-CHECKS = (
-    "sentences",
-    "script",
-    "codes",
-    "stats",
-    "factors",
-    "experimental",
-    "years",
-    "no_evidence",
-)
-FACTOR_AXES = (
-    content_factors.SCENERY,
-    content_factors.SOUNDSCAPE,
-    content_factors.ART_SUBJECT,
-    content_factors.MUSIC,
-)
+CHECKS = rationale_rules.CHECKS  # 규칙은 운영 후검증과 같은 것(app/agent/rationale_rules.py)
 ITEMS = ("faithful", "outcomes", "hedged", "disclosure", "personal")
 JUDGE_MODEL = "gpt-5.5"  # 생성(gpt-5.4-mini)과 다른, 더 큰 모델
 JUDGE_EFFORT = "medium"
-
-# 설명 입력에 보이는 enum 값(목표 · 사용자 상태 · 지표 · 플래그 · 구성 · 이미지 제공).
-# 매체(PMR · VR …)는 약어로 문장에 나올 수 있어 넣지 않는다
-CODE_WORDS = frozenset(
-    member.value
-    for enum in (CareGoal, InterventionOrder, Outcome, Flag, Composition, ContentType)
-    for member in enum
-)
-# 경계는 영문 · 숫자로만 본다 — 한글도 단어 문자라 \b는 'ADAPTED_STIMULUS가' ·
-# 'PR-09를'의 끝을 못 잡는다
-_UPPER_WORD = re.compile(r"(?<![A-Za-z0-9_])[A-Z][A-Z0-9_]+(?![A-Za-z0-9_])")
-# 프로토콜 ID · 근거 키(P32-E1 · N26 · E11-E1) · 근거 레코드 번호([54])
-_ID = re.compile(r"(?<![A-Za-z0-9])(?:PR-\d{2}|[PNE]\d{2}(?:-E\d+)?)(?!\d)|\[\d+\]")
-_STATS = re.compile(
-    r"(?<![A-Za-z])(?:p\s*[<=>≤≥]|[gdr]\s*=|SMD(?![A-Za-z])|CI(?![A-Za-z])|[Ft]\s*\(\s*\d)|η"
-)
-_YEAR = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
-# 마침표 뒤 공백에서 나눈다. et al. · 이니셜(J.)에서는 나누지 않는다
-_SENTENCE_END = re.compile(r"(?<=[.!?])(?<!al\.)(?<!\b[A-Z]\.)\s+")
-_NO_EVIDENCE = re.compile(
-    r"(?:근거|연구)[^.!?]{0,20}(?:찾지 못|없|부족)|(?:찾지 못|없)[^.!?]{0,20}(?:근거|연구)"
-)
 _FACTOR_PART = "\n\n## 콘텐츠 Factor"
 
 
@@ -117,6 +72,12 @@ class Case:
     grades: Mapping[str, str]
     badges: tuple[str, ...]
     factors: Mapping[str, Any] | None = None  # 같은 호출이 고른 콘텐츠 Factor
+
+    @property
+    def facts(self) -> RationaleFacts:
+        return RationaleFacts(
+            self.evidence, self.composition, self.grades, self.badges, self.factors
+        )
 
 
 def load_cases(paths: Sequence[Path]) -> list[Case]:
@@ -147,105 +108,13 @@ def load_cases(paths: Sequence[Path]) -> list[Case]:
 
 # --- 규칙(코드) ---------------------------------------------------------------------------------
 
-RuleResult = tuple[bool | None, str]  # (통과 · 실패 · 해당 없음 None, 실패 이유)
-
-
-def sentences(text: str) -> list[str]:
-    return [s for s in _SENTENCE_END.split(text.strip()) if s]
-
-
-def check_sentences(case: Case) -> RuleResult:
-    n = len(sentences(case.rationale))
-    return 2 <= n <= 3, f"{n}문장"
-
-
-def check_script(case: Case) -> RuleResult:
-    """글자는 한글 · 라틴 문자(저자 이름의 ö · é 포함)뿐이다. 숫자 · 부호 · 기호는 보지 않는다."""
-    foreign = [
-        ch
-        for ch in case.rationale
-        if unicodedata.category(ch).startswith("L")
-        and not unicodedata.name(ch, "").startswith(("HANGUL", "LATIN"))
-    ]
-    return not foreign, "".join(dict.fromkeys(foreign))
-
-
-def factor_labels(factors: Mapping[str, Any] | None) -> list[str]:
-    """고른 콘텐츠 Factor 값의 화면 이름(카탈로그 label_ko)."""
-    labels = []
-    for axis in FACTOR_AXES:
-        keys = (factors or {}).get(axis) or []
-        for key in keys if isinstance(keys, list) else [keys]:
-            found = content_factors.value(axis, key)
-            labels.append(found.label_ko if found else key)
-    return labels
-
-
-def check_factors(case: Case) -> RuleResult:
-    found = [label for label in factor_labels(case.factors) if label in case.rationale]
-    return not found, ", ".join(found)
-
-
-def check_codes(case: Case) -> RuleResult:
-    words = [w for w in _UPPER_WORD.findall(case.rationale) if w in CODE_WORDS]
-    found = list(dict.fromkeys(words + _ID.findall(case.rationale)))
-    return not found, ", ".join(found)
-
-
-def check_stats(case: Case) -> RuleResult:
-    found = [m.group(0).strip() for m in _STATS.finditer(case.rationale)]
-    return not found, ", ".join(found)
-
-
-def experimental_allowed(case: Case) -> bool:
-    """'실험적'을 써도 되는가 — 설명 프롬프트의 조건(구성 · 목표 지표 등급)이나 카드 배지."""
-    grades = list(case.grades.values())
-    only_d = bool(grades) and all(g == Grade.D.value for g in grades)
-    return (
-        case.composition == Composition.EXPERIMENTAL.value
-        or "EXPERIMENTAL" in case.badges
-        or only_d
-    )
-
-
-def check_experimental(case: Case) -> RuleResult:
-    if "실험적" not in case.rationale:
-        return True, ""
-    return experimental_allowed(case), f"구성 {case.composition} · 등급 {dict(case.grades)}"
-
-
-def check_years(case: Case) -> RuleResult:
-    cited = {int(y) for y in _YEAR.findall(case.rationale)}
-    known = {e["year"] for e in case.evidence if e.get("year")}
-    unknown = sorted(cited - known)
-    return not unknown, ", ".join(map(str, unknown))
-
-
-def check_no_evidence(case: Case) -> RuleResult:
-    if case.evidence:
-        return None, ""
-    return bool(_NO_EVIDENCE.search(case.rationale)), "근거가 없다는 말이 없다"
-
-
-RULES: dict[str, Callable[[Case], RuleResult]] = {
-    "sentences": check_sentences,
-    "script": check_script,
-    "codes": check_codes,
-    "stats": check_stats,
-    "factors": check_factors,
-    "experimental": check_experimental,
-    "years": check_years,
-    "no_evidence": check_no_evidence,
-}
-
 
 def run_checks(case: Case) -> dict[str, dict[str, Any]]:
-    """규칙마다 {"ok": True · False · None(해당 없음), "detail": 실패 이유}."""
-    out = {}
-    for name, rule in RULES.items():
-        ok, detail = rule(case)
-        out[name] = {"ok": ok, "detail": detail if ok is False else ""}
-    return out
+    """규칙마다 {"ok": True · False · None(해당 없음), "detail": 실패 내용}."""
+    return {
+        name: {"ok": ok, "detail": detail if ok is False else ""}
+        for name, (ok, detail) in rationale_rules.check(case.rationale, case.facts).items()
+    }
 
 
 # --- Judge(LLM) ---------------------------------------------------------------------------------

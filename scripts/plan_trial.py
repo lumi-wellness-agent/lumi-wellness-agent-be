@@ -146,8 +146,8 @@ class ForcedPlanner:
             update={"protocol_id": self.protocol_id, "reason": f"--protocol {self.protocol_id}"}
         )
 
-    async def explain(self, state, choice, protocol, evidence):
-        return await self.inner.explain(state, choice, protocol, evidence)
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        return await self.inner.explain(state, choice, protocol, evidence, problems)
 
 
 def show_content(plan: CarePlan, request: CareRequest) -> None:
@@ -184,9 +184,7 @@ def previous_round(protocol_id: str, goal: CareGoal) -> Round:
         report=SessionReport(completed=True),
         pre=[Measurement(timepoint=Timepoint.PRE, round=0, **sam)],
         post=[Measurement(timepoint=Timepoint.POST, round=1, **sam)],
-        evaluation=OutcomeEvaluation(
-            goal=goal, round=1, deltas={}, improved=False, completed=True
-        ),
+        evaluation=OutcomeEvaluation(goal=goal, round=1, deltas={}, improved=False, completed=True),
         next_step=NextStep.CHANGE_ACTIVITY,
     )
 
@@ -238,9 +236,7 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     cited = activity.evidence_record_ids
     print(f"plan    {activity.protocol_id} {activity.minutes}분 · 근거 {cited}")
     if selection := plan.selection:
-        print(
-            f"order   {selection.method.value} {selection.order} → {selection.position + 1}번째"
-        )
+        print(f"order   {selection.method.value} {selection.order} → {selection.position + 1}번째")
     print(f"        {plan.rationale}")
     if factors := plan.content_factors:
         picked = factors.model_dump(mode="json", exclude={"reason"})
@@ -282,9 +278,7 @@ async def main() -> None:
     parser.add_argument("--no-db", action="store_true", help="근거 DB 없이(검색 0건)")
     parser.add_argument("--content", action="store_true", help="콘텐츠를 실제로 받아 본다")
     parser.add_argument("--protocol", help="활동을 이 프로토콜로 정한다(예: PR-05)")
-    parser.add_argument(
-        "--seed", help="후보 추천 순서의 시드(운영은 세션 ID). 없으면 등급 순"
-    )
+    parser.add_argument("--seed", help="후보 추천 순서의 시드(운영은 세션 ID). 없으면 등급 순")
     args = parser.parse_args()
 
     # 선택 이유·질의(plan 노드 INFO 로그)를 같이 보여 준다

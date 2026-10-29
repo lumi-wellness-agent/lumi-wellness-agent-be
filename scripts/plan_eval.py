@@ -40,6 +40,7 @@ sys.path.insert(0, str(ROOT))
 from langgraph.runtime import Runtime  # noqa: E402
 
 from app import protocols  # noqa: E402
+from app.agent import rationale_rules  # noqa: E402
 from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.nodes.planner import (  # noqa: E402
@@ -66,12 +67,14 @@ CHECKS = ("planned", "first_try", "in_candidates", "relaxed", "constraints", "ch
 
 class CountingPlanner:
     """Planner를 감싸 choose 호출 수와 마지막 선택을 남긴다. 2회면 첫 선택이 거부됐다.
-    explain이 받은 사용자 메시지와 근거도 남긴다 — 추천 이유 채점의 입력이다."""
+    explain도 호출 수(2회면 추천 이유가 글자 규칙을 어겨 다시 물었다)와 마지막 사용자 메시지 ·
+    근거를 남긴다 — 추천 이유 채점의 입력이다."""
 
     def __init__(self, inner: Planner):
         self.inner = inner
         self.calls = 0
         self.last: ActivityChoice | None = None
+        self.explains = 0
         self.explain_input: str | None = None
         self.evidence: list[CitedEvidence] = []
 
@@ -80,24 +83,11 @@ class CountingPlanner:
         self.last = await self.inner.choose(state, candidates, problems)
         return self.last
 
-    async def explain(self, state, choice, protocol, evidence):
-        self.explain_input = build_rationale_input(state, choice, protocol, evidence)
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        self.explains += 1
+        self.explain_input = build_rationale_input(state, choice, protocol, evidence, problems)
         self.evidence = list(evidence)
-        return await self.inner.explain(state, choice, protocol, evidence)
-
-
-def evidence_row(cited: CitedEvidence) -> dict[str, Any]:
-    """설명 호출이 받은 근거 하나 — 추천 이유의 인용(저자 · 연도)과 지표 · 플래그를 대조할 것만."""
-    hit, verdict = cited.hit, cited.verdict
-    return {
-        "id": hit.evidence_record_id,
-        "key": hit.experiment_id or hit.paper.paper_id,
-        "authors": hit.paper.authors,
-        "year": hit.paper.year,
-        "supports_goal": verdict.supports_goal,
-        "outcomes": [o.value for o in verdict.supported_outcomes],
-        "flags": [f.value for f in verdict.flags],
-    }
+        return await self.inner.explain(state, choice, protocol, evidence, problems)
 
 
 def scenario_state(scenario: Scenario) -> dict:
@@ -150,6 +140,7 @@ class PlanRun:
     relaxed: list[str] = field(default_factory=list)
     query: str | None = None
     calls: int = 0  # choose 호출 수
+    explains: int = 0  # explain 호출 수 — 2면 추천 이유가 글자 규칙을 어겨 다시 물었다
     rejected: str | None = None  # PlanRejected 사유
     problems: list[str] = field(default_factory=list)  # 최종 계획을 check_plan에 다시 넣은 결과
     cited: list[str] = field(default_factory=list)  # Reference 카드 근거(experiment_id · paper_id)
@@ -233,9 +224,10 @@ async def plan_once(
         if plan.reference_card:
             run.badges = [b.value for b in plan.reference_card.badges]
     run.calls = counting.calls
+    run.explains = counting.explains
     run.query = counting.last.search_query if counting.last else None
     run.explain_input = counting.explain_input
-    run.evidence = [evidence_row(c) for c in counting.evidence]
+    run.evidence = [rationale_rules.evidence_row(c.hit, c.verdict) for c in counting.evidence]
     run.seconds = time.perf_counter() - started
     if usage:
         run.tokens = (usage.input - before[0], usage.output - before[1])
@@ -264,6 +256,8 @@ def summarize(runs: Sequence[PlanRun]) -> dict[str, Any]:
         ),
         # LLM이 추천 순서 맨 앞을 골랐다 — 건너뛰기는 제약 · 장소 · 꺼린 활동일 때만이다
         "first_in_order": [sum(r.position == 0 for r in planned), len(planned)],
+        # 추천 이유가 글자 규칙(app/agent/rationale_rules.py)을 어겨 설명을 다시 물었다
+        "rewritten": [sum(r.explains > 1 for r in planned), len(planned)],
     }
 
 
@@ -275,10 +269,11 @@ def format_run(run: PlanRun) -> str:
     relaxed = f" · 풀림 {','.join(run.relaxed)}" if run.relaxed else ""
     borrowed = f" (빌림 {', '.join(run.borrowed)})" if run.borrowed else ""
     flags = f"  ✗ {' · '.join(failed)}" if failed else ""
+    rewritten = f" · 설명 {run.explains}회" if run.explains > 1 else ""
     return (
         f"{head:18s} {run.protocol_id} {run.minutes}분 · 후보 {len(run.candidates)}{relaxed}"
         f" · 순서 {'-' if run.position is None else run.position + 1}번째"
-        f" · 선택 {run.calls}회 · 근거 {', '.join(run.cited) or '없음'}{borrowed}"
+        f" · 선택 {run.calls}회{rewritten} · 근거 {', '.join(run.cited) or '없음'}{borrowed}"
         f" · {run.seconds:.1f}s{flags}"
     )
 
@@ -299,6 +294,7 @@ def format_summary(summary: dict[str, Any]) -> str:
         f"{summary['tokens'][0]:,.0f}/{summary['tokens'][1]:,.0f}",
         f"첫 계획에서 고른 활동 {kinds}종: {chosen}",
         f"추천 순서 맨 앞을 고름 {first}/{planned}",
+        f"추천 이유를 다시 씀 {summary['rewritten'][0]}/{summary['rewritten'][1]}",
     ]
     return "\n".join(lines)
 

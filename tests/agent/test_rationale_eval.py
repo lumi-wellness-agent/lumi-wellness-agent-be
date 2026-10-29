@@ -1,13 +1,10 @@
-"""scripts/rationale_eval.py — 추천 이유 규칙(코드) · Judge 집계 · 사람 라벨 일치. 실제
-모델 없이 구조화 출력 대역(tests/agent/fakes.py)으로 돌린다. 실제 Judge는
-`make rationale-eval`로 따로 돌린다.
+"""scripts/rationale_eval.py — 케이스 읽기 · Judge 집계 · 사람 확인 시트 · 일치. 실제 모델 없이
+구조화 출력 대역(tests/agent/fakes.py)으로 돌린다. 실제 Judge는 `make rationale-eval`로 따로
+돌린다. 규칙 하나하나는 tests/agent/test_rationale_rules.py가 본다.
 """
 
 import asyncio
 import json
-import unicodedata
-
-import pytest
 
 from scripts import rationale_eval
 from scripts.rationale_eval import ItemJudgment, RationaleJudgment
@@ -81,99 +78,6 @@ def test_a_clean_rationale_passes_every_rule():
         "years": True,
         "no_evidence": None,  # 근거가 있으면 해당 없음
     }
-
-
-@pytest.mark.parametrize(
-    "text, foreign",
-    [
-        ("깊고 천천히 호흡하는 완화 अभ्यास도 같은 지표를 다뤘습니다.", "अभ्यास"),
-        ("반복 생각에서 잠시 فاص하는 데 맞습니다.", "فاص"),
-        ("(محمد Khir et al., 2024)", "محمد"),
-    ],
-)
-def test_script_catches_letters_outside_hangul_and_latin(text, foreign):
-    """2026-10-29 plan eval 108개에서 실제로 나온 문장들."""
-    ok, detail = rationale_eval.check_script(case(text))
-    letters = {ch for ch in foreign if unicodedata.category(ch).startswith("L")}  # 모음 부호 빼고
-    assert ok is False and set(detail) == letters
-
-
-def test_script_allows_accented_author_names_and_symbols():
-    text = "Bolzenkötter, Neubauer & Koval(2025)은 반추가 줄었다고 봤어요 — 불안·스트레스 ↓."
-    assert rationale_eval.check_script(case(text))[0] is True
-
-
-def test_factors_catch_the_chosen_content_in_the_rationale():
-    forest = rationale_eval.factor_labels({"scenery": ["forest"]})[0]
-    chosen = {"scenery": ["forest", "sea"], "soundscape": None}
-    text = f"큐레이션 사진에서 {forest} 한 장을 고르면 도움이 돼요. 지금 해 보세요."
-    ok, detail = rationale_eval.check_factors(case(text, factors=chosen))
-    assert ok is False and detail == forest
-    assert rationale_eval.check_factors(case(GOOD, factors=chosen))[0] is True
-    assert rationale_eval.check_factors(case(text))[0] is True  # 고른 Factor가 없다
-
-
-@pytest.mark.parametrize(
-    "text, leaked",
-    [
-        ("ADAPTED_STIMULUS가 있어 효과가 다를 수 있어요.", "ADAPTED_STIMULUS"),
-        ("POST_FATIGUE 상태라서 골랐어요.", "POST_FATIGUE"),
-        ("S1 목표에 맞춰 골랐어요.", "S1"),
-        ("PR-09를 골랐어요.", "PR-09"),
-        ("P32-E1 연구에서 줄었어요.", "P32-E1"),
-        ("[54] 근거에 따르면 줄었어요.", "[54]"),
-    ],
-)
-def test_codes_catch_enum_names_and_ids_even_before_a_korean_particle(text, leaked):
-    ok, detail = rationale_eval.check_codes(case(text))
-    assert ok is False and leaked in detail
-
-
-def test_codes_allow_author_names_and_measure_names():
-    ok, _ = rationale_eval.check_codes(case("Berman 등(2008)의 연구에서 STAI 점수가 줄었어요."))
-    assert ok
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "p < .05로 유의했어요.",
-        "효과 크기 g = 0.4였어요.",
-        "SMD로 보면 줄었어요.",
-        "(95% CI 0.2–0.6)",
-    ],
-)
-def test_stats_catch_statistics(text):
-    assert rationale_eval.check_stats(case(text))[0] is False
-
-
-def test_experimental_needs_the_composition_d_only_grades_or_the_card_badge():
-    text = "실험적인 구성이라 효과는 더 지켜봐야 해요."
-    assert rationale_eval.check_experimental(case(text))[0] is False  # SINGLE · 반추 B
-    assert rationale_eval.check_experimental(case(text, composition="EXPERIMENTAL"))[0] is True
-    assert rationale_eval.check_experimental(case(text, grades={"RUMINATION": "D"}))[0] is True
-    assert rationale_eval.check_experimental(case(text, badges=["EXPERIMENTAL"]))[0] is True
-
-
-def test_cited_years_must_come_from_the_evidence():
-    assert rationale_eval.check_years(case(GOOD))[0] is True
-    ok, detail = rationale_eval.check_years(case("Kaplan(1995)에 따르면 주의가 회복돼요."))
-    assert ok is False and detail == "1995"
-    assert rationale_eval.check_years(case(GOOD, evidence=()))[0] is False  # 근거 없이 인용
-
-
-def test_an_empty_card_needs_an_honest_sentence():
-    honest = "지금 상황에 맞춰 컬러링을 골랐어요. 다만 이 조건에 맞는 연구 근거는 찾지 못했어요."
-    assert rationale_eval.check_no_evidence(case(honest, evidence=()))[0] is True
-    silent = "컬러링으로 마음을 가라앉혀 보세요. 도움이 될 거예요."
-    assert rationale_eval.check_no_evidence(case(silent, evidence=()))[0] is False
-
-
-def test_sentences_do_not_split_at_et_al():
-    text = "Berman et al. (2008)에서 줄었어요. 지금 해 보세요. 천천히 하면 돼요. 끝까지 해 보세요."
-    assert len(rationale_eval.sentences(text)) == 4
-    assert rationale_eval.check_sentences(case(text))[0] is False
-    assert rationale_eval.check_sentences(case(GOOD))[0] is True
 
 
 def test_the_judge_sees_the_explainer_input_without_the_factor_menu():

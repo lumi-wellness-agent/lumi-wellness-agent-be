@@ -127,6 +127,68 @@ def test_explainer_says_when_nothing_was_verified():
     assert "검증을 통과한 근거가 없다" in model.inputs[0][1].content
 
 
+S2_STATE = {
+    "request": CareRequest(text="발표 앞두고 긴장돼요"),
+    "intake": IntakeResult(
+        goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+    ),
+}
+
+
+def test_explainer_lists_what_the_rationale_must_disclose():
+    # 반대 결과가 있는 근거 + AI 이미지 — 카드의 CONFLICTING_EVIDENCE · AI_IMAGE_UNVERIFIED와 같다
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    evidence = [cited(102, [Medium.AI_IMAGE, Medium.MINDFULNESS])]
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocol, evidence))
+    text = model.inputs[0][1].content
+    assert (
+        "## 꼭 밝힐 것\n"
+        "- 같은 방식의 연구 중에는 효과가 없거나 반대인 결과도 있습니다.\n"
+        "- AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다."
+    ) in text
+    assert "- 이미지 제공: AI 생성 이미지" in text  # 이미지를 쓰는 활동
+
+
+def test_explainer_discloses_a_script_the_activity_adapted_without_an_image_line():
+    # PR-06은 대본을 LUMI에 맞게 바꿨다(user_facing_flags) — 근거 플래그가 없어도 카드에 배지가 있다
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    choice = ActivityChoice(protocol_id="PR-06", search_query="breathing stress", reason="-")
+    asyncio.run(make_explainer(model)(S2_STATE, choice, protocols.get_protocol("PR-06"), []))
+    text = model.inputs[0][1].content
+    assert (
+        "## 꼭 밝힐 것\n"
+        "- 이 활동에 맞는 검증된 연구 근거는 아직 찾지 못했습니다.\n"
+        "- 연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다."
+    ) in text
+    assert "이미지 제공" not in text  # 호흡은 이미지를 쓰지 않는다
+
+
+def test_explainer_leaves_out_unsupported_evidence_when_supported_exists():
+    media = [Medium.AI_IMAGE, Medium.MINDFULNESS]
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"), PlanRationale.text("-"))
+    explain = make_explainer(model)
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(explain(S1_STATE, CHOICE, protocol, [cited(102, media), cited(112, media)]))
+    text = model.inputs[0][1].content
+    assert "## 검증된 근거 (1건)" in text and "[102]" in text and "[112]" not in text
+    # 지지하는 근거가 없으면 있는 것을 다 싣고, 좋아진 결과가 없다는 것을 밝힐 것에 넣는다
+    asyncio.run(explain(S1_STATE, CHOICE, protocol, [cited(112, media)]))
+    text = model.inputs[1][1].content
+    assert "[112]" in text and "목표 지지: 아니오" in text
+    assert "- 검증된 연구는 있지만 이 목표가 좋아졌다는 결과는 없습니다." in text
+
+
+def test_explainer_adds_the_problems_of_the_previous_rationale():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    problems = ["코드 · ID(PR-21)를 그대로 썼다 — 뜻으로 풀어 쓴다"]
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocol, [], problems))
+    text = model.inputs[0][1].content
+    section = "## 직전 추천 이유의 문제\n- 코드 · ID(PR-21)를 그대로 썼다 — 뜻으로 풀어 쓴다"
+    assert section in text and text.index(section) < text.index("## 콘텐츠 Factor")
+
+
 def test_explainer_offers_only_the_factor_slots_of_the_chosen_activity():
     model = fakes.FakeStructuredModel(PlanRationale.text("-"), PlanRationale.text("-"))
     explain = make_explainer(model)

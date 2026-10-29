@@ -48,29 +48,33 @@ STATE = {"request": REQUEST, "intake": INTAKE}
 
 
 class RecordingPlanner:
-    """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다."""
+    """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다. rationale에 여럿을 주면
+    explain마다 차례로 내고 마지막 것을 되풀이한다."""
 
     def __init__(
         self,
         *choices: ActivityChoice,
-        rationale: str = "추천 이유",
+        rationale: str | list[str] = "추천 이유",
         factors: ContentFactors | None = None,
     ):
         self.choices = list(choices)
-        self.rationale = rationale
+        self.rationales = [rationale] if isinstance(rationale, str) else list(rationale)
         self.factors = factors or ContentFactors.none()
         self.chosen: list[tuple[list[str], list[str]]] = []  # (후보 ID, 거부 사유)
         self.explained: list[tuple[str, str, list[int]]] = []  # (프로토콜, 이유, 인용 근거)
+        self.rejections: list[list[str]] = []  # explain마다 받은 직전 추천 이유의 문제
 
     async def choose(self, state, candidates, problems):
         self.chosen.append(([c["protocol_id"] for c in candidates], list(problems)))
         return self.choices.pop(0)
 
-    async def explain(self, state, choice, protocol, evidence):
+    async def explain(self, state, choice, protocol, evidence, problems=()):
         self.explained.append(
             (protocol.protocol_id, choice.reason, [c.evidence_record_id for c in evidence])
         )
-        return PlanRationale(rationale=self.rationale, content_factors=self.factors)
+        self.rejections.append(list(problems))
+        text = self.rationales.pop(0) if len(self.rationales) > 1 else self.rationales[0]
+        return PlanRationale(rationale=text, content_factors=self.factors)
 
 
 def choice(protocol_id: str, query: str = "nature images rumination") -> ActivityChoice:
@@ -172,11 +176,41 @@ def test_pipeline_recovers_when_the_second_choice_is_valid(fake_backends):
     assert plan.activity.evidence_record_ids == []  # fixture에 MINDFULNESS 근거가 없다
 
 
+NO_EVIDENCE_RATIONALE = (
+    "같은 생각이 계속 돌아 잠시 주의를 옮길 활동을 골랐어요. 다만 이 활동에 맞는 검증된 연구 "
+    "근거는 찾지 못했어요."
+)
+
+
 def test_pipeline_without_db_plans_without_evidence():
-    planner = RecordingPlanner(choice("PR-21"))
+    planner = RecordingPlanner(choice("PR-21"), rationale=NO_EVIDENCE_RATIONALE)
     plan = run_plan(planner)  # 풀이 없으면 검색이 0건이라 검증을 부르지 않는다
     assert plan.activity.evidence_record_ids == []
-    assert planner.explained == [("PR-21", "-", [])]
+    assert planner.explained == [("PR-21", "-", [])]  # 근거 없음을 밝혀 다시 묻지 않는다
+
+
+def test_a_rationale_that_breaks_a_rule_is_asked_once_more_with_the_problems(fake_backends):
+    # 2026-10-29 plan eval에서 실제로 나온 꼴 — 한국어 문장에 다른 문자가 섞였다
+    broken = "같은 생각이 계속 돌아 잠시 فاص하는 활동을 골랐어요. 연구에서 반추가 줄었어요."
+    fixed = "같은 생각이 계속 돌아 잠시 주의를 옮길 활동을 골랐어요. 연구에서 반추가 줄었어요."
+    planner = RecordingPlanner(choice("PR-21"), rationale=[broken, fixed])
+
+    plan = run_plan(planner)
+
+    assert plan.rationale == fixed
+    assert len(planner.explained) == 2
+    assert planner.rejections[0] == []
+    assert any("فاص" in p for p in planner.rejections[1])  # 두 번째 호출이 사유를 받았다
+
+
+def test_a_rationale_that_still_breaks_a_rule_is_kept_after_one_retry(fake_backends):
+    broken = "PR-21을 골랐어요. 연구에서 반추가 줄었어요."  # 활동 ID를 그대로 썼다
+    planner = RecordingPlanner(choice("PR-21"), rationale=broken)
+
+    plan = run_plan(planner)
+
+    assert plan.rationale == broken  # 문장 때문에 계획을 막지 않는다
+    assert len(planner.explained) == 2
 
 
 S3_STATE = {

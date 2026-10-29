@@ -87,7 +87,7 @@ graph TD;
 | `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
-| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다. 검증한 근거로 Reference 카드를 만든다(코드, 「Reference 카드」) | `nodes/planner.py` |
+| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다. 검증한 근거로 Reference 카드를 만든다(코드, 「Reference 카드」). 추천 이유가 꼭 밝힐 한계(근거 없음 · 반대 결과 · 자극 변형 · AI 이미지 — 카드 배지와 같은 판정)는 코드가 정해 설명 입력에 싣고, 추천 이유는 글자 규칙(`rationale_rules.py` — 다른 문자 · ID · 통계값 · Factor 이름 · 근거 밖 연도 …)으로 후검증해 어기면 사유를 붙여 한 번 다시 묻는다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계 · 안내 문구 · 실행 명세(`content_spec`)와 자산(사진 · 영상 · 음원 · 컬러링 도안)으로 `ActivityContent`를 준비한다(음성 합성은 예정) | `nodes/executor.py` |
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
@@ -627,9 +627,12 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 
 | 층 | 항목 | 판정 |
 | --- | --- | --- |
-| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장, 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
+| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장(한계를 밝히는 '다만' 문장이 있으면 4문장), 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
 | Judge(LLM, `judge`) | faithful · outcomes · hedged · disclosure · personal | 뜻을 읽어야 하는 것 — 근거 · 발췌에 없는 연구 · 결과를 말하지 않음, 개선 지표에 있는 것만 개선으로 말함(정서 결과를 스트레스 감소로 바꾸지 않음), 효과를 단정하거나 임상으로 넓히지 않음, 플래그 · 근거 없음을 뜻으로 밝힘, 사용자 상태 → 고른 이유 → 근거 |
 
+- 규칙은 `app/agent/rationale_rules.py`에 있고 운영 plan 노드도 같은 규칙으로 추천 이유를 후검증합니다 — 어기면
+  사유를 붙여 설명을 한 번 다시 묻고(문장 수는 보기 문제라 다시 묻지 않습니다), 그래도 어기면 두 번째 것을 씁니다.
+  plan-eval 요약의 「추천 이유를 다시 씀」이 그 횟수입니다.
 - Judge는 생성 모델(`LLM_MODEL`, gpt-5.4-mini)과 다른 모델(기본 gpt-5.5, 추론 medium)입니다 — 같은 모델은 자기
   글에 후합니다. 입력은 설명 호출이 본 사용자 메시지 그대로이고(콘텐츠 Factor 칸만 뺍니다), 항목마다 PASS · FAIL
   (disclosure만 NA)과 문제 구절 · 이유를 냅니다. 규칙을 분명히 어겼을 때만 FAIL입니다.
@@ -661,6 +664,28 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - Judge 기준은 첫 채점(36개)을 읽고 두 곳을 고쳤다 — '개선 지표' 칸도 뒷받침으로 본다(발췌가 방법 부분인
   근거가 있다), 사용자 상태의 '이미지 제공' 줄만으로 공개를 요구하지 않는다(호흡 · 이완처럼 이미지를 쓰지 않는
   활동). Judge 비용은 36개에 토큰 87k/25k였다.
+
+2026-10-29 수정 후(같은 조건 — 가중 추첨 `--seed plan-eval` · 계획 36개 · Judge gpt-5.5). plan 노드가 추천 이유를
+글자 규칙으로 후검증하고(어기면 사유를 붙여 1회 재질의), 꼭 밝힐 한계를 코드가 정해 설명 입력에 싣고
+(`prompts.must_disclose` — 카드 배지와 같은 판정), 지지 근거가 있으면 지지하지 않는 근거를 설명 입력에서 뺍니다:
+
+| | 기준선 | 수정 후 |
+| --- | --- | --- |
+| 규칙 — factors | 34/36 | 36/36 |
+| 규칙 — 나머지(문장 수 · 다른 문자 · ID · 통계값 · 연도 · '실험적') | 36/36 | 36/36 |
+| Judge — faithful · outcomes | 34 · 31 | 34 · 34 |
+| disclosure(근거 플래그와 문장 대조) | 3/16 | 15/16 |
+| 카드 자극 변형 배지와 일치(PR-06 · PR-07) | 0/4 | 4/4 |
+| 전부 통과 | 19/36 | 33/36 |
+| 추천 이유를 다시 씀(후검증 재질의) | — | 0/36 |
+
+- 문장 수는 2~3문장, 한계를 밝히는 '다만 …' 문장이 있으면 4문장까지로 했다 — 꼭 밝힐 것을 넣으면 36개 중 7개가
+  4문장(상태 → 이유 → 근거 → 한계)이 됐다.
+- 첫 수정은 꼭 밝힐 것을 평서체 · 괄호 문구로 실어 "…좋아졌습니다. 제공 콘텐츠가 연구에서 쓴 자극과 다르다(LUMI에
+  맞게 바꿨다)"처럼 그대로 붙은 문장이 나왔다(Judge 항목에 문체가 없어 숫자로는 잡히지 않았다). 합니다체 문장으로
+  바꾸고 '다만 …' 한 문장에 모으게 했다.
+- 남은 실패 — 정서 결과만 있는 Chen 2025를 불안 · 스트레스 개선의 근거로 인용(2), 자극 변형을 밝히지 않음(1).
+  후검증 재질의는 이번 36개에서 일어나지 않았다(다른 문자 섞임은 108개 중 3개꼴이라 드물다 — 동작은 테스트로 본다).
 
 ## 배포 (Vercel)
 
@@ -777,6 +802,7 @@ app/
 │  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
+│  ├─ rationale_rules.py 추천 이유 글자 규칙 — plan 후검증(어기면 1회 재질의)과 추천 이유 평가가 같이 쓴다
 │  └─ reference_card.py Reference 카드 — 검증한 근거 · 프로토콜 · intake로 만든다(LLM 없음)
 ├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 · 콘텐츠 Factor 카탈로그 (Executor가 쓴다)
 ├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공

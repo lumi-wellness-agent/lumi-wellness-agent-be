@@ -162,7 +162,7 @@ class FakePlanner:
         protocol_id = self.plans.pop(0).activity.protocol_id
         return ActivityChoice(protocol_id=protocol_id, search_query="-", reason="-")
 
-    async def explain(self, state, choice, protocol, evidence):
+    async def explain(self, state, choice, protocol, evidence, problems=()):
         return PlanRationale.text("-")
 
 
