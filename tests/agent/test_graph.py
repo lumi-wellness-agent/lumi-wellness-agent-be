@@ -715,3 +715,28 @@ def test_routes():
     # S3의 MFVAS는 라운드마다 재므로 종료에 다시 묻지 않는다
     s3 = {"intake": IntakeResult(goal=CareGoal.S3), "next_step": NextStep.END}
     assert route_after_confirm(s3) == END
+
+
+def test_goal_mismatch_after_inference_asks_current_state_then_reinfers():
+    # "곧 시험인데 머리가 안 돌아가요" — ①은 엇갈림을 못 잡았고 추론은 S3, 상황(시험 전)은 S2 쪽
+    intaker = FakeIntaker(
+        reading(
+            order_condition=InterventionOrder.PRE_STRESS,
+            setting=Setting.HOME,
+            earphones=True,
+            minutes=10,
+        ),
+        goal=inference(CareGoal.S3),
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    out = run(graph, {"request": CareRequest(text="곧 시험인데 머리가 안 돌아가요")})
+    q = out["__interrupt__"][0].value
+    assert q["slot"] == "state_followup" and q["text"] == "지금은 어느 쪽에 더 가까워요?"
+    assert intaker.goal_calls == 1
+
+    out = run(graph, answer(q["question_id"], goal_hint=["S2"]))  # 긴장되거나 예민해요
+    while "measure" not in out["__interrupt__"][0].value:  # 남은 환경 질문은 건너뛴다
+        out = run(graph, answer(out["__interrupt__"][0].value["question_id"]))
+    intake = out["intake"]
+    assert intake.goal is CareGoal.S2 and intake.secondary_goal is CareGoal.S3
+    assert intaker.goal_calls == 2  # 답을 받아 다시 정했다 — 다시 묻지는 않는다

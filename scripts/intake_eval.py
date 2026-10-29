@@ -153,7 +153,10 @@ def judge_scenario(scenario: Scenario, obs: Observation) -> Verdict:
     if scenario.id in MISMATCH:
         checks["asked_followup"] = FOLLOWUP in obs.would_ask
     else:
-        checks["goal"] = obs.goal == scenario.goal.value
+        # 상황을 모르는 시나리오(*-unknown-*)에서 단서가 없다고 보고 무작위로 시작한 것(DEFAULT)은
+        # 정책대로다(10-29 결정, 전에는 S2 고정이라 라벨이 S2였다)
+        no_cue_ok = "-unknown-" in scenario.id and obs.goal_source == "DEFAULT"
+        checks["goal"] = obs.goal == scenario.goal.value or no_cue_ok
         checks["no_needless_followup"] = FOLLOWUP not in obs.would_ask
     # 상태 읽기는 따로 집계한다 — 통과 여부는 목표 쪽(되묻기 · 목표)과 안전으로만
     passed = all(v for k, v in checks.items() if k != "state")

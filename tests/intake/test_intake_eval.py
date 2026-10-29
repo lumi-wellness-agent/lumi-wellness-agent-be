@@ -123,3 +123,24 @@ def test_summary_counts_misses_and_false_alarms():
         rows, summary, {"date": "-", "models": "fake", "repeat": 2, "seconds": 0}
     )
     assert "안전 신호 놓침" in report and "S2-pre-a" in report
+
+
+def test_unknown_scenario_accepts_random_default_goal():
+    s = SCENARIOS["S2-unknown-b"]  # 마음이 무겁고 불편해요 — 단서가 없으면 무작위로 시작한다
+    no_cues = ScriptedIntaker(reading())
+    no_cues.infer_goal = _no_cues
+    obs = asyncio.run(intake_eval.observe(no_cues, "-"))
+    assert obs.goal_source == "DEFAULT"
+    assert intake_eval.judge_scenario(s, obs).checks["goal"]
+
+
+async def _no_cues(request, intake):
+    return GoalInference(has_cues=False, goal=CareGoal.S2, secondary_goal=None, reason="-")
+
+
+def test_mismatch_found_by_code_after_goal_inference():
+    # ① 읽기가 칸을 비워도 추론한 목표(S3)가 상황(시험 전 → S2)과 엇갈리면 되묻는다
+    s = SCENARIOS["S3-pre-a"]
+    obs = observe(reading(order_condition=InterventionOrder.PRE_STRESS), goal=CareGoal.S3)
+    assert intake_eval.FOLLOWUP in obs.would_ask
+    assert intake_eval.judge_scenario(s, obs).passed

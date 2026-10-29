@@ -344,6 +344,36 @@ def mismatch_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Int
     """
     if not reading.symptom_mismatch or reading.order_condition is None:
         return None
+    return _current_state_question(turns)
+
+
+# 상황이 가리키는 목표 — 사건 전·후는 긴장(S2), 오래 집중한 뒤는 피로(S3). 계기 없음 · 미상은 없다
+ORDER_GOAL: dict[InterventionOrder, CareGoal] = {
+    InterventionOrder.PRE_STRESS: CareGoal.S2,
+    InterventionOrder.POST_STRESS: CareGoal.S2,
+    InterventionOrder.POST_FATIGUE: CareGoal.S3,
+}
+
+
+def goal_mismatch_question(
+    intake: IntakeResult, turns: Sequence[IntakeTurn]
+) -> IntakeQuestion | None:
+    """목표 추론 뒤 코드로 한 번 더 — 추론한 목표(S2 · S3)가 상황이 가리키는 목표와 다르면 지금
+    상태를 묻는다. ① 읽기의 symptom_mismatch만으로는 절반쯤 놓쳤다(2026-10-29 intake 평가: LLM은
+    "앞둔 사건이 있지만 집중 저하라 S3"라고 적고도 칸을 비웠다). 반복 생각(S1) · 재질문 답 · 칩 ·
+    기본값은 건드리지 않는다.
+    """
+    if intake.goal_source is not GoalSource.INFERRED or intake.goal_hint:
+        return None
+    if intake.goal not in (CareGoal.S2, CareGoal.S3) or intake.order_condition is None:
+        return None
+    implied = ORDER_GOAL.get(intake.order_condition)
+    if implied is None or implied is intake.goal:
+        return None
+    return _current_state_question(turns)
+
+
+def _current_state_question(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
     if _state_turns(turns) or len(counted(turns)) >= MAX_TURNS:
         return None
     turn = len(counted(turns)) + 1
@@ -558,6 +588,10 @@ DEFAULT_CHOICES = (CareGoal.S1, CareGoal.S2, CareGoal.S3)
 _default_rng = random.Random()
 
 
+# 판단 이유에 남기지 않는 진단명(사용자가 말했어도)
+DIAGNOSIS_WORDS = ("우울증", "불안장애", "공황장애", "ADHD", "장애", "질환")
+
+
 def default_goal(rng: random.Random | None = None) -> CareGoal:
     return (rng or _default_rng).choice(DEFAULT_CHOICES)
 
@@ -594,6 +628,10 @@ def apply_goal(
         if len(intake.goal_hint) == 1 and intake.goal_hint[0] is not goal:
             goal, secondary = intake.goal_hint[0], goal
             reason = "재질문에서 고른 지금 상태를 따랐다"
+        # 사용자가 말한 진단명을 판단 이유에 옮겨 쓰면 진단처럼 읽힌다 — 프롬프트로 막아도 남았다
+        # (2026-10-29 intake 평가)
+        if any(word in reason for word in DIAGNOSIS_WORDS):
+            reason = "사용자가 말한 지금 상태 표현이 이 목표의 단서에 맞았다"
         update = {
             "goal": goal,
             "secondary_goal": secondary if secondary is not goal else None,

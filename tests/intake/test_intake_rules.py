@@ -521,3 +521,34 @@ def test_diagnosis_question_only_restates_without_diagnosing():
     assert "진단은 하지 못해요" in q.text and q.skip_label == SKIP_LABEL
     # 자기 상태도 말했으면(RELEVANT) 상태만 읽고 이어 간다
     assert rules.restate_question(reading(diagnosis_request=True), []) is None
+
+
+def test_goal_mismatch_found_by_code_after_inference():
+    exam = IntakeResult(
+        order_condition=InterventionOrder.PRE_STRESS,
+        goal=CareGoal.S3,
+        goal_source=GoalSource.INFERRED,
+    )
+    q = rules.goal_mismatch_question(exam, [])
+    assert q is not None and q.slot is QuestionSlot.STATE_FOLLOWUP and q.text == rules.MISMATCH_TEXT
+    overtime = exam.model_copy(
+        update={"order_condition": InterventionOrder.POST_FATIGUE, "goal": CareGoal.S2}
+    )
+    assert rules.goal_mismatch_question(overtime, []) is not None
+    # 상황과 같은 쪽 · 반복 생각 · 계기 없음 · 재질문 답 · 기본값 · 이미 물음이면 묻지 않는다
+    same = exam.model_copy(update={"goal": CareGoal.S2})
+    rumination = exam.model_copy(update={"goal": CareGoal.S1})
+    daily = exam.model_copy(update={"order_condition": InterventionOrder.NO_INDUCTION})
+    hinted = exam.model_copy(update={"goal_hint": [CareGoal.S3]})
+    default = exam.model_copy(update={"goal_source": GoalSource.DEFAULT})
+    for intake in (same, rumination, daily, hinted, default):
+        assert rules.goal_mismatch_question(intake, []) is None
+    asked = [turn(QuestionSlot.STATE_FOLLOWUP, 1, answer={})]
+    assert rules.goal_mismatch_question(exam, asked) is None
+
+
+def test_goal_reason_never_repeats_a_diagnosis_name():
+    said = inference(goal=CareGoal.S2, secondary_goal=None, reason="'불안장애인가요'는 긴장 단서")
+    out = rules.apply_goal(IntakeResult(), said, CareRequest(text="…"))
+    assert out.goal is CareGoal.S2
+    assert not any(w in out.goal_reason for w in rules.DIAGNOSIS_WORDS)
