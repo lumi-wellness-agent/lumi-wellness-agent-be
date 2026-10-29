@@ -80,7 +80,7 @@ plan LLM이 고르는 콘텐츠 Factor(풍경 · 자연음 · 작품 주제)의 
 하나를 쓴다. 값 · 검색어를 바꾸면 `tests/content/test_factors.py`(Enum 일치 · 근거 실재 · Pixabay 태그 필터)를
 돌린다. 읽는 곳은 `app/content/factors.py`.
 
-## manifest.csv — 논문 83편 매니페스트
+## manifest.csv — 논문 84편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·
 측정 도구 JSON · fixture의 논문 ID가 실재하는지 여기에 대조한다. 행 하나 = 논문 하나, `rc_id`가 기본 키다.

@@ -387,7 +387,7 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
-4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 83편이 `papers`로, 근거 arm 시트
+4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 84편이 `papers`로, 근거 arm 시트
    65행이 레코드 61개 × chunk 2개(METHODS · RESULTS) = 122행으로 `evidence_records`에 들어갑니다. 먼저
    dry-run으로 건수와 검토 목록(`evidence_review.csv`)을 보고 대상 DB를 적어 넣습니다. 임베딩에
    `OPENAI_API_KEY`가 필요합니다.
@@ -706,7 +706,7 @@ data/
 ├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
-├─ manifest.csv         논문 83편 매니페스트
+├─ manifest.csv         논문 84편 매니페스트
 ├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 ├─ goal_definitions.json intake 개념 정의 S1·S2·S3 — R1 논문 원문 문장(paper_id · 쪽)
 ├─ eval_scenarios.jsonl 평가 시나리오 30개 — 목표 × 사용자 상태 × 문장 · 칩 (검색 질의 수집 · 계획 평가)
