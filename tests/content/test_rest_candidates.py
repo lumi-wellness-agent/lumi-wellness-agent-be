@@ -38,7 +38,7 @@ def test_candidate_lookup_uses_id_hd_and_cached_copy():
     providers._search_cache.clear()
 
 
-def test_pr10_chooses_one_candidate_ignoring_other_scenery(monkeypatch):
+def test_pr10_keeps_fixed_video_across_seeds_and_other_scenery(monkeypatch):
     from app.agent.state import ActivityAsset
 
     calls = []
@@ -63,11 +63,12 @@ def test_pr10_chooses_one_candidate_ignoring_other_scenery(monkeypatch):
             )
             assert len(result.assets) == 1
             selected.add(result.assets[0].url)
-    assert len(selected) == 3
-    assert set(calls) == {165178, 75383, 136620}
+            assert result.assets[0].metadata["selection_mode"] == "FIXED"
+    assert selected == {"https://cdn/165178.mp4"}
+    assert set(calls) == {165178}
 
 
-def test_unavailable_candidates_try_remaining_then_warn(monkeypatch):
+def test_unavailable_fixed_video_warns_without_switching(monkeypatch):
     calls = []
 
     def fail(self, video_id, **kwargs):
@@ -82,6 +83,6 @@ def test_unavailable_candidates_try_remaining_then_warn(monkeypatch):
             get_protocol("PR-10"), CareRequest(text="-"),
             settings=Settings(pixabay_api_key="test"), client=client,
         )
-    assert len(calls) == len(set(calls)) == 3
+    assert calls == [165178]
     assert result.assets == []
     assert result.warnings == ["VISUAL_VIDEO: 숲 영상 후보를 불러오지 못함"]
