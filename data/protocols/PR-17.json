@@ -342,7 +342,7 @@
       "START 안내 guide.max_seconds 15초 실제 음성 길이 검토",
       "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다. 사용성 검토 필요",
       "실행 설계는 이 파일의 B 설계(answer_entry false · 단계마다 음성)로 간다(2026-10-27 결정). C 파트 scratch/pr17의 설계(감각별 짧은 입력 · '모르겠음' 응답 · 시작 음성만 · localStorage 복구)는 참고로만 남긴다",
-      "2026-10-29 사용자 요청: 감각별 예시를 LUMI 작성 보조 문구로 추가. 연구 원문 대본이나 첨부 음성의 전사가 아니다. 첨부 하트 이미지는 미각을 바꾸지 않고 마무리 화면에 사용."
+      "2026-10-29 사용자 요청: 감각별 예시를 LUMI 작성 보조 문구로 추가. 연구 원문 대본이나 첨부 음성의 전사가 아니다. 하트 이미지는 사용자 결정으로 사용하지 않으며, 미각 단계는 FE에서 입 모양으로 표시."
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-17, 근거 arm 1행",
     "reviewed_by": null,
