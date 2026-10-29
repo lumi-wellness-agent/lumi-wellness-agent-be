@@ -35,7 +35,10 @@
   순서에서 처음 나온 차례다 — plan이 서로 다른 레코드 상위 5개를 인용하므로(hybrid.top_records)
   그 차례가 곧 인용 순서다. 2026-10-29 기준선까지는 chunk 순위(그 레코드 chunk 중 가장 좋은
   자리)였다. Foreign@5는 상위 5 레코드 중 그 활동 evidence[] 밖의 비율이다 — Reference 카드에
-  남의 근거가 섞이는 정도다. 낮을수록 좋다. 평균은 문항마다 같은 무게다 — 운영에서 나올 수 있는
+  남의 근거가 섞이는 정도다. 낮을수록 좋다. CP@5는 RAGAS Context Precision@5다 — 상위 5 안의
+  정답 자리마다 그 자리까지의 정밀도(Precision@k)를 평균한다. 정답이 정답 아닌 레코드보다 모두
+  위면 1, 상위 5에 정답이 없으면 0이다. planner는 범위 · 필터를 지난 후보가 거의 정답뿐이라 1에
+  붙고, 순위 자체의 질은 open에서 본다. 평균은 문항마다 같은 무게다 — 운영에서 나올 수 있는
   검색 상황 전체의 평균이고, S2 활동이 많아 S2 상황이 많다.
 - DB는 읽기만 한다. 질의 임베딩에 OPENAI_API_KEY가 든다(없으면 dense가 비고 hybrid는
   keyword만 — 운영과 같다). content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다.
@@ -92,7 +95,11 @@ CHUNK_FETCH = 4 * LIMIT
 GROUPS = ("planner", "fallback")
 VIEWS = ("planner", "fallback", "open")  # open = planner 질의를 필터 · 범위 없이(run --open)
 MODES = ("hybrid", "dense", "keyword")
-METRICS = tuple(f"{name}@{k}" for name in ("hit", "recall") for k in KS) + ("mrr", "foreign@5")
+METRICS = tuple(f"{name}@{k}" for name in ("hit", "recall") for k in KS) + (
+    "mrr",
+    "cp@5",
+    "foreign@5",
+)
 FALLBACK_METRICS = ("found@5", "empty@5")
 
 Group = Literal["planner", "fallback"]
@@ -396,10 +403,19 @@ def mrr(ranks: Mapping[Key, int], relevant: Sequence[Key]) -> float:
     return 0.0 if best is None else 1 / best
 
 
+def context_precision_at(ranks: Mapping[Key, int], relevant: Sequence[Key], k: int = 5) -> float:
+    """RAGAS Context Precision@k — 상위 k 안의 정답 자리마다 그 자리까지의 정밀도(i번째 정답이
+    r위면 i / r)를 평균한다. 정답이 정답 아닌 레코드보다 모두 위면 1, 상위 k에 정답이 없으면 0이다.
+    레코드 순위는 1부터 빈자리 없이 매기므로(record_ranks) r위까지의 레코드 수가 곧 r이다."""
+    hits = sorted(ranks[key] for key in relevant if ranks.get(key, math.inf) <= k)
+    return sum(i / rank for i, rank in enumerate(hits, 1)) / len(hits) if hits else 0.0
+
+
 def metrics(ranks: Mapping[Key, int], relevant: Sequence[Key]) -> dict[str, float]:
     out = {f"hit@{k}": hit_at(ranks, relevant, k) for k in KS}
     out |= {f"recall@{k}": recall_at(ranks, relevant, k) for k in KS}
     out["mrr"] = mrr(ranks, relevant)
+    out["cp@5"] = context_precision_at(ranks, relevant)
     return out
 
 
@@ -915,7 +931,7 @@ def compare(before_path: Path, after_path: Path) -> str:
         )
         for name in names:
             b, a = before["summary"][name], after["summary"][name]
-            # 지표가 없는 쪽(foreign@5 전에 남긴 결과)은 —
+            # 지표가 없는 쪽(foreign@5 · cp@5 전에 남긴 결과)은 —
             cells = (
                 f"{a[m] - b[m]:>+9.3f}" if m in a and m in b else f"{'—':>9s}" for m in columns
             )
