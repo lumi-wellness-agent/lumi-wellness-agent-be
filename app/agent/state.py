@@ -110,6 +110,9 @@ class CarePlan(BaseModel):
     # prepare가 공급자 검색어로 바꾼다(app/content/resolver.py). 사용자 칩(profile)이 있으면 칩이
     # 우선한다. 고를 칸이 없는 활동이거나 LLM이 고르지 않았으면 None
     content_factors: ContentFactors | None = None
+    # 근거 검색 질의(LLM 호출 1의 search_query). '한 번 더'(ADDITIONAL_SESSION)는 활동을 다시 고르지
+    # 않고 이 질의로 근거를 다시 찾는다
+    search_query: str | None = None
 
 
 class ContentStep(BaseModel):
@@ -181,8 +184,11 @@ class OutcomeEvaluation(BaseModel):
 
 class NextStep(StrEnum):
     END = "END"  # 종료
-    CHANGE_ACTIVITY = "CHANGE_ACTIVITY"  # 활동 변경 (같은 목표 · 다른 프로토콜)
-    ADDITIONAL_SESSION = "ADDITIONAL_SESSION"  # 추가 세션
+    # 활동 변경 (같은 목표 · 다른 프로토콜). 바꾸기로 한 활동은 그 세션 내내 후보에서 빠진다
+    CHANGE_ACTIVITY = "CHANGE_ACTIVITY"
+    # 추가 세션 = 같은 활동 한 번 더(FE '한 번 더 할래요'). plan이 활동을 다시 고르지 않고 콘텐츠
+    # Factor만 새로 고른다
+    ADDITIONAL_SESSION = "ADDITIONAL_SESSION"
 
 
 class ReplanProposal(BaseModel):
@@ -212,6 +218,14 @@ class Round(BaseModel):
     next_step: NextStep  # 사용자가 고른 다음 단계
     # 그때 보인 제안(권고 단계 · 선택지). 권고와 선택이 얼마나 맞는지 기록에 남긴다(app/records.py)
     proposal: ReplanProposal | None = None
+
+
+def changed_away(rounds: list[Round]) -> tuple[str, ...]:
+    """이번 세션에서 바꾸기로 한(CHANGE_ACTIVITY) 활동 — 고른 순서대로, 중복 없이."""
+    changed = (
+        r.plan.activity.protocol_id for r in rounds if r.next_step is NextStep.CHANGE_ACTIVITY
+    )
+    return tuple(dict.fromkeys(changed))
 
 
 class CareState(TypedDict):

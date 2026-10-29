@@ -92,8 +92,8 @@ graph TD;
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
 | `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로 10점 이상↓ | `nodes/evaluator.py` |
-| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션 중 하나를 제안하고 고를 수 있는 선택지를 정한다 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 뺀다 (임시 규칙) | `nodes/replanner.py` |
-| `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값) | `nodes/replanner.py` |
+| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션(같은 활동 한 번 더) 중 하나를 제안하고 고를 수 있는 선택지를 정한다 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘 활동이면 추가 세션을 뺀다 (임시 규칙) | `nodes/replanner.py` |
+| `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값). 활동 변경은 바꾸기로 한 활동을 세션 내내 후보에서 빼고, 추가 세션은 활동을 다시 고르지 않고 같은 활동에 콘텐츠만 새로 고른다 | `nodes/replanner.py` |
 | `measure_final` ⏸ | measure (코드) | 종료 경로에서 사전·종료에만 재는 목표 척도(STAI-6 · BSRI) 1회 → 세션 Δ. S3는 라운드마다 재서 건너뛴다 | `nodes/measure.py` |
 
 ⏸는 LangGraph interrupt입니다. 그래프가 멈추고 상태를 체크포인터에 남긴 뒤, 같은 thread_id로
@@ -638,8 +638,9 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 
 - 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-5.4-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
 - Replanning 기준. 지금은 임시 규칙(끝까지 못 함 → 활동 변경, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 →
-  활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 빼고, 권할
-  단계가 선택지에 없으면 종료를 권합니다(`replanner.next_step_options`).
+  활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘
+  활동이면 추가 세션(같은 활동 한 번 더)을 빼고, 권할 단계가 선택지에 없으면 종료를 권합니다
+  (`replanner.next_step_options`).
 - S3의 순간 피로 자가보고 척도. 13편 안에 검증된 도구가 없어 임시 도구 `INS-MFVAS`(정신 피로 VAS 3문항, 팀 작성·미검증)로
   사전·라운드마다 재고, 피로가 10점 이상 줄었는지로 판정합니다(문턱도 임시). 주의 용량은 재지 않습니다(근거의 S3 1차
   지표 ATTENTION은 과제) — 사용자 데이터로 문항 신뢰도와 문턱을 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.

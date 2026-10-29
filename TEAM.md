@@ -31,12 +31,13 @@ intake          ① 상황 읽기(LLM) → State (시점이 불명확하면 질�
 measure_pre ⏸   SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시)
   ↓
 plan            후보(코드) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → CarePlan
-  ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 활동 변경 시 같은 프로토콜 금지), 어기면 1회 재질의
+  ↓             check_plan 후검증(검수 ID · 목표 · 순서 조건 · 시간 · 이번 세션에서 바꾸기로 한 활동 금지), 어기면 1회 재질의
+                한 번 더(추가 세션)는 활동을 다시 고르지 않는다 — 같은 활동 · 질의로 근거 · 추천 이유 · 콘텐츠만 새로
 prepare         프로토콜의 steps · guide → ActivityContent
 run_session ⏸   FE 플레이어 실행 → SessionReport(completed · stopped_reason · notice_words)
 measure_post ⏸  SAM (+ S3는 MFVAS — 라운드 척도)
 evaluate        Δ = 사후 − 사전 (S1 쾌↑ · S2 각성↓ · S3 피로 10점 이상↓)
-replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외)
+replan          종료 · 활동 변경 · 추가 세션 제안 + 선택지 (라운드 ≤ 3, 바꿀 활동이 없으면 변경 제외, 멈춘 활동은 한 번 더 제외)
 confirm ⏸       사용자 선택. 동의하면 plan으로(사전값 = 직전 사후값)
 measure_final ⏸ 종료 경로에서 STAI-6 · BSRI 1회 (라운드마다 잰 S3는 건너뜀)
 ```
@@ -123,7 +124,7 @@ LLM 호출은 구조화 출력 2회다. 테스트(`tests/agent/`)는 fixture(`te
 | 측정 interrupt | `{"measure": "PRE", "round": 0, "instruments": [...]}` ↔ `{"INS-SAM": {"valence": 3, "arousal": 7}, …}` | `app/agent/nodes/measure.py` |
 | `CarePlan` | `activity{protocol_id, minutes, evidence_record_ids}` + `rationale` | `app/agent/state.py` |
 | `CareProtocol` | 활동 노드 JSON 전체. 코드가 읽는 필드만 형 고정, 나머지 블록은 자유 | `app/schemas/protocol.py` |
-| 후보 프로토콜 | `protocols.plan_candidates()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 직전에 바꾸기로 한 활동 제외 | `app/protocols.py` |
+| 후보 프로토콜 | `protocols.plan_candidates()` → `compact()` 목록. 목표 · 상태 · 시간 · 환경으로 거르고(없으면 상태 → 환경 순으로 푼다) 주 목표 · 목표 1차 지표 등급 순, 단계 모듈과 이번 세션에서 바꾸기로 한 활동 제외 | `app/protocols.py` |
 | `EvidenceHit` · `EvidenceVerdict` | search · validate 도구 출력 | `app/schemas/retrieval.py` |
 | 세션 종료 | `final`(목표 척도). intake는 ① 상황 읽기(LLM)가 처음 입력이나 글 답에서 안전 신호를 볼 때만 닫는다(`ended = SAFETY`). 목표 단서가 없거나 되묻기에서 '그냥 시작할게요'면 S2(`goal_source = DEFAULT`) | `app/agent/state.py` |
 
