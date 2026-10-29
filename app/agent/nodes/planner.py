@@ -19,9 +19,13 @@ LLM이 실제로 판단하는 것은 둘뿐이다 — 후보 중 어느 활동�
 minutes가 남는다.
 
 LLM의 선택은 그대로 믿지 않는다. 후보 목록에 있는지와 check_plan(검수 ID · 단계 모듈 · 목표 ·
-순서 · 시간 · 환경 · 활동 변경 시 같은 프로토콜 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번 다시
-묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
+순서 · 시간 · 환경 · 이번 세션에서 바꾸기로 한 활동 금지)을 확인하고, 어기면 거부 사유를 붙여 한 번
+다시 묻는다. 그래도 어기면 PlanRejected다. 근거는 활동을 막지 않는다 — 검증을 통과한 것만
 evidence_record_ids에 남기고, 없으면 비운 채 계획한다.
+
+직전 라운드에서 '한 번 더'(ADDITIONAL_SESSION)를 골랐으면 활동을 다시 고르지 않는다. 직전 계획의
+활동 · 시간 · 푼 조건 · 검색 질의를 그대로 쓰고(LLM 호출 1 없음), 근거 검색 · 검증 · 설명만 다시
+돈다 — 설명이 지난 라운드와 다른 콘텐츠 Factor를 고른다.
 
 모델 조립은 app/agent/assembly.py(OpenAI 1순위 · Anthropic 폴백 → LlmPlanner). 테스트는 Planner
 대역을 넣는다(tests/agent/test_graph.py FakePlanner).
@@ -47,7 +51,7 @@ from app.agent.prompts import (
     build_choice_input,
     build_rationale_input,
 )
-from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity
+from app.agent.state import CarePlan, CareState, NextStep, PlannedActivity, changed_away
 from app.content import factors as content_factors
 from app.retrieval import hybrid
 from app.schemas.content import ContentFactors
@@ -131,8 +135,8 @@ def check_plan(
 ) -> list[str]:
     """활동 후검증. 어긴 규칙을 돌려준다 (비어 있으면 통과).
 
-    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 환경 · 활동 변경 시 같은
-    프로토콜 금지. 후보 조회(protocols.plan_candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을
+    검수 ID · 단계 모듈 제외 · 목표 일치 · 순서 조건 · 시간 범위 · 환경 · 이번 세션에서 바꾸기로
+    한 활동 금지. 후보 조회(protocols.plan_candidates)가 같은 조건으로 거르지만, LLM이 목록 밖을
     고를 수 있어 따로 둔다. 후보 조회가 푼 조건(relaxed — order · environment)은 여기서도 보지
     않는다.
     """
@@ -158,25 +162,26 @@ def check_plan(
         problems.append(f"활동 시간 {activity.minutes}분이 최대 {duration.max}분보다 길다")
     if "minutes" not in relaxed and intake.minutes and activity.minutes > intake.minutes:
         problems.append(f"활동 시간 {activity.minutes}분이 가용 시간 {intake.minutes}분을 넘는다")
-    rounds = state.get("rounds") or []
-    if (
-        rounds
-        and rounds[-1].next_step is NextStep.CHANGE_ACTIVITY
-        and rounds[-1].plan.activity.protocol_id == activity.protocol_id
-    ):
-        problems.append("활동 변경을 골랐는데 같은 프로토콜을 다시 넣었다")
+    if activity.protocol_id in excluded_protocols(state):
+        problems.append(f"{activity.protocol_id}는 이번 세션에서 바꾸기로 한 활동이다")
     return problems
 
 
 def excluded_protocols(state: CareState) -> tuple[str, ...]:
-    """이번 라운드에 내놓지 않을 프로토콜 — 직전 라운드에서 바꾸기로 한 활동.
+    """이번 라운드에 내놓지 않을 프로토콜 — 이번 세션에서 바꾸기로 한 활동 전부.
 
-    check_plan의 '활동 변경 시 같은 프로토콜 금지'와 같은 규칙이다.
+    직전 라운드 것만 빼면 활동 변경을 두 번 고른 3라운드에 1라운드 활동이 다시 후보 1순위로
+    돌아온다. check_plan의 '이번 세션에서 바꾸기로 한 활동 금지'와 같은 규칙이다.
     """
+    return changed_away(state.get("rounds") or [])
+
+
+def repeated_plan(state: CareState) -> CarePlan | None:
+    """직전 라운드에서 '한 번 더'(ADDITIONAL_SESSION)를 골랐으면 그 라운드의 계획."""
     rounds = state.get("rounds") or []
-    if rounds and rounds[-1].next_step is NextStep.CHANGE_ACTIVITY:
-        return (rounds[-1].plan.activity.protocol_id,)
-    return ()
+    if rounds and rounds[-1].next_step is NextStep.ADDITIONAL_SESSION:
+        return rounds[-1].plan
+    return None
 
 
 def planner_context(context: AgentContext | None, state: CareState) -> PlannerContext:
@@ -336,6 +341,66 @@ class LlmPlanner:
         return await self._explain(state, choice, protocol, evidence)
 
 
+REPEAT_REASON = "사용자가 같은 활동을 한 번 더 하기로 했다"
+
+Selected = tuple[CareProtocol, ActivityChoice, PlannedActivity, tuple[str, ...]]
+
+
+async def choose_activity(planner: Planner, state: CareState, session: PlannerContext) -> Selected:
+    """후보(코드) → 선택(LLM 호출 1) → 후검증(check_plan). 어기면 거부 사유를 붙여 한 번 더 묻는다.
+
+    (프로토콜, 선택, 활동, 후보 조회가 푼 조건)을 돌려준다.
+    """
+    search = search_candidates(session)
+    found = search.protocols
+    if not found:
+        raise PlanRejected(
+            f"{session.goal.value} 목표 · 사용자 상태 {session.user_order} · "
+            f"{session.minutes_available}분에 맞는 검수 프로토콜이 없다"
+        )
+    if search.relaxed:
+        log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
+    by_id = {p.protocol_id: p for p in found}
+    # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
+    available = None if "minutes" in search.relaxed else session.minutes_available
+    candidates = [protocols.compact(p) for p in found]
+
+    problems: list[str] = []
+    for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
+        choice = await planner.choose(state, candidates, problems)
+        protocol = by_id.get(choice.protocol_id)
+        if protocol is None:
+            problems = [f"{choice.protocol_id}는 후보 목록에 없다"]
+            known = protocols.get_protocol(choice.protocol_id)
+            if known is not None:  # 왜 후보가 아닌지도 알려 준다
+                minutes = protocols.planned_minutes(known, available)
+                activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
+                problems += check_plan(activity, state, search.relaxed)
+            continue
+        minutes = protocols.planned_minutes(protocol, available)
+        activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
+        problems = check_plan(activity, state, search.relaxed)
+        if not problems:
+            return protocol, choice, activity, search.relaxed
+    raise PlanRejected("; ".join(problems), retryable=True)
+
+
+def repeat_activity(previous: CarePlan, state: CareState) -> Selected:
+    """'한 번 더' — 직전 계획의 활동 · 시간 · 푼 조건 · 검색 질의를 그대로 쓴다(LLM 호출 없음)."""
+    protocol_id = previous.activity.protocol_id
+    protocol = protocols.get_protocol(protocol_id)
+    if protocol is None:
+        raise PlanRejected(f"{protocol_id}는 검수된 프로토콜이 아니다")
+    activity = PlannedActivity(protocol_id=protocol_id, minutes=previous.activity.minutes)
+    relaxed = tuple(previous.relaxed)
+    if problems := check_plan(activity, state, relaxed):
+        raise PlanRejected("; ".join(problems))
+    # 질의를 남기기 전의 계획이면 활동 이름으로 찾는다 — 검색은 그 활동의 evidence[]부터 본다
+    query = previous.search_query or protocol.name
+    choice = ActivityChoice(protocol_id=protocol_id, search_query=query, reason=REPEAT_REASON)
+    return protocol, choice, activity, relaxed
+
+
 def make_plan_node(planner: Planner):
     async def plan(state: CareState, runtime: Runtime[AgentContext]) -> dict:
         # 단계마다 세션 API의 SSE progress(custom)를 낸다. 스트리밍이 아니면 아무 일도 하지 않는다
@@ -343,44 +408,15 @@ def make_plan_node(planner: Planner):
         session = planner_context(runtime.context, state)
         if session.goal is None:  # intake가 목표 없이는 세션을 열지 않는다
             raise PlanRejected("목표가 없어 계획할 수 없다")
-        search = search_candidates(session)
-        found = search.protocols
-        if not found:
-            raise PlanRejected(
-                f"{session.goal.value} 목표 · 사용자 상태 {session.user_order} · "
-                f"{session.minutes_available}분에 맞는 검수 프로토콜이 없다"
-            )
-        if search.relaxed:
-            log.info("후보가 없어 %s 조건을 풀었다", " · ".join(search.relaxed))
-        by_id = {p.protocol_id: p for p in found}
-        # 시간을 풀었으면 가용 시간으로 자르지 않는다 — 근거 용량 그대로
-        available = None if "minutes" in search.relaxed else session.minutes_available
-        candidates = [protocols.compact(p) for p in found]
-
-        progress({"node": "plan", "step": "choose_activity"})
-        problems: list[str] = []
-        for _ in range(2):  # 처음 한 번 + 거부 사유를 붙여 한 번 더
-            choice = await planner.choose(state, candidates, problems)
-            protocol = by_id.get(choice.protocol_id)
-            if protocol is None:
-                problems = [f"{choice.protocol_id}는 후보 목록에 없다"]
-                known = protocols.get_protocol(choice.protocol_id)
-                if known is not None:  # 왜 후보가 아닌지도 알려 준다
-                    minutes = protocols.planned_minutes(known, available)
-                    activity = PlannedActivity(protocol_id=known.protocol_id, minutes=minutes)
-                    problems += check_plan(activity, state, search.relaxed)
-                continue
-            minutes = protocols.planned_minutes(protocol, available)
-            activity = PlannedActivity(protocol_id=protocol.protocol_id, minutes=minutes)
-            problems = check_plan(activity, state, search.relaxed)
-            if not problems:
-                break
+        if (previous := repeated_plan(state)) is not None:
+            protocol, choice, activity, relaxed = repeat_activity(previous, state)
         else:
-            raise PlanRejected("; ".join(problems), retryable=True)
+            progress({"node": "plan", "step": "choose_activity"})
+            protocol, choice, activity, relaxed = await choose_activity(planner, state, session)
         log.info(
             "계획 선택 %s %d분 (%s) — 질의 %r",
             activity.protocol_id,
-            minutes,
+            activity.minutes,
             choice.reason,
             choice.search_query,
         )
@@ -415,7 +451,7 @@ def make_plan_node(planner: Planner):
             activity=activity,
             rationale=explained.rationale,
             content_factors=None if factors.is_empty() else factors,
-            relaxed=list(search.relaxed),
+            relaxed=list(relaxed),
             environment_gaps=protocols.environment_gaps(protocol, session.environment),
             reference_card=reference_card.build_card(
                 state["intake"],
@@ -423,8 +459,9 @@ def make_plan_node(planner: Planner):
                 activity,
                 [(c.hit, c.verdict) for c in evidence],
                 delivered=protocols.delivered_media(protocol, session.content_type),
-                relaxed=search.relaxed,
+                relaxed=relaxed,
             ),
+            search_query=choice.search_query,
         )
         return {"plan": plan}
 

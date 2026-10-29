@@ -92,7 +92,11 @@ def test_choice_input_tells_which_activity_was_removed():
     model = fakes.FakeStructuredModel(CHOICE)
     asyncio.run(make_chooser(model)(state, candidates_for(state), []))
     text = model.inputs[0][1].content
-    assert "## 지난 라운드" in text and "PR-09는 후보에서 뺐다" in text
+    assert "## 지난 라운드" in text and "바꾸기로 한 PR-09는 후보에서 뺐다" in text
+    # 두 번 바꿨으면 둘 다 알린다
+    twice = {**S1_STATE, "rounds": [changed_round("PR-09"), changed_round("PR-15")]}
+    asyncio.run(make_chooser(model := fakes.FakeStructuredModel(CHOICE))(twice, [], []))
+    assert "바꾸기로 한 PR-09, PR-15는 후보에서 뺐다" in model.inputs[0][1].content
     assert "거부 사유" not in text
 
 
@@ -206,7 +210,10 @@ def test_planner_context_carries_the_session():
 def test_planner_context_excludes_the_activity_the_user_changed_away_from():
     state = {**S1_STATE, "rounds": [changed_round("PR-09")]}
     assert planner_context(AgentContext(), state).excluded_protocol_ids == ("PR-09",)
-    # 추가 세션은 같은 활동을 다시 할 수 있다
+    # 두 번 바꿨으면 둘 다 뺀다 — 3라운드에 1라운드 활동이 돌아오지 않는다
+    twice = {**S1_STATE, "rounds": [changed_round("PR-09"), changed_round("PR-15")]}
+    assert planner_context(AgentContext(), twice).excluded_protocol_ids == ("PR-09", "PR-15")
+    # 추가 세션(한 번 더)은 같은 활동을 다시 한다
     kept = changed_round("PR-09").model_copy(update={"next_step": NextStep.ADDITIONAL_SESSION})
     again = planner_context(AgentContext(), {**S1_STATE, "rounds": [kept]})
     assert again.excluded_protocol_ids == ()

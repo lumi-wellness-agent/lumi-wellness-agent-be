@@ -9,7 +9,7 @@ import json
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from app.agent.state import CareState, IntakeResult, NextStep
+from app.agent.state import CareState, IntakeResult, NextStep, changed_away
 from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
@@ -208,7 +208,8 @@ def _state_lines(request: CareRequest, intake: IntakeResult) -> list[str]:
 
 
 def _history_parts(state: CareState) -> list[str]:
-    """사전 측정과 지난 라운드. 활동 변경을 골랐으면 그 활동을 후보에서 뺐다고 알린다."""
+    """사전 측정과 지난 라운드. 활동 변경을 골랐으면 이번 세션에서 바꾸기로 한 활동을 모두 후보에서
+    뺐다고 알린다."""
     parts = []
     if pre := state.get("pre"):
         parts.append(
@@ -221,10 +222,11 @@ def _history_parts(state: CareState) -> list[str]:
             f" 사용자 선택: {r.next_step.value}"
             for r in rounds
         ]
-        last = rounds[-1]
-        if last.next_step is NextStep.CHANGE_ACTIVITY:
+        if rounds[-1].next_step is NextStep.CHANGE_ACTIVITY:
+            changed = ", ".join(changed_away(rounds))
             lines.append(
-                f"- 사용자가 활동 변경을 골랐다. {last.plan.activity.protocol_id}는 후보에서 뺐다"
+                "- 사용자가 활동 변경을 골랐다. "
+                f"이번 세션에서 바꾸기로 한 {changed}는 후보에서 뺐다"
             )
         parts.append("## 지난 라운드\n" + "\n".join(lines))
     return parts

@@ -11,8 +11,21 @@ from langgraph.runtime import Runtime
 
 from app import protocols
 from app.agent.context import AgentContext
-from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, make_plan_node
-from app.agent.state import IntakeResult
+from app.agent.nodes.planner import (
+    REPEAT_REASON,
+    ActivityChoice,
+    PlanRationale,
+    PlanRejected,
+    make_plan_node,
+)
+from app.agent.state import (
+    CarePlan,
+    IntakeResult,
+    NextStep,
+    OutcomeEvaluation,
+    Round,
+    SessionReport,
+)
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
 from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
@@ -254,6 +267,49 @@ def test_pipeline_relaxes_the_environment_last_and_reports_the_gaps():
     state = {**STATE, "intake": INTAKE.model_copy(update={"environment": nothing})}
     plan = run_plan(RecordingPlanner(choice("PR-15")), state)
     assert (plan.relaxed, plan.environment_gaps) == (["environment"], ["SCREEN"])
+
+
+def finished(plan: CarePlan, next_step: NextStep) -> Round:
+    """끝난 라운드 — 사용자가 next_step을 골랐다. 측정값은 비워 둔다."""
+    return Round(
+        plan=plan,
+        report=SessionReport(completed=True),
+        pre=[],
+        post=[],
+        evaluation=OutcomeEvaluation(
+            goal=CareGoal.S1, round=1, deltas={}, improved=True, completed=True
+        ),
+        next_step=next_step,
+    )
+
+
+def test_one_more_round_repeats_the_activity_without_choosing_again(fake_backends):
+    first = run_plan(RecordingPlanner(choice("PR-21")))
+    assert first.search_query == "nature images rumination"
+    fake_backends.clear()
+
+    planner = RecordingPlanner()  # choose를 부르면 꺼낼 선택이 없어 IndexError
+    rounds = [finished(first, NextStep.ADDITIONAL_SESSION)]
+    again = run_plan(planner, {**STATE, "rounds": rounds})
+
+    assert planner.chosen == []
+    assert again.activity.protocol_id == "PR-21"
+    assert again.activity.minutes == first.activity.minutes
+    # 같은 질의로 근거를 다시 찾고, 설명(콘텐츠 Factor)만 새로 쓴다
+    assert fake_backends and all(s["query"] == first.search_query for s in fake_backends)
+    assert again.activity.evidence_record_ids == first.activity.evidence_record_ids
+    assert planner.explained == [("PR-21", REPEAT_REASON, [102, 101, 112, 111])]
+
+
+def test_one_more_round_without_a_saved_query_searches_by_the_activity_name(fake_backends):
+    # 질의를 남기기 전의 체크포인트 — 그 활동의 evidence[]에서 이름으로 찾는다
+    first = run_plan(RecordingPlanner(choice("PR-21"))).model_copy(update={"search_query": None})
+    fake_backends.clear()
+    rounds = [finished(first, NextStep.ADDITIONAL_SESSION)]
+    again = run_plan(RecordingPlanner(), {**STATE, "rounds": rounds})
+    name = protocols.get_protocol("PR-21").name
+    assert again.search_query == name
+    assert fake_backends and all(s["query"] == name for s in fake_backends)
 
 
 def test_demo_s2_session_offers_breathing_first():

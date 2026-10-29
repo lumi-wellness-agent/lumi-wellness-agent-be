@@ -2,8 +2,8 @@
 
 - replan: 제안과 고를 수 있는 선택지(options)를 만든다. 규칙(임시): 끝까지 못 함 → 활동 변경,
   라운드 상한 → 종료, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 → 활동 변경. 기준은 팀이 정한다.
-  선택지는 next_step_options — 라운드 상한이면 종료만, 바꿀 활동이 없으면 활동 변경을 뺀다. 권할
-  단계가 선택지에 없으면 종료를 권한다.
+  선택지는 next_step_options — 라운드 상한이면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘
+  활동이면 같은 활동을 한 번 더 하는 추가 세션을 뺀다. 권할 단계가 선택지에 없으면 종료를 권한다.
 - confirm: interrupt로 평가 · 제안 · 선택지를 보여 주고 ReplanDecision을 기다린다. 동의한 경우에만
   다음 라운드(plan)로 간다. 다음 라운드의 사전값은 직전 사후값(round_pre = post). 결정은 세션 API가
   선택지로 미리 거른다 — 여기서 거부하면 그 재개 값에 세션이 묶인다(app/api/sessions.py).
@@ -24,18 +24,28 @@ MAX_ROUNDS = 3  # 라운드 2–3회 제한(등급 규칙 시트 '라운드 규�
 
 
 def next_step_options(state: CareState, rounds_done: int) -> list[NextStep]:
-    """고를 수 있는 다음 단계. 라운드 상한이면 종료만, 바꿀 활동이 없으면 활동 변경을 뺀다.
+    """고를 수 있는 다음 단계. 라운드 상한이면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘
+    활동이면 추가 세션(같은 활동 한 번 더)을 뺀다.
 
-    바꿀 활동은 plan이 다음 라운드에 볼 후보(이번 활동을 뺀 planner.search_candidates)로 정한다 —
-    지금 계획보다 조건을 더 풀어야만 나오면(예: 환경을 풀어야만) 바꿀 활동이 없다고 본다.
+    바꿀 활동은 plan이 다음 라운드에 볼 후보(이번 활동과 이번 세션에서 바꾸기로 한 활동을 뺀
+    planner.search_candidates)로 정한다 — 지금 계획보다 조건을 더 풀어야만 나오면(예: 환경을
+    풀어야만) 바꿀 활동이 없다고 본다. 멈춘 이유(불편 · 어지러움 · 시간 없음 · 그만)가 무엇이든
+    같은 활동을 다시 권하지 않는다.
     """
     if rounds_done >= MAX_ROUNDS:
         return [NextStep.END]
     plan = state["plan"]
     session = planner_context(None, state)
-    alternatives = search_candidates(session, exclude=[plan.activity.protocol_id])
+    exclude = [*session.excluded_protocol_ids, plan.activity.protocol_id]
+    alternatives = search_candidates(session, exclude=exclude)
     can_change = bool(alternatives.protocols) and set(alternatives.relaxed) <= set(plan.relaxed)
-    return [step for step in NextStep if step is not NextStep.CHANGE_ACTIVITY or can_change]
+    can_repeat = state["report"].completed
+    return [
+        step
+        for step in NextStep
+        if (step is not NextStep.CHANGE_ACTIVITY or can_change)
+        and (step is not NextStep.ADDITIONAL_SESSION or can_repeat)
+    ]
 
 
 def replan(state: CareState) -> dict:

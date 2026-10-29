@@ -17,7 +17,7 @@ from app.agent.graph import build_graph
 from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
 from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
-from app.agent.nodes.replanner import route_after_confirm
+from app.agent.nodes.replanner import next_step_options, route_after_confirm
 from app.agent.state import (
     ActivityContent,
     CarePlan,
@@ -53,7 +53,6 @@ def plan(protocol_id: str, minutes: int = 5) -> CarePlan:
 
 
 BREATHING = plan("PR-06", 5)  # S2 · NO_INDUCTION · 5–20분
-GROUNDING = plan("PR-17", 10)  # S2 · 허용 상태 제한 없음 · 10분
 PHOTO = plan("PR-01", 6)  # S2 · POST_STRESS/POST_FATIGUE · 5–10분
 S2_INTAKE = IntakeResult(
     goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=15, place=Place.INDOOR
@@ -188,7 +187,7 @@ STAI6 = {"calm": 2, "tense": 3, "upset": 2, "relaxed": 2, "content": 2, "worried
 
 
 def test_session_loops_until_user_ends(caplog):
-    planner = FakePlanner(BREATHING, GROUNDING)
+    planner = FakePlanner(BREATHING)
     graph = graph_with(planner, FakeIntaker(S2_READING, goal=inference(CareGoal.S2)))
 
     # intake → measure_pre에서 멈춘다. S2라 SAM + STAI-6를 묻는다
@@ -218,15 +217,19 @@ def test_session_loops_until_user_ends(caplog):
     assert out["evaluation"].improved is True
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "END"
 
-    # 추가 세션에 동의 → Planner로 돌아간다. 다음 라운드의 사전값은 이번 사후값이다
+    # 추가 세션(한 번 더)에 동의 → Planner로 돌아가 활동을 다시 고르지 않고 같은 활동을 한다.
+    # 다음 라운드의 사전값은 이번 사후값이다
     out = run(graph, Command(resume={"next_step": "ADDITIONAL_SESSION"}))
-    assert out["__interrupt__"][0].value["plan"]["activity"]["protocol_id"] == "PR-17"
+    again = out["__interrupt__"][0].value["plan"]
+    assert again["activity"]["protocol_id"] == "PR-06"
+    assert again["activity"]["minutes"] == 5
     assert [m.scores for m in out["round_pre"]] == [{"valence": 5.0, "arousal": 4.0}]
 
-    # 2라운드: 중간에 멈춤 → 활동 변경 제안
+    # 2라운드: 중간에 멈춤 → 활동 변경 제안. 멈춘 활동은 한 번 더를 내놓지 않는다
     out = run(graph, Command(resume={"completed": False, "stopped_reason": "어지러움"}))
     out = run(graph, Command(resume=sam(4, 6)))
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "CHANGE_ACTIVITY"
+    assert out["__interrupt__"][0].value["options"] == ["END", "CHANGE_ACTIVITY"]
 
     # 종료 → S2라 목표 척도(STAI-6)를 한 번 더 묻고 끝난다
     out = run(graph, Command(resume={"next_step": "END"}))
@@ -238,7 +241,7 @@ def test_session_loops_until_user_ends(caplog):
     assert out["final"].scores == {"total": 43.33}  # 합 13 × 20/6
     assert [r.next_step for r in out["rounds"]] == [NextStep.ADDITIONAL_SESSION, NextStep.END]
     assert [r.evaluation.improved for r in out["rounds"]] == [True, False]
-    assert planner.calls == [(0, []), (1, [])]
+    assert planner.calls == [(0, [])]  # 한 번 더는 LLM 선택(호출 1)을 건너뛴다
 
     # 체크포인트에서 복원한 값이 원래 타입이다. checkpoint.STATE_TYPES에 빠진 타입이 있으면
     # 역직렬화가 막히고(로그) dict나 원시 값으로 돌아온다
@@ -514,7 +517,7 @@ def test_check_plan_rules():
         "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS})
     }
     assert check_plan(PHOTO.activity, post_stress) == []
-    # 활동 변경을 골랐으면 같은 프로토콜을 다시 넣을 수 없다
+    # 활동 변경을 골랐으면 바꾸기로 한 프로토콜을 다시 넣을 수 없다
     changed = Round(
         plan=BREATHING,
         report=SessionReport(completed=False),
@@ -526,8 +529,15 @@ def test_check_plan_rules():
         next_step=NextStep.CHANGE_ACTIVITY,
     )
     with_round = {**state, "rounds": [changed]}
-    assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
+    assert check_plan(BREATHING.activity, with_round) == [
+        "PR-06는 이번 세션에서 바꾸기로 한 활동이다"
+    ]
     assert check_plan(activity("PR-07", 9), with_round) == []
+    # 두 번 바꿨으면 둘 다 — 3라운드에 1라운드 활동이 돌아오지 않는다
+    changed_again = changed.model_copy(update={"plan": plan("PR-07", 9)})
+    twice = {**state, "rounds": [changed, changed_again]}
+    assert check_plan(BREATHING.activity, twice) == ["PR-06는 이번 세션에서 바꾸기로 한 활동이다"]
+    assert check_plan(activity("PR-19", 5), twice) == []
 
 
 def test_check_plan_follows_the_environment_and_what_the_search_relaxed():
@@ -570,6 +580,37 @@ def test_change_is_not_offered_when_no_other_activity_fits():
     assert (
         confirm["proposal"]["reason"] == "사전보다 나아지지 않았다 — 지금 여건에서 바꿀 활동이 없다"
     )
+
+
+def test_options_leave_out_every_changed_activity_and_a_repeat_after_a_stop():
+    # S1 · 집 · 10분 후보는 PR-09 · PR-15뿐 — PR-09를 바꾸고 PR-15를 하는 중이면 바꿀 활동이 없다
+    s1 = IntakeResult(
+        goal=CareGoal.S1,
+        order_condition=InterventionOrder.POST_STRESS,
+        minutes=10,
+        environment=environment_for(Setting.HOME, None),
+    )
+    first = Round(
+        plan=plan("PR-09", 3),
+        report=SessionReport(completed=True),
+        pre=anchor(Timepoint.PRE, 0),
+        post=anchor(Timepoint.POST, 1),
+        evaluation=OutcomeEvaluation(
+            goal=CareGoal.S1, round=1, deltas={}, improved=False, completed=True
+        ),
+        next_step=NextStep.CHANGE_ACTIVITY,
+    )
+    state = {
+        "request": CareRequest(text="-"),
+        "intake": s1,
+        "plan": plan("PR-15", 3),
+        "report": SessionReport(completed=True),
+        "rounds": [first],
+    }
+    assert next_step_options(state, 2) == [NextStep.END, NextStep.ADDITIONAL_SESSION]
+    # 첫 라운드라면 PR-09로 바꿀 수 있다. 중간에 멈췄으면 같은 활동을 한 번 더 내놓지 않는다
+    stopped = {**state, "rounds": [], "report": SessionReport(completed=False)}
+    assert next_step_options(stopped, 1) == [NextStep.END, NextStep.CHANGE_ACTIVITY]
 
 
 def test_third_round_offers_only_to_end():
