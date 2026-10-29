@@ -756,11 +756,12 @@ docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 �
 ## 배포 (Vercel)
 
 FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나로 올립니다. 저장소를 Vercel 프로젝트에
-연결해 두면 `main`에 머지할 때 프로덕션으로, PR마다 Preview로 배포됩니다.
+연결해 두면 `main`에 머지할 때 프로덕션으로 배포됩니다. PR 브랜치는 배포하지 않습니다(아래 「배포 브랜치」).
 
 | 설정 | 값 | 이유 |
 | --- | --- | --- |
 | 리전 | `icn1`(서울) · `vercel.json` | Supabase(`ap-northeast-2`) 옆에서 돌아야 쿼리마다 태평양을 건너지 않는다. 기본값은 `iad1`이고 Hobby는 리전 1개 |
+| 배포 브랜치 | `main`만 · `vercel.json` `git.deploymentEnabled` | Hobby는 배포를 하루(24시간) 100번까지만 만든다. PR에 push할 때마다 Preview를 만들면 한도가 차서 `main` 배포까지 막힌다(2026-10-29) |
 | Python | 3.12 · `.python-version` | CI와 같은 버전 |
 | `DATABASE_URL` | Transaction pooler(포트 6543) | 서버리스 함수라서(위 연결 방식 표). 로컬 `.env`의 Session pooler 주소와 포트만 다르다 |
 | `OPENAI_API_KEY` · `ANTHROPIC_API_KEY` | `.env`와 같은 값 | 폴백 키는 비워 둬도 된다 |
