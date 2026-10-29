@@ -115,7 +115,11 @@ def make_intake_nodes(intaker: Intaker) -> dict:
                 "pending_question": None,
                 "ended": SessionEnd.SAFETY,
             }
-        question = rules.restate_question(reading, turns) or rules.state_question(reading, turns)
+        question = (
+            rules.restate_question(reading, turns)
+            or rules.state_question(reading, turns)
+            or rules.mismatch_question(reading, turns)
+        )
         return {"intake": intake, "pending_question": question}
 
     def intake_ask(state: CareState) -> dict:
@@ -201,7 +205,9 @@ async def intake_once(intaker: Intaker, request: CareRequest) -> tuple[IntakeRes
     would_ask = []
     if rules.restate_question(reading, []):
         would_ask.append("restate")
-    elif question := rules.state_question(reading, []):
+    elif question := (
+        rules.state_question(reading, []) or rules.mismatch_question(reading, [])
+    ):
         would_ask.append(question.slot.value)
     inference = None if request.goal is not None else await intaker.infer_goal(request, intake)
     intake = rules.apply_goal(intake, inference, request)

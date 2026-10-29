@@ -64,7 +64,8 @@ SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → S2 DEFAU
 class QuestionSlot(StrEnum):
     RESTATE = "restate"  # 입구 되묻기 — 관계없는 답 뒤. 글로만 답하고 예산에 세지 않는다
     STATE = "state"  # 시점 질문 — 사건 전·후 · 오래 집중한 뒤 · 계기 없음
-    STATE_FOLLOWUP = "state_followup"  # 재질문 — 원인(압박 vs 오래 이어진 집중). 목표 단서도 받는다
+    # 재질문 — 원인(압박 vs 오래 집중), 또는 상황 · 증상이 엇갈리면 지금 상태. goal_hint도 받는다
+    STATE_FOLLOWUP = "state_followup"
     CONTEXT = "context"  # 환경 칩 — setting · earphones · minutes
 
 

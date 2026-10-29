@@ -61,6 +61,8 @@ def test_llm_output_schemas_are_what_the_prompts_describe():
         "order_condition",
         "rumination_cue",
         "stress_fatigue_ambiguous",
+        "symptom_mismatch",
+        "third_party_risk",
         "question",
         "setting",
         "earphones",

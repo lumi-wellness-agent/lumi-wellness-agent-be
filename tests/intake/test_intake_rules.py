@@ -420,3 +420,63 @@ def test_goal_definitions_quote_the_papers_the_cue_table_cites():
         assert len(defs) >= 2
         assert {d.paper_id for d in defs} <= set(cues.goals[goal].sources)
         assert all(d.concept and d.page and d.sentence.endswith(".") for d in defs)
+
+
+# ── 상황과 증상이 엇갈릴 때 · 남의 위험 이야기 (10-29) ─────────────────────────────────────────
+
+
+def test_mismatch_asks_current_state_when_situation_and_symptom_disagree():
+    # "야근하고 나니 신경이 곤두서 있어요" — 피로 후인데 긴장이 중심
+    r = reading(order_condition=InterventionOrder.POST_FATIGUE, symptom_mismatch=True)
+    assert rules.state_question(r, []) is None  # 상황은 정했으니 시점 질문은 없다
+    q = rules.mismatch_question(r, [])
+    assert q is not None and q.slot is QuestionSlot.STATE_FOLLOWUP and q.turn == 1
+    labels = [o.label for o in q.groups[0].options]
+    assert labels[-1] == UNKNOWN_LABEL
+    hints = [o.set.get("goal_hint") for o in q.groups[0].options]
+    assert hints == [["S2"], ["S3"], None]
+    for option in q.groups[0].options:  # 보기 값이 재질문 slot 계약 안이다
+        parse_set(QuestionSlot.STATE_FOLLOWUP, option.set)
+
+
+def test_mismatch_question_only_once_and_only_when_situation_is_known():
+    assert rules.mismatch_question(reading(symptom_mismatch=True), []) is None  # 상황 미상
+    known = reading(order_condition=InterventionOrder.PRE_STRESS, symptom_mismatch=True)
+    assert (
+        rules.mismatch_question(reading(order_condition=InterventionOrder.PRE_STRESS), []) is None
+    )
+    asked = [turn(QuestionSlot.STATE_FOLLOWUP, 1, answer={})]
+    assert rules.mismatch_question(known, asked) is None  # 이미 물었다
+    timing = [turn(QuestionSlot.STATE, 1, text="곧 시험이에요")]
+    assert rules.mismatch_question(known, timing) is None  # 시점 질문 뒤는 기존 재질문 몫
+    full = [turn(QuestionSlot.CONTEXT, n, answer={}) for n in (1, 2, 3)]
+    assert rules.mismatch_question(known, full) is None  # 예산 초과
+
+
+def test_chosen_current_state_wins_over_inference():
+    picked = IntakeResult(goal_hint=[CareGoal.S2])
+    out = rules.apply_goal(
+        picked, inference(goal=CareGoal.S3, secondary_goal=None), CareRequest(text="…")
+    )
+    assert (out.goal, out.secondary_goal, out.goal_source) == (
+        CareGoal.S2,
+        CareGoal.S3,
+        GoalSource.INFERRED,
+    )
+    assert "재질문" in out.goal_reason
+    # 둘 다 골랐거나 추론과 같으면 추론 그대로
+    both = IntakeResult(goal_hint=[CareGoal.S3, CareGoal.S2])
+    assert (
+        rules.apply_goal(both, inference(goal=CareGoal.S3), CareRequest(text="…")).goal
+        is CareGoal.S3
+    )
+
+
+def test_third_party_risk_restates_with_fixed_help_text():
+    r = reading(relevance="OFF_TOPIC", third_party_risk=True, restate_text="LLM 문장")
+    q = rules.restate_question(r, [])
+    assert q is not None and q.slot is QuestionSlot.RESTATE
+    assert q.text == rules.THIRD_PARTY_TEXT
+    assert "109" in q.text and "당신의 이야기" in q.text
+    # 자기 상태도 말했으면(RELEVANT) 되묻지 않고 이어 간다
+    assert rules.restate_question(reading(third_party_risk=True), []) is None

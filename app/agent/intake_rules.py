@@ -5,6 +5,8 @@
     ① 상황 읽기(LLM) → safety면 end_for_safety() · OFF_TOPIC이면 restate_question()(입구 되묻기)
        → compose()로 State · Context 채움 → state_question()으로 시점 질문 여부
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
+       상황은 분명한데 증상이 다른 목표를 가리키면 → mismatch_question()으로 지금 상태 재질문
+       남의 위험만 이야기했으면 → restate_question()이 고정 문장(109 안내)으로 되묻기
     ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
        입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
     ④ context_groups()로 후보를 바꾸는 환경 칸만 → context_question()
@@ -105,6 +107,19 @@ class StateReading(BaseModel):
     )
     stress_fatigue_ambiguous: bool = Field(
         description="지친 원인이 압박·사건인지 오래 이어진 집중인지 말로 갈리지 않으면 true"
+    )
+    symptom_mismatch: bool = Field(
+        default=False,
+        description="상황(order_condition)은 정했는데 증상이 상황과 다른 목표를 가리키면 true — "
+        "POST_FATIGUE인데 긴장·초조·예민·짜증이 중심이거나(S2 쪽), PRE_STRESS·POST_STRESS인데 "
+        "멍함·집중 안 됨·머리가 안 돌아감이 중심일 때(S3 쪽). 상황과 증상이 같은 쪽이거나 반복 "
+        "생각(S1)이 중심이면 false",
+    )
+    third_party_risk: bool = Field(
+        default=False,
+        description="다른 사람(친구·가족 …)이 죽고 싶어 한다·스스로를 해치려 한다는 이야기이고 "
+        "사용자 자신의 그런 뜻은 드러나지 않으면 true(이때 safety는 false). 사용자 자신의 뜻이 "
+        "조금이라도 보이면 safety = true이고 이 칸은 false",
     )
     cues: list[str] = Field(description="판단에 쓴 사용자 표현 그대로 최대 3개")
     constraints: list[str] = Field(description="활동 제약 — 이명 · 멀미 · 눈 피로 … 없으면 []")
@@ -212,6 +227,14 @@ FOLLOWUP_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
     ("신경 쓰이는 일이 있었어요", {"order_condition": "POST_STRESS", "goal_hint": ["S2"]}),
     ("둘 다예요", {"order_condition": "POST_STRESS", "goal_hint": ["S2", "S3"]}),
 )
+# 상황은 분명한데 증상이 다른 목표를 가리킬 때(symptom_mismatch) — 원인이 아니라 지금 상태를 묻는다.
+# 예: "야근하고 나니 신경이 곤두서 있어요"(피로 후 + 긴장)
+#     "곧 시험인데 머리가 안 돌아가요"(시험 전 + 멍함)
+MISMATCH_TEXT = "지금은 어느 쪽에 더 가까워요?"
+MISMATCH_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
+    ("긴장되거나 예민해요", {"goal_hint": ["S2"]}),
+    ("머리가 멍하고 지쳐요", {"goal_hint": ["S3"]}),
+)
 LLM_MAX_OPTIONS = MAX_OPTIONS - 1  # 잘 모르겠어요 자리를 남긴다
 
 
@@ -302,6 +325,30 @@ def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Intake
     )
 
 
+def mismatch_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+    """상황은 정했는데 증상이 다른 목표를 가리키면 지금 상태를 묻는 고정 재질문(slot은 재질문).
+
+    시점 질문을 하지 않은 경우만이라 State 예산(시점 + 재질문)을 넘지 않는다. 답의 goal_hint는
+    apply_goal이 목표로 쓴다. '잘 모르겠어요'면 단서 없이 ③ 목표 추론에 맡긴다.
+    """
+    if not reading.symptom_mismatch or reading.order_condition is None:
+        return None
+    if _state_turns(turns) or len(counted(turns)) >= MAX_TURNS:
+        return None
+    turn = len(counted(turns)) + 1
+    options = [QuestionOption(label=label, set=values) for label, values in MISMATCH_FIXED]
+    return IntakeQuestion(
+        question_id=f"q{turn}",
+        slot=QuestionSlot.STATE_FOLLOWUP,
+        turn=turn,
+        text=MISMATCH_TEXT,
+        groups=[
+            QuestionGroup(key=QuestionSlot.STATE_FOLLOWUP.value, options=_with_unknown(options))
+        ],
+        allow_free_text=True,
+    )
+
+
 def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
     """시점 질문에 '잘 모르겠어요'로 답했으면 원인을 묻는 고정 재질문(읽기 없이). 예산 안에서만."""
     asked = _state_turns(turns)
@@ -318,6 +365,12 @@ def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None
 RESTATE_FIXED = (
     "오늘 하루는 어떠셨어요? 지금 상황을 한두 마디로 들려주세요. 예: 발표 끝나고 계속 생각나요"
 )
+# 남의 위험을 이야기했을 때(third_party_risk) — LLM 문장 대신 고정 문장. 도울 곳(109)을 먼저 알리고
+# 사용자 자신의 이야기를 묻는다. 109는 자살예방상담전화(24시간)
+THIRD_PARTY_TEXT = (
+    "걱정되는 분이 있다면 자살예방상담전화 109에서 함께 도울 방법을 들을 수 있어요. "
+    "지금은 당신의 이야기를 듣고 싶어요. 오늘 하루는 어떠셨어요?"
+)
 
 
 def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
@@ -328,7 +381,10 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
     if reading.relevance is not Relevance.OFF_TOPIC or counted(turns):
         return None
     n = len(turns) + 1  # 앞선 것은 모두 되묻기다
-    text = (reading.restate_text or "").strip() or RESTATE_FIXED
+    if reading.third_party_risk:
+        text = THIRD_PARTY_TEXT
+    else:
+        text = (reading.restate_text or "").strip() or RESTATE_FIXED
     return IntakeQuestion(
         question_id=f"r{n}",
         slot=QuestionSlot.RESTATE,
@@ -501,12 +557,16 @@ def apply_goal(
             "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답했다",
         }
     elif inference is not None and inference.has_cues:
-        secondary = inference.secondary_goal
+        goal, secondary, reason = inference.goal, inference.secondary_goal, inference.reason
+        # 재질문에서 지금 상태를 하나 골랐으면 그 답이 추론보다 앞선다(사용자가 직접 말한 상태)
+        if len(intake.goal_hint) == 1 and intake.goal_hint[0] is not goal:
+            goal, secondary = intake.goal_hint[0], goal
+            reason = "재질문에서 고른 지금 상태를 따랐다"
         update = {
-            "goal": inference.goal,
-            "secondary_goal": secondary if secondary is not inference.goal else None,
+            "goal": goal,
+            "secondary_goal": secondary if secondary is not goal else None,
             "goal_source": GoalSource.INFERRED,
-            "goal_reason": inference.reason,
+            "goal_reason": reason,
         }
     elif intake.goal_hint:
         hint = intake.goal_hint
