@@ -4,6 +4,8 @@
 키를 하나로 합친다 — SAM valence · arousal, S3는 MFVAS fatigue · concentration · energy도(키가
 겹치지 않는다).
 improved는 목표별 임시 규칙 — S1은 쾌(valence)↑, S2는 각성(arousal)↓, S3는 피로(fatigue)↓.
+바람직한 방향으로 최소 변화(SAM 한 칸 · MFVAS 10점) 이상 움직여야 개선이고, 그보다 작으면
+False(큰 변화 없음).
 사전·종료에만 재는 목표 척도(STAI-6 · BSRI)의 세션 Δ는 measure_final 뒤 API 응답에서 pre와
 final로 계산한다.
 결과는 Session Outcome DB에 저장한다(테이블 미정 — 사용자 데이터 스키마가 다음 계약).
@@ -13,11 +15,13 @@ from app.agent.state import CareState, OutcomeEvaluation
 from app.schemas.care import CareGoal
 from app.schemas.measure import Measurement
 
-# (scores 키, 바람직한 방향). None = 세션 내 판정 기준 없음
-IMPROVEMENT_RULE: dict[CareGoal, tuple[str, int] | None] = {
-    CareGoal.S1: ("valence", +1),
-    CareGoal.S2: ("arousal", -1),
-    CareGoal.S3: ("fatigue", -1),  # MFVAS 한 문항. 임시 도구라 판정도 임시다
+# (scores 키, 바람직한 방향, 최소 변화). None = 세션 내 판정 기준 없음
+IMPROVEMENT_RULE: dict[CareGoal, tuple[str, int, float] | None] = {
+    CareGoal.S1: ("valence", +1, 1),  # SAM 1–9 한 칸
+    CareGoal.S2: ("arousal", -1, 1),
+    # MFVAS 한 문항. 0–100 슬라이더가 숫자를 보여 주지 않아 몇 점 차는 손 위치 오차라 10점부터 본다.
+    # 임시 도구라 판정도 임시다 — 문턱은 사용자 데이터로 다시 정한다
+    CareGoal.S3: ("fatigue", -1, 10),
 }
 
 
@@ -36,7 +40,7 @@ def evaluate(state: CareState) -> dict:
     deltas = deltas_between(pre, post)
     goal = state["intake"].goal
     rule = IMPROVEMENT_RULE[goal]
-    improved = None if rule is None else deltas.get(rule[0], 0.0) * rule[1] > 0
+    improved = None if rule is None else deltas.get(rule[0], 0.0) * rule[1] >= rule[2]
     evaluation = OutcomeEvaluation(
         goal=goal,
         round=post[0].round,
