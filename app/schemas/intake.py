@@ -58,7 +58,7 @@ MINUTES_CHOICES = (3, 5, 10, 20)
 MINUTES_ASK_BOUNDARIES = (5, 10, 20)
 UNKNOWN_LABEL = "잘 모르겠어요"
 OPENING_TEXT = "오늘 상황이 어떠세요?"  # FE 시작 화면의 고정 질문(답 = CareRequest.text)
-SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → S2 DEFAULT
+SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → 무작위 DEFAULT 목표
 
 
 class QuestionSlot(StrEnum):
@@ -89,7 +89,7 @@ class IntakeEndReason(StrEnum):
     SAFETY = "SAFETY"  # 처음 입력이나 글 답에 안전 신호(① safety) — 세션 종료
 
 
-DEFAULT_GOAL = CareGoal.S2  # 후보가 가장 많고 1순위(PR-06)의 근거 등급이 A·A다
+DEFAULT_GOAL = CareGoal.S2  # finish의 마지막 안전망. 단서 없음은 intake_rules.default_goal(무작위)
 
 # slot → set에 쓸 수 있는 키
 SLOT_KEYS: dict[QuestionSlot, frozenset[str]] = {

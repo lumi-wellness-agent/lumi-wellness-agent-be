@@ -3,6 +3,8 @@
 LLM · LangGraph 없이 본다. 계약은 app/schemas/intake.py 모듈 docstring.
 """
 
+import random
+
 import pytest
 from pydantic import ValidationError
 
@@ -244,7 +246,7 @@ def test_restate_skip_starts_with_default_goal():
         CareRequest(text="ㅋㅋ"),
         [recorded],
     )
-    assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    assert out.goal in rules.DEFAULT_CHOICES and out.goal_source is GoalSource.DEFAULT
     # 되묻기가 아닌 질문은 건너뛸 수 없고, 답은 하나만
     state_q = rules.fixed_question(QuestionSlot.STATE, 1)
     with pytest.raises(ValueError):
@@ -347,12 +349,39 @@ def test_goal_from_inference_with_target_outcomes():
     assert same.secondary_goal is None
 
 
+class Pick:
+    """무작위 목표를 고정한다 — random.Random.choice 자리."""
+
+    def __init__(self, goal: CareGoal):
+        self.goal = goal
+
+    def choice(self, options):
+        assert self.goal in options
+        return self.goal
+
+
+def test_default_goal_is_random_among_three():
+    # 단서가 없으면 S2 고정이 아니라 세 목표 중 무작위(2026-10-29 결정)
+    no_cues = inference(has_cues=False)
+    seen = {
+        rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"), rng=random.Random(i)).goal
+        for i in range(30)
+    }
+    assert seen == set(rules.DEFAULT_CHOICES) == {CareGoal.S1, CareGoal.S2, CareGoal.S3}
+    out = rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"), rng=Pick(CareGoal.S3))
+    assert out.goal is CareGoal.S3 and out.goal_source is GoalSource.DEFAULT
+    assert out.target_outcomes  # 고른 목표의 결과 지표가 붙는다
+    assert "무작위" in out.goal_reason
+
+
 def test_goal_defaults_and_priorities():
     unknown = [
         turn(QuestionSlot.STATE, 1, answer={}),
         turn(QuestionSlot.STATE_FOLLOWUP, 2, answer={}),
     ]
-    out = rules.apply_goal(IntakeResult(), inference(), CareRequest(text="…"), unknown)
+    out = rules.apply_goal(
+        IntakeResult(), inference(), CareRequest(text="…"), unknown, rng=Pick(CareGoal.S2)
+    )
     assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT  # 두 질문 모두 모름
     assert out.target_outcomes == [Outcome.SUBJECTIVE_STRESS, Outcome.AFFECT]
 
@@ -374,7 +403,7 @@ def test_goal_defaults_and_priorities():
         "N01",
     ]
     out = rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"))
-    assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    assert out.goal in rules.DEFAULT_CHOICES and out.goal_source is GoalSource.DEFAULT
     assert out.goal_evidence == []  # 정의로 판단한 것이 아니다
     out = rules.apply_goal(IntakeResult(), inference(), CareRequest(text="…", goal=CareGoal.S3))
     assert out.goal is CareGoal.S3 and out.goal_source is GoalSource.CHIP

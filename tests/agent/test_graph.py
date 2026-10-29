@@ -14,7 +14,7 @@ from langgraph.types import Command
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
-from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
+from app.agent.intake_rules import DEFAULT_CHOICES, FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
 from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
 from app.agent.nodes.replanner import NextStepChoice, next_step_options, route_after_confirm
@@ -417,7 +417,7 @@ def test_two_unknown_answers_start_with_default_goal_without_inference():
     out = run(graph, answer("q2"))  # 또 잘 모르겠어요
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0  # 추론을 부르지 않는다
 
 
@@ -472,7 +472,7 @@ def test_restate_skip_starts_with_default_goal_without_inference():
     out = run(graph, Command(resume={"question_id": "r1", "skip": True}))
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0 and intaker.read_turns == [0]
     assert out["intake_turns"][0].skipped
 
@@ -484,7 +484,8 @@ def test_no_cues_starts_with_default_goal_and_bad_answers_are_rejected():
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="그냥 그래요")})
     assert out["__interrupt__"][0].value["measure"] == "PRE"
-    assert out["intake"].goal is CareGoal.S2 and out["intake"].goal_source is GoalSource.DEFAULT
+    assert out["intake"].goal in DEFAULT_CHOICES
+    assert out["intake"].goal_source is GoalSource.DEFAULT
 
     graph = graph_with(
         FakePlanner(), FakeIntaker(reading(question=ASK_TIMING), goal=inference(CareGoal.S2))

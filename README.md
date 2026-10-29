@@ -82,7 +82,7 @@ graph TD;
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
 | `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 질문 초안을 낸다. 안전 신호면 세션 종료(`ended = SAFETY`). 처음 입력이 관계없으면 사용자 말에 맞춘 입구 되묻기(`restate`)를 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
-| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S2(`goal_source = DEFAULT`, 근거 없음) | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S1 · S2 · S3 중 무작위(`goal_source = DEFAULT`, 근거 없음, 10-29 — 전에는 S2 고정) | `nodes/intake.py` |
 | `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
 | `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |

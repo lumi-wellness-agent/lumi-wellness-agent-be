@@ -393,8 +393,9 @@ def test_off_topic_input_is_restated_and_can_be_skipped():
 
     body = client.post(f"/sessions/{sid}/answer", json={"question_id": "r1", "skip": True}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "PRE")
-    # 건너뛰면 추론 없이 S2(기본값)로 시작한다 — 목표 척도가 STAI-6다
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    # 건너뛰면 추론 없이 세 목표 중 무작위로 시작한다(10-29) — SAM + 그 목표의 척도
+    ids = [i["instrument_id"] for i in body["payload"]["instruments"]]
+    assert ids[0] == "INS-SAM" and ids[1:] in (["INS-BSRI"], ["INS-STAI6"], ["INS-MFVAS"])
 
 
 def test_session_api_is_unavailable_without_a_graph():

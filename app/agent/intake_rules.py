@@ -8,7 +8,8 @@
        상황은 분명한데 증상이 다른 목표를 가리키면 → mismatch_question()으로 지금 상태 재질문
        남의 위험만 이야기했으면 → restate_question()이 고정 문장(109 안내)으로 되묻기
        진단 · 처방만 물었으면 → restate_question()이 고정 문장(진단하지 않음)으로 되묻기
-    ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
+    ③ 목표 추론(LLM) → apply_goal()   단서가 없으면(두 질문 모두 모름 · 그냥 시작 · 단서 없음)
+       S1 · S2 · S3 중 무작위 DEFAULT(2026-10-29 결정 — 전에는 S2 고정)
        입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
     ④ context_groups()로 후보를 바꾸는 환경 칸만 → context_question()
     답 → apply_answer() · merge_values()     끝 → finish()
@@ -20,6 +21,7 @@ MAX_STATE_TURNS회 — 입구 되묻기(restate)는 세지 않는다(counted). �
 안전 판단은 ①의 safety 칸 하나다(정규식 목록 없음). 글 답은 모두 ①을 다시 지난다.
 """
 
+import random
 from collections.abc import Sequence
 from enum import StrEnum
 from typing import Any
@@ -416,12 +418,12 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
 
 
 def entry_skipped(turns: Sequence[IntakeTurn]) -> bool:
-    """되묻기에서 '그냥 시작할게요'를 눌렀나 → 추론 없이 S2 DEFAULT."""
+    """되묻기에서 '그냥 시작할게요'를 눌렀나 → 추론 없이 무작위 DEFAULT."""
     return any(t.skipped for t in turns)
 
 
 def both_state_unknown(turns: Sequence[IntakeTurn]) -> bool:
-    """State 두 질문(시점 + 재질문)이 모두 '잘 모르겠어요'인가 → 추론 없이 S2 DEFAULT."""
+    """State 두 질문(시점 + 재질문)이 모두 '잘 모르겠어요'인가 → 추론 없이 무작위 DEFAULT."""
     asked = _state_turns(turns)
     return len(asked) == MAX_STATE_TURNS and all(t.answer == {} for t in asked)
 
@@ -551,30 +553,40 @@ def apply_answer(
 
 # ── ③ 목표 · 끝 ──────────────────────────────────────────────────────────────────────────
 
+# 단서가 없을 때 고르는 목표 — 세 목표 중 무작위(2026-10-29, 전에는 DEFAULT_GOAL S2 고정)
+DEFAULT_CHOICES = (CareGoal.S1, CareGoal.S2, CareGoal.S3)
+_default_rng = random.Random()
+
+
+def default_goal(rng: random.Random | None = None) -> CareGoal:
+    return (rng or _default_rng).choice(DEFAULT_CHOICES)
+
+
 
 def apply_goal(
     intake: IntakeResult,
     inference: GoalInference | None,
     request: CareRequest,
     turns: Sequence[IntakeTurn] = (),
+    rng: random.Random | None = None,
 ) -> IntakeResult:
-    """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(S2 DEFAULT) > 추론 >
-    재질문 목표 단서 > 기본값(S2, 화면에 밝힌다). 추론한 목표(INFERRED)면 그 목표와 부목표의 개념
-    정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 · 기본값은 정의로 판단한 것이
-    아니라 비운다."""
+    """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(무작위 DEFAULT) >
+    추론 > 재질문 목표 단서 > 단서 없음(무작위 DEFAULT, 화면에 밝힌다). 추론한 목표(INFERRED)면
+    그 목표와 부목표의 개념 정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 ·
+    기본값은 정의로 판단한 것이 아니라 비운다. rng는 테스트가 무작위를 고정할 때."""
     if request.goal is not None:
         update: dict[str, Any] = {"goal": request.goal, "goal_source": GoalSource.CHIP}
     elif entry_skipped(turns):
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골랐다",
+            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골라 목표를 무작위로 정했다",
         }
     elif both_state_unknown(turns):
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답했다",
+            "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답해 목표를 무작위로 정했다",
         }
     elif inference is not None and inference.has_cues:
         goal, secondary, reason = inference.goal, inference.secondary_goal, inference.reason
@@ -598,9 +610,9 @@ def apply_goal(
         }
     else:
         update = {
-            "goal": DEFAULT_GOAL,
+            "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "목표를 가를 단서가 없어 가볍게 긴장을 푸는 활동부터 시작한다",
+            "goal_reason": "목표를 가를 단서가 없어 세 목표 중 하나를 무작위로 정했다",
         }
     update["target_outcomes"] = list(GOAL_OUTCOMES[update["goal"]].primary)
     update["goal_evidence"] = (

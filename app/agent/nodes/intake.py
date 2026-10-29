@@ -13,8 +13,8 @@
   때까지 제한 없이 돌고 질문 3회 예산에 세지 않는다. 초안은 코드가 검증해 질문으로 만든다.
 - ③ intake_goal (LLM): 개념 정의(data/goal_definitions.json, 원문) · 단서표(data/intake_cues.json,
   팀 요약)와 상황 단서로 목표 S1 · S2 · S3와 부목표를 정한다. State 두 질문이 모두 '잘
-  모르겠어요'거나 되묻기에서 '그냥 시작할게요'면 LLM 없이 S2 DEFAULT. ② 개념 정의는 검색하지 않고
-  ③ 입력에 통째로 넣으며, 추론한 목표의 정의가 goal_evidence가 된다.
+  모르겠어요'거나 되묻기에서 '그냥 시작할게요'면 LLM 없이 무작위 DEFAULT. ② 개념 정의는 검색하지
+  않고 ③ 입력에 통째로 넣으며, 추론한 목표의 정의가 goal_evidence가 된다.
 - ④ intake_context (코드): setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만
   묻는다.
 - intake_ask ⏸: 질문 interrupt(이 노드 하나). payload는 IntakeQuestion, resume은 IntakeAnswer
