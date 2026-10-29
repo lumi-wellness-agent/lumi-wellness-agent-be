@@ -19,13 +19,13 @@
     "NO_INDUCTION"
   ],
   "duration_minutes": {
-    "default": 20.0,
-    "min": 20.0,
-    "max": 20.0,
+    "default": 20,
+    "min": 20,
+    "max": 20,
     "evidence": "P38 3.1.3: 과정 중 20분간 착석 안내 명상. 영상 방식은 별도 변형."
   },
   "eligibility": {
-    "min_minutes_available": 20.0,
+    "min_minutes_available": 20,
     "needs": [
       "AUDIO"
     ],
@@ -50,7 +50,7 @@
       "order": 1,
       "type": "ACTIVITY",
       "label": "앉아서 자연 알아차리기 20분",
-      "minutes": 20.0,
+      "minutes": 20,
       "slots": [
         "GUIDE_AUDIO",
         "VISUAL_VIDEO"
@@ -228,7 +228,7 @@
           ],
           "silence_between_cues": true,
           "on_stop": "STOP_TIMER_AND_CANCEL_ALL_PENDING_AUDIO",
-          "completion_sound": "UNDECIDED",
+          "completion_sound": "NONE",
           "note": "각 클립 길이와 간격, 마지막 안내 40초 이내, 총 20분을 실제 제작 후 검증."
         },
         "selection": {
@@ -354,19 +354,31 @@
           "provider": "PIXABAY",
           "endpoint": "VIDEO_SEARCH",
           "query_tags": [
-            "calm nature",
-            "forest stream"
+            "forest leaves wind"
           ],
-          "min_source_duration_seconds": 30,
-          "quality_gate": "자연 영상·출처·이용 조건·반복 재생 적합성 검토"
+          "min_source_duration_seconds": 10,
+          "quality_gate": "자연 영상·출처·이용 조건·반복 재생 적합성 검토",
+          "candidate_video_ids": [
+            165178,
+            75383,
+            136620
+          ],
+          "mode": "RANDOM_CANDIDATE",
+          "candidate_review": "PAGE_METADATA_ONLY",
+          "candidate_source_urls": [
+            "https://pixabay.com/videos/leaves-plants-wind-forest-nature-165178/",
+            "https://pixabay.com/videos/trees-leaves-wind-forest-nature-75383/",
+            "https://pixabay.com/videos/trees-leaves-wind-green-season-136620/"
+          ]
         },
         "render": {
           "video_mode_only": true,
           "loop": true,
           "activity_seconds": 1200,
-          "nature_sound": "UNDECIDED",
-          "note": "자연음 사용 여부 결정 보류. 20분 반복 재생은 LUMI 설계; 선택형 모드 연결 확인 필요.",
-          "duration_seconds": 1200
+          "nature_sound": "MUTED",
+          "note": "한 세션에서 선택된 영상 하나만 반복. 10초 이상 HD 후보 중 하나를 고르며 20분 원본은 미확보. 실제 움직임·반복 경계는 재생 검토 필요.",
+          "duration_seconds": 1200,
+          "loop_boundary_review": "PENDING"
         },
         "note": "영상 준비 및 접근성, 반복 경계·권리 검수 필요."
       }
@@ -404,7 +416,7 @@
         "close_icon": true,
         "on_exit": "STOP_TIMER_AND_ALL_AUDIO_AND_VIDEO"
       },
-      "completion_sound": "UNDECIDED"
+      "completion_sound": "NONE"
     }
   },
   "grades": {
@@ -574,14 +586,13 @@
     "status": "DRAFT",
     "open_items": [
       "시트의 INS-GAP-S3는 코드의 INS-MFVAS(정신 피로 VAS 3문항, 임시·미검증)로 들어갔다 — S3 세션은 SAM + MFVAS를 사전·라운드마다 잰다",
-      "결정 보류: 실내 자연 영상에 자연음을 포함할지 여부",
-      "종료 알림음 사용 여부 미결정",
       "실제 자연환경/영상 모드 분기와 조건부 영상 슬롯은 기존 플레이어·스키마 지원 확인 필요",
       "P38 원본 대본 미확보 및 사용자 승인 대본의 오디오 재생 길이 미검증",
       "P38-E1 표기와 연구 결과, 5주 프로그램을 단회에 적용할 한계 팀 검토",
       "영상 파일 선정, 저작권 및 반복 경계 확인",
       "Pixabay 영상 검색의 키, 영상 반복 및 실제 환경 모드에서 검색 생략 분기 검증 필요",
-      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다"
+      "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다",
+      "사용자 결정: 숲·잎·바람 후보 최대 3개 중 세션당 하나를 고정 반복. 영상 원음과 종료 알림음은 사용하지 않음. 후보는 페이지 정보만 확인했으며 실제 영상 움직임과 반복 경계는 검토 대기. 원본 최소 길이는 LUMI 구현 선택으로 30초에서 10초로 변경."
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-10, 근거 arm 6행",
     "reviewed_by": null,
