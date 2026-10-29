@@ -374,6 +374,7 @@ make run                # http://127.0.0.1:8000/health
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
 | `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
+| `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -617,6 +618,50 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - 근거 없는 카드가 하나 늘었다(S1-fatigue-b PR-15) — 근거가 약한 활동도 앞에 서기 때문이다. 카드는 근거를
   찾지 못했다고 밝힌다.
 
+### 추천 이유 평가
+
+`make plan-eval ARGS="… --out r1.json"`은 계획마다 추천 이유와, 그 설명 호출이 본 입력(사용자 메시지 그대로 · 근거 ·
+구성 · 목표 지표 등급 · 카드 배지)을 남깁니다. `make rationale-eval`이 이것을 두 층으로 채점합니다. 같은 입력에도
+모델 출력이 흔들려서(10-28 S1 6회 중 4회만 플래그 이름이 샜다) plan-eval을 여러 번 돌린 결과를 함께 넣고, 계획마다
+한 건으로 셉니다.
+
+| 층 | 항목 | 판정 |
+| --- | --- | --- |
+| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장, 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
+| Judge(LLM, `judge`) | faithful · outcomes · hedged · disclosure · personal | 뜻을 읽어야 하는 것 — 근거 · 발췌에 없는 연구 · 결과를 말하지 않음, 개선 지표에 있는 것만 개선으로 말함(정서 결과를 스트레스 감소로 바꾸지 않음), 효과를 단정하거나 임상으로 넓히지 않음, 플래그 · 근거 없음을 뜻으로 밝힘, 사용자 상태 → 고른 이유 → 근거 |
+
+- Judge는 생성 모델(`LLM_MODEL`, gpt-5.4-mini)과 다른 모델(기본 gpt-5.5, 추론 medium)입니다 — 같은 모델은 자기
+  글에 후합니다. 입력은 설명 호출이 본 사용자 메시지 그대로이고(콘텐츠 Factor 칸만 뺍니다), 항목마다 PASS · FAIL
+  (disclosure만 NA)과 문제 구절 · 이유를 냅니다. 규칙을 분명히 어겼을 때만 FAIL입니다.
+- Judge 숫자는 사람이 확인한 뒤에 인용합니다. `sheet`가 Judge FAIL 전부와 항목마다 PASS 표본을 CSV로 뽑고,
+  사람이 human 칸(PASS · FAIL · NA 또는 O · X · -)을 채우면 `agree`가 일치를 냅니다. 일치를 확인한 항목만 숫자로
+  씁니다.
+
+2026-10-29 기준선(생성 gpt-5.4-mini · Judge gpt-5.5 medium · lumi-pg · 후보 순서는 운영과 같은 가중 추첨
+`--seed plan-eval`) — 계획 36개(첫 계획에서 고른 활동 14종):
+
+| 층 | 결과 |
+| --- | --- |
+| 규칙 | sentences · script · codes · stats · experimental · years 36/36, no_evidence 2/2, **factors 34/36** |
+| Judge | personal · hedged 36/36, faithful 34/36, outcomes 31/36, **disclosure 3/16** |
+
+- disclosure — 반대 결과(CONFLICTING_EVIDENCE) · 자극 변형(ADAPTED_STIMULUS) 플래그가 붙은 근거가 있는 16건 중
+  3건만 문장에서 밝혔다. Judge는 7/22로 셌다 — 지지하지 않는 근거(NOT_SUPPORTING)만 있는 4건을 NA가 아닌 PASS ·
+  FAIL로 봤다. 근거 플래그와 문장을 대조해 바로잡았다.
+- outcomes · faithful — 개선 지표 밖의 결과를 효과로 말하기(전기피부활동 · 상태 반추), 목표를 지지하지 않는 근거를
+  효과처럼(PR-19 · PR-20), 정서 결과를 스트레스 · 불안 개선으로(Chen 2025).
+- factors — 고른 풍경 · 작품 주제를 문장에 적었다("숲·호수·바다·산을 섞어", "물 풍경 작품을 고른 것은").
+- 카드와 어긋남 — PR-06 · PR-07 카드(4/36)에 '연구 자극을 바꾼 콘텐츠' 배지(프로토콜
+  `user_facing_flags.when_adapted_script`)가 붙지만, 설명 입력에는 이 정보가 없어 추천 이유가 밝힐 수 없다.
+- 같은 날 등급 순(가중 추첨 이전 — `--seed ''`와 같다)으로도 쟀다(규칙 108개 · Judge 72개). 한국어 문장 중간에
+  다른 문자가 섞인 출력이 3/108(데바나가리 'अभ्यास' · 아랍 'فاص' · 저자 Mohd → 'محمد' — 계획을 5번 만들면 한 번은
+  나올 확률이 약 13%), ID 노출 1/108(PR-06), factors 106/108, disclosure 3/30, faithful 66/72, outcomes 63/72였다.
+  outcomes는 개선 지표 밖의 '이완'(Toussaint 2021) ×6, 목표를 지지하지 않는 Hicks 2020을 "오류가 줄었다"로(발췌는
+  노출 뒤 누락 오류가 늘었다) 말한 것이 컸다.
+- Judge 기준은 첫 채점(36개)을 읽고 두 곳을 고쳤다 — '개선 지표' 칸도 뒷받침으로 본다(발췌가 방법 부분인
+  근거가 있다), 사용자 상태의 '이미지 제공' 줄만으로 공개를 요구하지 않는다(호흡 · 이완처럼 이미지를 쓰지 않는
+  활동). Judge 비용은 36개에 토큰 87k/25k였다.
+
 ## 배포 (Vercel)
 
 FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나로 올립니다. 저장소를 Vercel 프로젝트에
@@ -753,6 +798,7 @@ scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 질의 수집 · 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 scripts/plan_eval.py            계획 평가 — 시나리오마다 실제 모델로 plan 노드 실행 · 규칙 판정(make plan-eval)
+scripts/rationale_eval.py       추천 이유 평가 — 규칙(코드) · LLM Judge 채점 · 사람 라벨 일치(make rationale-eval)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
