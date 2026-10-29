@@ -5,6 +5,8 @@ LLM Judge로 채점한다. 같은 시나리오를 여러 번 돌린 결과 파�
     .venv/bin/python scripts/rationale_eval.py check r1.json r2.json r3.json  # LLM 없음
     .venv/bin/python scripts/rationale_eval.py judge r1.json r2.json r3.json --out judged.json
     .venv/bin/python scripts/rationale_eval.py report judged_r1.json judged_r23.json  # 합쳐 집계
+    .venv/bin/python scripts/rationale_eval.py report judged.json \
+        --md docs/rag-eval/2026-10-29-rationale-baseline.md --title "기준선"         # 실행 기록
     .venv/bin/python scripts/rationale_eval.py sheet judged.json --out review.csv    # 사람 확인용
     .venv/bin/python scripts/rationale_eval.py agree judged.json review.csv
 
@@ -450,10 +452,96 @@ def sheet(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cell(text: str) -> str:
+    """마크다운 표 칸 — 세로줄 · 줄바꿈을 막는다."""
+    return text.replace("|", "\\|").replace("\n", " ") or "—"
+
+
+def record_markdown(
+    title: str,
+    rows: Sequence[Mapping[str, Any]],
+    summary: Mapping[str, Any],
+    judges: Sequence[Mapping[str, Any]],
+    runs: Sequence[Mapping[str, Any]],
+    rechecked: bool,
+) -> str:
+    """실행 기록(docs/rag-eval/YYYY-MM-DD-<주제>.md) — 구성 · 규칙 · Judge 항목 분포 · 전부 통과 ·
+    어긴 것 · Judge 실패. judges는 judge --out의 meta, runs는 plan eval 결과의 meta · summary다.
+    해석은 같은 디렉터리의 판정 메모(-verdict.md)에 사람이 쓴다."""
+    lines = [f"# 추천 이유 평가 — {title}", ""]
+    for run in runs:
+        meta, counts = run["meta"], run["summary"]
+        seed = meta.get("seed") or "등급 순"
+        lines.append(
+            f"- 생성: `{meta['model']}` · 후보 순서 시드 `{seed}` · 근거 DB `{meta['db']}` · "
+            f"계획 {counts['runs']}개(시나리오 {counts['scenarios']} + 활동 변경 "
+            f"{counts['change_rounds']}) · {meta['at']}"
+        )
+    for meta in judges:
+        lines.append(
+            f"- 심판: `{meta['judge']}`(추론 {meta['effort']}) · 토큰 "
+            f"{meta['tokens'][0]:,}/{meta['tokens'][1]:,} · {meta['at']}"
+        )
+    if rechecked:
+        lines.append(
+            "- 규칙은 이 기록을 만든 코드의 규칙(`app/agent/rationale_rules.py`)으로 다시 쟀다"
+        )
+    lines += ["", "## 규칙 (코드)", "", "| 규칙 | 통과 | 판정 |", "| --- | --- | --- |"]
+    lines += [f"| {name} | {ok} | {n} |" for name, (ok, n) in summary["checks"].items()]
+    judged = [r for r in rows if r.get("judgment")]
+    lines += ["", "## Judge 항목", "", "| 항목 | PASS | FAIL | NA |", "| --- | --- | --- | --- |"]
+    for item in ITEMS:
+        verdicts = [r["judgment"][item]["verdict"] for r in judged]
+        counts = " | ".join(str(verdicts.count(v)) for v in ("PASS", "FAIL", "NA"))
+        lines.append(f"| {item} | {counts} |")
+    ok, n = summary["clean"]
+    lines += ["", "## 전부 통과", "", f"규칙과 Judge 항목을 모두 통과한 추천 이유 {ok}/{n}", ""]
+    broken = []
+    for row in rows:
+        for name, result in row["checks"].items():
+            if result["ok"] is False:
+                broken.append((row, name, result["detail"], "규칙"))
+        for item in ITEMS:
+            verdict = (row.get("judgment") or {}).get(item)
+            if verdict and verdict["verdict"] == "FAIL":
+                broken.append((row, item, verdict["quote"], verdict["why"]))
+    lines += [f"## 어긴 것 — {len(broken)}건", ""]
+    if broken:
+        lines += ["| 계획 | 활동 | 항목 | 문제 구절 | 이유 |", "| --- | --- | --- | --- | --- |"]
+        for row, name, quote, why in broken:
+            lines.append(
+                f"| {row['case']} | {row['protocol_id']} | {name} | {_cell(quote)} | {_cell(why)} |"
+            )
+    else:
+        lines.append("없음.")
+    errors = [r for r in rows if r.get("error")]
+    lines += ["", f"## Judge 실패 — {len(errors)}건", ""]
+    lines += [f"- {r['case']}: {_cell(r['error'])}" for r in errors] or ["없음."]
+    return "\n".join(lines) + "\n"
+
+
 def report(args: argparse.Namespace) -> int:
+    """judge 결과를 합쳐 집계한다. plan eval 결과 파일이 남아 있으면 규칙은 지금 코드로 다시 잰다
+    — 규칙을 고친 뒤에도 같은 추천 이유를 새 규칙으로 볼 수 있다."""
     rows, tokens = load_judged(args.judged)
-    print(format_report(rows, summarize(rows)))
+    judges = [json.loads(p.read_text(encoding="utf-8"))["meta"] for p in args.judged]
+    results = [Path(p) for meta in judges for p in meta["results"]]
+    rechecked = bool(results) and all(p.exists() for p in results)
+    runs = []
+    if rechecked:
+        cases = {c.id: c for c in load_cases(results)}
+        for row in rows:
+            if row["case"] in cases:
+                row["checks"] = run_checks(cases[row["case"]])
+        runs = [json.loads(p.read_text(encoding="utf-8")) for p in results]
+    summary = summarize(rows)
+    print(format_report(rows, summary))
     print(f"\nJudge 토큰 {tokens[0]:,}/{tokens[1]:,}")
+    if args.md:
+        title = args.title or args.md.stem
+        record = record_markdown(title, rows, summary, judges, runs, rechecked)
+        args.md.write_text(record, encoding="utf-8")
+        print(f"실행 기록: {args.md}")
     return 0
 
 
@@ -483,6 +571,8 @@ def main() -> int:
     j.add_argument("--out", type=Path, help="결과 JSON(report · agree용)")
     r = sub.add_parser("report", help="judge --out 결과 여러 개를 합쳐 집계한다")
     r.add_argument("judged", type=Path, nargs="+", help="judge --out 결과")
+    r.add_argument("--md", type=Path, help="실행 기록 마크다운(docs/rag-eval/YYYY-MM-DD-<주제>.md)")
+    r.add_argument("--title", help="실행 기록 제목. 없으면 파일 이름")
     s = sub.add_parser("sheet", help="사람이 확인할 CSV — Judge FAIL 전부 + 항목마다 PASS 표본")
     s.add_argument("judged", type=Path, nargs="+", help="judge --out 결과")
     s.add_argument("--out", type=Path, required=True, help="CSV(엑셀용 UTF-8 BOM)")
