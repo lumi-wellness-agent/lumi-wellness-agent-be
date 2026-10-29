@@ -283,6 +283,53 @@ class PixabayProvider:
         return pool
 
 
+    def video_by_id(
+        self, video_id: int, *, min_source_duration_seconds: int = 10,
+        session_duration_seconds: int = 1200,
+    ) -> ActivityAsset:
+        """후보 ID를 공식 영상 검색 endpoint로 조회한다. 목록만 고정하고 URL은 갱신한다."""
+        cache_key = f"video-id:{video_id}:{min_source_duration_seconds}:{session_duration_seconds}"
+        if cached := _cached("PIXABAY", cache_key):
+            return cached
+        body = _request_json(
+            self.client, "GET", self.video_base_url,
+            params={"key": self.api_key, "id": str(video_id), "safesearch": "true"},
+        )
+        for hit in body.get("hits", []):
+            duration = int(hit.get("duration") or 0)
+            if hit.get("id") != video_id or duration < min_source_duration_seconds:
+                continue
+            # 모바일에서 4K를 불필요하게 내려받지 않는다. 가능한 HD 중 작은 해상도.
+            versions = sorted(
+                (v for v in hit.get("videos", {}).values() if isinstance(v, dict)),
+                key=lambda v: v.get("width", 0) * v.get("height", 0),
+            )
+            video = next((
+                v for v in versions
+                if str(v.get("url", "")).startswith("https://")
+                and v.get("width", 0) >= 1280 and v.get("height", 0) >= 720
+            ), None)
+            if video is None:
+                continue
+            asset = ActivityAsset(
+                slot="VISUAL_VIDEO", url=video["url"], provider="PIXABAY",
+                title=f"Pixabay forest video {video_id}", creator=hit.get("user"),
+                source_url=hit.get("pageURL"), license="Pixabay Content License",
+                verification="PENDING_CONTENT_REVIEW",
+                metadata={
+                    "id": video_id, "width": video["width"], "height": video["height"],
+                    "source_duration_seconds": duration,
+                    "session_duration_seconds": session_duration_seconds,
+                    "loop_required": duration < session_duration_seconds,
+                    "selection_mode": "RANDOM_CANDIDATE",
+                    "loop_boundary_review": "PENDING",
+                },
+            )
+            _cache("PIXABAY", cache_key, asset, _PROVIDER_CACHE_SECONDS)
+            return asset
+        raise ContentProviderError(f"후보 영상 {video_id}의 길이·해상도 조건을 충족하지 못함")
+
+
 def _allowed_freesound_license(value: str) -> str | None:
     lowered = value.lower()
     if "publicdomain/zero" in lowered or "creativecommons.org/publicdomain" in lowered:

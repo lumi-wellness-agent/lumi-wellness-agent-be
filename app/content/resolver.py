@@ -335,6 +335,39 @@ def resolve_activity_assets(
                             warnings += color_warnings
                     else:
                         render = spec.get("render", {})
+                        fixed_id = selection.get("fixed_video_id")
+                        candidate_ids = (
+                            [fixed_id] if fixed_id else selection.get("candidate_video_ids", [])
+                        )
+                        if candidate_ids:
+                            # 선택은 세션 준비 때 한 번만. 반복 재생 때 다시 뽑지 않는다.
+                            ids = list(dict.fromkeys(int(v) for v in candidate_ids))[:3]
+                            if not fixed_id:
+                                (rng or random.SystemRandom()).shuffle(ids)
+                            for video_id in ids:
+                                try:
+                                    video = pixabay.video_by_id(
+                                        video_id,
+                                        min_source_duration_seconds=int(
+                                            selection.get("min_source_duration_seconds", 10)
+                                        ),
+                                        session_duration_seconds=int(
+                                            render.get("duration_seconds", 1200)
+                                        ),
+                                    )
+                                    video.metadata["selection_mode"] = (
+                                        "FIXED" if fixed_id else "RANDOM_CANDIDATE"
+                                    )
+                                    slot_assets = [video]
+                                    break
+                                except ContentProviderError:
+                                    continue
+                            if not slot_assets:
+                                warnings.append(
+                                    "VISUAL_VIDEO: 숲 영상 후보를 불러오지 못함"
+                                )
+                            assets.extend(slot_assets)
+                            continue
                         scene = _video_scenery(sceneries)
                         query = (
                             factor_catalog.pick_query(
