@@ -238,7 +238,7 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 | --- | --- | --- |
 | `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
 | `CONSENT_REQUIRED` | 403 | 회원이 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
-| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` — 게스트 체험은 기록하지 않는다 |
+| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` · `GET /me/sessions` — 게스트 체험은 기록하지 않는다 |
 | `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
 | `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
@@ -282,8 +282,8 @@ FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰
   지우는 것은 브라우저가 보장하지 않아, 남은 행과 체크포인트는 매일 도는 정리 작업이 지웁니다. 입력이 OpenAI로
   간다는 것은 회원과 같이 처리방침에 밝힙니다.
 - FE는 게스트 세션을 `sessionStorage`에 둡니다(supabase-js `auth.storage`) — 탭을 닫으면 체험이 끝납니다.
-- 게스트는 `PUT /me/consent`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜 로그인으로 회원이
-  됩니다(게스트 체험은 이어지지 않습니다).
+- 게스트는 `PUT /me/consent` · `GET /me/sessions`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜
+  로그인으로 회원이 됩니다(게스트 체험은 이어지지 않습니다).
 - 쓰지 않았다는 것은 만든 지, 로그인 세션을 갱신한 지, 세션 행을 쓴 지 모두 그 기간이 지났다는 뜻입니다.
 
 Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은 IP마다 횟수 제한(Rate Limits)이 있으니
@@ -325,6 +325,25 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
   만료 — 410), 기록이 없는 체크포인트(인증 전 세션 · 지운 사용자)를 지웁니다.
 - 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
   동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
+
+회원은 `GET /me/sessions`로 자기 활동 기록을 봅니다(FE 기록 탭). 활동을 한(라운드 기록이 있는) 세션을 최근
+것부터 `limit`개(기본 20 · 최대 100) 돌려주고, 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠집니다. 분석
+테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다.
+
+```json
+{"sessions": [{"session_id": "…", "started_at": "2026-10-29T05:12:03+00:00",
+  "ended_at": "2026-10-29T05:24:41+00:00", "goal": "S2",
+  "rounds": [{"round": 1, "protocol_id": "PR-06", "name": "주기적 한숨 호흡 5분", "minutes": 5,
+              "completed": true, "deltas": {"valence": 1.0, "arousal": -2.0}, "improved": true,
+              "next_step": "END"}],
+  "goal_scale": {"instrument_id": "INS-STAI6", "pre": {"total": 53.33}, "end": {"total": 43.33},
+                 "delta": {"total": -10.0}}}]}
+```
+
+- `ended_at`이 `null`이면 마치지 않은 세션(진행 중이거나 쉬다가 만료)입니다. `goal_scale`(목표 척도의 세션
+  변화)은 DONE으로 끝난 세션의 END payload에서 옵니다.
+- `rounds`는 END payload의 `rounds`와 같은 칸에 활동 이름(`name` — 활동 노드 JSON의 `name`, 빠진 활동이면
+  `null`)을 붙인 것입니다. END payload는 `protocol_id`만 실어 FE가 지난 활동의 이름을 모릅니다.
 
 ### Reference 카드 (`app/agent/reference_card.py`)
 
@@ -807,7 +826,7 @@ app/
 ├─ records.py           세션 기록 — 동의 · 세션 · 라운드 · 원문 행과 저장소(Postgres · 메모리) · 정리 작업
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ api/sessions.py      세션 API — 인증 · 소유자 확인 · interrupt 재개 · step · SSE/JSON 응답 · 기록
-├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 탈퇴 (DELETE /me)
+├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 활동 기록 (GET /me/sessions) · 탈퇴 (DELETE /me)
 ├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval · card(Reference 카드)
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더
