@@ -253,15 +253,35 @@ def planned_minutes(protocol: CareProtocol, available: int | None) -> int:
     return max(1, round(minutes))
 
 
+def is_ai_image_slot(slot) -> bool:
+    """AI 그림을 기본으로 만드는 정지 이미지 슬롯인가 — generation.provider AI_HORDE이고 사진 한 장
+    모드(render.mode SINGLE_IMAGE, PR-21)일 때만. 생성이 안 되면 Pixabay 사진으로 받는다. 여러 장
+    (PR-01 25장)은 생성 대기가 길어 처음부터 실제 사진이다(app/content/resolver.py). 이 규칙 하나를
+    콘텐츠 준비와 근거 검증 · Reference 카드가 같이 쓴다."""
+    extra = slot.model_extra or {}
+    return (
+        slot.slot is SlotType.VISUAL_STILL
+        and slot.source_policy.get("generated") != "FORBIDDEN"
+        and (extra.get("generation") or {}).get("provider") == "AI_HORDE"
+        and (extra.get("render") or {}).get("mode") == "SINGLE_IMAGE"
+    )
+
+
+def generates_ai_image(protocol: CareProtocol) -> bool:
+    return any(is_ai_image_slot(s) for s in protocol.content_spec.slots)
+
+
 def delivered_media(protocol: CareProtocol, content_type: ContentType) -> list[Medium]:
     """이번 세션에 실제로 제공할 구성 요소 — 근거 검증(validation.validate)의 media.
 
     media에 STATIC_IMAGE와 AI_IMAGE가 함께 있으면(대안, PR-01) 사용자 선호에 맞는 하나만 남긴다.
     선호가 AI 생성 이미지이고 정지 이미지 슬롯이 생성을 막지 않으면(source_policy.generated가
     FORBIDDEN이 아니면) STATIC_IMAGE를 AI_IMAGE로 바꾼다 — 검증이 ADAPTED_STIMULUS로 표시한다.
+    AI 그림은 실제로 만드는 활동(generates_ai_image — PR-21)의 기본이다(사용자 선택 없음). 나머지는
+    선호가 AI여도 사진이다. content_type은 호출 쪽 호환으로 남긴다.
     """
     media = list(protocol.media)
-    wants_generated = content_type is ContentType.AI_IMAGE
+    wants_generated = generates_ai_image(protocol)
     if Medium.STATIC_IMAGE in media and Medium.AI_IMAGE in media:
         media.remove(Medium.STATIC_IMAGE if wants_generated else Medium.AI_IMAGE)
     elif wants_generated and Medium.STATIC_IMAGE in media:

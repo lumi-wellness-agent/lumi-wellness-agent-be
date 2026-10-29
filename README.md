@@ -82,7 +82,7 @@ graph TD;
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
 | `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 질문 초안을 낸다. 안전 신호면 세션 종료(`ended = SAFETY`). 처음 입력이 관계없으면 사용자 말에 맞춘 입구 되묻기(`restate`)를 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
-| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S2(`goal_source = DEFAULT`, 근거 없음) | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S1 · S2 · S3 중 무작위(`goal_source = DEFAULT`, 근거 없음, 10-29 — 전에는 S2 고정) | `nodes/intake.py` |
 | `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
 | `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
@@ -238,7 +238,7 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 | --- | --- | --- |
 | `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
 | `CONSENT_REQUIRED` | 403 | 회원이 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
-| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` — 게스트 체험은 기록하지 않는다 |
+| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` · `GET /me/sessions` — 게스트 체험은 기록하지 않는다 |
 | `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
 | `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
@@ -282,8 +282,8 @@ FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰
   지우는 것은 브라우저가 보장하지 않아, 남은 행과 체크포인트는 매일 도는 정리 작업이 지웁니다. 입력이 OpenAI로
   간다는 것은 회원과 같이 처리방침에 밝힙니다.
 - FE는 게스트 세션을 `sessionStorage`에 둡니다(supabase-js `auth.storage`) — 탭을 닫으면 체험이 끝납니다.
-- 게스트는 `PUT /me/consent`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜 로그인으로 회원이
-  됩니다(게스트 체험은 이어지지 않습니다).
+- 게스트는 `PUT /me/consent` · `GET /me/sessions`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜
+  로그인으로 회원이 됩니다(게스트 체험은 이어지지 않습니다).
 - 쓰지 않았다는 것은 만든 지, 로그인 세션을 갱신한 지, 세션 행을 쓴 지 모두 그 기간이 지났다는 뜻입니다.
 
 Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은 IP마다 횟수 제한(Rate Limits)이 있으니
@@ -326,6 +326,25 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 - 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
   동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
 
+회원은 `GET /me/sessions`로 자기 활동 기록을 봅니다(FE 기록 탭). 활동을 한(라운드 기록이 있는) 세션을 최근
+것부터 `limit`개(기본 20 · 최대 100) 돌려주고, 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠집니다. 분석
+테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다.
+
+```json
+{"sessions": [{"session_id": "…", "started_at": "2026-10-29T05:12:03+00:00",
+  "ended_at": "2026-10-29T05:24:41+00:00", "goal": "S2",
+  "rounds": [{"round": 1, "protocol_id": "PR-06", "name": "주기적 한숨 호흡 5분", "minutes": 5,
+              "completed": true, "deltas": {"valence": 1.0, "arousal": -2.0}, "improved": true,
+              "next_step": "END"}],
+  "goal_scale": {"instrument_id": "INS-STAI6", "pre": {"total": 53.33}, "end": {"total": 43.33},
+                 "delta": {"total": -10.0}}}]}
+```
+
+- `ended_at`이 `null`이면 마치지 않은 세션(진행 중이거나 쉬다가 만료)입니다. `goal_scale`(목표 척도의 세션
+  변화)은 DONE으로 끝난 세션의 END payload에서 옵니다.
+- `rounds`는 END payload의 `rounds`와 같은 칸에 활동 이름(`name` — 활동 노드 JSON의 `name`, 빠진 활동이면
+  `null`)을 붙인 것입니다. END payload는 `protocol_id`만 실어 FE가 지난 활동의 이름을 모릅니다.
+
 ### Reference 카드 (`app/agent/reference_card.py`)
 
 "왜 추천했나요?"에 답하는 카드입니다. plan 노드가 계획마다 만들어 `CarePlan.reference_card`에 싣고, FE는 `RUN`
@@ -339,7 +358,7 @@ payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/c
 | `badges` | 화면 배지(`CardBadge`) — `EXPERIMENTAL` · `LIMITED_EVIDENCE` · `NO_VERIFIED_EVIDENCE` · `CONFLICTING_EVIDENCE` · `ADAPTED_STIMULUS` · `AI_IMAGE_UNVERIFIED` · `RELAXED_ORDER` · `RELAXED_ENVIRONMENT` · `DEFAULT_GOAL` · `PROVISIONAL_MEASURE`. 문구 · 색은 FE가 정하고 설명 문장은 `limits` · `goal.notes`에 있다 |
 | `goal` | 목표와 라벨, 정한 방식(`INFERRED` · `DEFAULT` · `CHIP`)과 판단 이유, **목표 근거**(추론한 목표 · 부목표의 개념 정의 원문 · 개념 · 쪽 · 논문), 근거가 보는 1차 지표, LUMI가 재는 척도(`measured_by`, 임시 도구면 `provisional`), `notes`(기본 목표 · S3 "주의 용량은 재지 않는다" · 임시 척도) |
 | `grades` | 이 활동의 목표 1차 지표별 근거 등급(프로토콜 시트, A–D · — · 미확인) |
-| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문), 검증 6항목(`checks`, 자세히 보기용). 목표를 지지하는 것이 앞 |
+| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문). 검증 6항목의 사유(로그 문장)는 싣지 않는다 — 실패한 비차단 검사는 플래그 · 한계 문장으로 밝힌다. 목표를 지지하는 것이 앞 |
 | `limits` | 카드 끝 한계 문장 — 고정 고지, 배지마다 한 문장(프로토콜 작성자의 `reference_card_note`가 있으면 그것으로), 프로토콜의 대상 메모 |
 
 - `EXPERIMENTAL`은 `composition`이 `EXPERIMENTAL`이거나 프로토콜 `user_facing_flags`가 그 목표에서 실험적이라고 할 때,
@@ -372,7 +391,7 @@ make run                # http://127.0.0.1:8000/health
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
-| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
+| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · CP@5(RAGAS Context Precision) · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
 | `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `report --md`는 `docs/rag-eval/` 실행 기록을, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
 
@@ -465,6 +484,21 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
+### RAGAS 지표 대응
+
+RAG 평가는 RAGAS의 검색 지표 2개 · 생성 지표 2개에 맞춰 이 저장소의 스크립트로 잽니다(RAGAS 라이브러리는 쓰지
+않습니다). Factual Correctness는 정답 답변(reference)과 대조하는 지표인데, 추천 이유는 정답 문장이 하나로 정해지지
+않아 쓰지 않습니다.
+
+| RAGAS 지표 | 이 저장소의 평가 | 2026-10-29 |
+| --- | --- | --- |
+| Context Recall | 근거 검색 평가 Recall@K — 정답 레코드 중 상위 K에 든 비율(RAGAS ID 기반 Context Recall과 같은 계산) | planner · hybrid Recall@5 0.989 |
+| Context Precision | 근거 검색 평가 CP@5 — RAGAS Context Precision@5 공식, 관련 여부는 정답 레코드로 판정 | planner 1.000(구조적 — 범위 · 필터 뒤 후보가 정답뿐), open hybrid 0.575 · dense 0.772 |
+| Faithfulness | 추천 이유 평가 Judge `faithful` · `outcomes`(+ 규칙 `years` · `stats`) — 추천 이유 단위 PASS · FAIL | faithful 36/36(Judge 35, 사람 조정) · outcomes 35/36 |
+| Response Relevancy | 추천 이유 평가 Judge `personal` — 사용자 상태 → 고른 이유 → 근거 | 36/36 |
+
+- Judge 숫자는 사람 판정(Judge 판정을 가린 18건, 일치 15/18)으로 확인했습니다 — 「추천 이유 평가」.
+
 ### 근거 검색 평가
 
 `data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다(2026-10-28 갱신, 180문항). 운영 plan 노드가
@@ -493,8 +527,9 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
 - **평균.** 문항마다 같은 무게입니다 — 운영에서 나올 수 있는 검색 상황 전체의 평균입니다. 활동이 S2에 17개
   (S1 · S3는 4개씩)라 planner 163문항 중 119문항이 S2입니다.
 - `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense · keyword 세 방식으로 Hit@K ·
-  Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 레코드 중 그 활동 `evidence[]` 밖의 비율 — 낮을수록
-  좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. K는 레코드 수입니다 — chunk 순위에서 레코드가
+  Recall@K · MRR(K = 3 · 5 · 10), CP@5(RAGAS Context Precision@5 — 상위 5 안의 정답 자리마다 그 자리까지의
+  정밀도를 평균, 정답이 정답 아닌 레코드보다 모두 위면 1)와 Foreign@5(상위 5 레코드 중 그 활동 `evidence[]` 밖의
+  비율 — 낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. K는 레코드 수입니다 — chunk 순위에서 레코드가
   처음 나온 순서로 셉니다(운영 plan이 서로 다른 레코드 5개를 싣는 것과 같다, `hybrid.top_records`). 2026-10-28
   측정까지는 chunk 위치로 셌습니다. DB는 lumi-pg로 돌립니다 — 운영
   Supabase의 session pooler(5432)는 클라이언트 한도가 15라 다른 연결과 겹치면 평가 풀이 연결을 못 엽니다.
@@ -503,15 +538,15 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
 
 2026-10-29 측정(180문항, text-embedding-3-small, lumi-pg). 기록은 [판정 메모](docs/rag-eval/2026-10-29-retrieval-verdict.md) ·
 [기준선](docs/rag-eval/2026-10-29-retrieval-baseline.md) · [레코드 상위 5](docs/rag-eval/2026-10-29-retrieval-top-records.md) ·
-[라벨 수정](docs/rag-eval/2026-10-29-retrieval-labels.md)이다:
+[라벨 수정](docs/rag-eval/2026-10-29-retrieval-labels.md) · [Context Precision@5](docs/rag-eval/2026-10-29-retrieval-context-precision.md)이다:
 
-| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | Foreign@5 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| planner · hybrid | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 0 |
-| planner · dense | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 0 |
-| planner · keyword | 163 | 0.957 | 0.855 | 0.895 | 0.895 | 0.957 | 0 |
-| open · hybrid | 163 | 0.712 | 0.456 | 0.566 | 0.756 | 0.630 | 0.639 |
-| open · dense | 163 | 0.902 | 0.616 | 0.758 | 0.901 | 0.819 | 0.534 |
+| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | CP@5 | Foreign@5 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| planner · hybrid | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · dense | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · keyword | 163 | 0.957 | 0.855 | 0.895 | 0.895 | 0.957 | 0.957 | 0 |
+| open · hybrid | 163 | 0.712 | 0.456 | 0.566 | 0.756 | 0.630 | 0.575 | 0.639 |
+| open · dense | 163 | 0.902 | 0.616 | 0.758 | 0.901 | 0.819 | 0.772 | 0.534 |
 
 | view · 방식 | n | found@5 평균 | 근거 0건 |
 | --- | --- | --- | --- |
@@ -525,6 +560,9 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
   PR-19 JSON의 정서 태그를 뺐다 — 검색이 아니라 정답 정의를 고친 것이다(0.989).
 - 남은 6문항은 모두 PR-14다. 정답이 7개라 상위 5에 다 들 수 없고(Recall@10 1.000), 원문이 없는 E02-E1 · P30-E1이
   6~7위다.
+- planner의 CP@5 1.000은 순위가 아니라 구조에서 나온다 — 163문항 모두 상위 5에 정답 아닌 레코드가 없다(그 활동
+  `evidence[]` 안을 목표 지표 · 연구 조건 필터로 찾아 후보가 정답뿐이다). 순위 자체의 질은 범위 · 필터가 없는
+  open에서 보고, 거기서는 dense(0.772)가 hybrid(0.575)보다 높다(판정 메모 판정 6).
 - 사용자 상태 정책으로 정답 19건을 분모에서 뺐다(예: 사건 전 사용자에게 스트레스 뒤 회복 연구).
 - fallback 2문항(PR-15를 사건 전 · 오래 집중한 뒤에 고른 경우)은 상위 5가 비어 Reference 카드에 근거가 없다 —
   빌려 올 S1 컬러링 연구 P32-E1이 스트레스 뒤(POST_STRESS) 조건이라 그 상태에 인용할 수 없다. PR-21은 PR-09의
@@ -708,6 +746,12 @@ docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 �
   번의 입력 토큰이 7,043 → 7,541(+7%)이 됐고, 반대 결과 플래그가 새로 붙은 PR-18 · PR-19 계획까지 모두 밝혔다.
   남은 실패는 근거에 없는 '건강한 성인'(설명 프롬프트의 문구를 대상 설명으로 옮겨 씀) · 개선 지표 밖의 '마음챙김
   점수' · 즉시 효과 단정이 1건씩이다.
+- 사람 라벨(검색 개선 후 측정에서 `sheet`가 뽑은 18건, Judge 판정을 가리고 판정) — Judge와 15/18 일치. 어긋난 3건은
+  바로 위 '남은 실패' 3건이었고, 조정해 보니 '마음챙김 점수'(outcomes) · 즉시 효과 단정(hedged)은 Judge가 맞고
+  '건강한 성인'(faithful)은 통과로 정했다 — 임상 표본 플래그가 없는 근거를 일반 성인 표본으로 부르는 것은 지어낸
+  조건이 아니다(Judge 기준에 넣었다). 조정한 라벨로 faithful 36/36 · 전부 통과 34/36이다. blind 판정이 모두
+  통과라 κ는 0이다 — 둘이 같은 곳에서 위반을 찾는지는 이 표본으로 알 수 없다([판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
+  판정 5).
 
 ## 배포 (Vercel)
 
@@ -807,7 +851,7 @@ app/
 ├─ records.py           세션 기록 — 동의 · 세션 · 라운드 · 원문 행과 저장소(Postgres · 메모리) · 정리 작업
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ api/sessions.py      세션 API — 인증 · 소유자 확인 · interrupt 재개 · step · SSE/JSON 응답 · 기록
-├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 탈퇴 (DELETE /me)
+├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 활동 기록 (GET /me/sessions) · 탈퇴 (DELETE /me)
 ├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval · card(Reference 카드)
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더

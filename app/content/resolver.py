@@ -25,7 +25,8 @@ from app.content.providers import (
     PixabayProvider,
 )
 from app.content.proxy import proxied_url
-from app.schemas.care import CareRequest, ContentType
+from app.protocols import is_ai_image_slot
+from app.schemas.care import CareRequest
 from app.schemas.content import ContentFactors, FactorSource, Soundscape
 from app.schemas.protocol import CareProtocol, SlotType
 
@@ -275,41 +276,33 @@ def resolve_activity_assets(
             provider = selection.get("provider")
             try:
                 slot_assets: list[ActivityAsset] = []
-                generation = spec.get("generation", {})
-                ai_image_requested = (
-                    slot.slot is SlotType.VISUAL_STILL
-                    and request.profile.content_type is ContentType.AI_IMAGE
-                    and generation.get("provider") == "AI_HORDE"
-                )
-                if ai_image_requested:
-                    if not settings.ai_horde_api_key:
-                        raise ContentProviderError("AI_HORDE_API_KEY가 설정되지 않음")
-                    count = int(spec.get("count", 1))
-                    try:
-                        slot_assets = AIHordeProvider(
-                            settings.ai_horde_api_key,
-                            client,
-                            poll_timeout_seconds=settings.ai_horde_poll_timeout_seconds,
-                        ).generate_images(
-                            nature_prompt(
-                                request.profile,
-                                meditation=protocol.protocol_id == "PR-21",
-                                scenery=_ai_scenery(sceneries, scenery_source),
-                            ),
-                            count=count,
-                        )
-                    except ContentProviderError as exc:
-                        if not settings.pixabay_api_key:
-                            raise
+                # AI 그림은 사진 한 장 모드(PR-21)의 기본이다 — 규칙은 protocols.is_ai_image_slot.
+                # 키가 없거나 생성이 실패 · 대기 초과면 바로 아래 Pixabay 경로로 사진을 받는다
+                if is_ai_image_slot(slot):
+                    if settings.ai_horde_api_key:
+                        try:
+                            slot_assets = AIHordeProvider(
+                                settings.ai_horde_api_key,
+                                client,
+                                poll_timeout_seconds=settings.ai_horde_poll_timeout_seconds,
+                            ).generate_images(
+                                nature_prompt(
+                                    request.profile,
+                                    meditation=protocol.protocol_id == "PR-21",
+                                    scenery=_ai_scenery(sceneries, scenery_source),
+                                ),
+                                count=int(spec.get("count", 1)),
+                            )
+                        except ContentProviderError as exc:
+                            warnings.append(
+                                f"{slot.slot.value}: AI 생성 실패로 Pixabay 사진을 사용함 ({exc})"
+                            )
+                    else:
                         warnings.append(
-                            f"{slot.slot.value}: AI 생성 실패로 Pixabay 사진을 사용함 ({exc})"
+                            f"{slot.slot.value}: AI_HORDE_API_KEY가 없어 Pixabay 사진을 사용함"
                         )
-                        slot_assets = PixabayProvider(
-                            settings.pixabay_api_key, client
-                        ).search_images(
-                            _configured_query(selection, request, "calm forest water"),
-                            count=count,
-                        )
+                if slot_assets:
+                    pass  # AI 그림을 받았다
                 elif provider == "PIXABAY":
                     if not settings.pixabay_api_key:
                         raise ContentProviderError("PIXABAY_API_KEY가 설정되지 않음")

@@ -24,8 +24,8 @@ def test_missing_key_becomes_safe_warning_without_network_call():
     assert result.warnings == ["SOUNDSCAPE: FREESOUND_API_KEY가 설정되지 않음"]
 
 
-def test_ai_image_profile_uses_horde_for_pr01(monkeypatch):
-    protocol = get_protocol("PR-01")
+def test_pr21_uses_ai_horde_by_default(monkeypatch):
+    protocol = get_protocol("PR-21")
     assert protocol is not None
     captured = {}
 
@@ -45,20 +45,53 @@ def test_ai_image_profile_uses_horde_for_pr01(monkeypatch):
         ]
 
     monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", fake_generate)
-    request = CareRequest(
-        text="사진을 보고 싶어요",
-        profile=UserProfile(content_type=ContentType.AI_IMAGE, preferred_scenery=["숲"]),
-    )
+    # 사용자가 그림 종류를 고르지 않아도(기본 CURATED_PHOTO) PR-21은 AI 그림이 기본이다
+    request = CareRequest(text="사진을 보고 싶어요", profile=UserProfile(preferred_scenery=["숲"]))
     result = resolve_activity_assets(
         protocol,
         request,
         settings=Settings(ai_horde_api_key="secret"),
         client=httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(500))),
     )
-    assert result.assets[0].provider == "AI_HORDE"
-    assert len(result.assets) == 25
-    assert "숲" in captured["prompt"]
-    assert result.warnings == []
+    images = [a for a in result.assets if a.slot == "VISUAL_STILL"]
+    assert [a.provider for a in images] == ["AI_HORDE"]  # 사진 한 장 모드
+    assert "숲" in captured["prompt"] and "meditation" in captured["prompt"]
+    assert not any("VISUAL_STILL" in w for w in result.warnings)
+
+
+def test_ai_image_profile_keeps_photos_for_multi_photo_slots(monkeypatch):
+    """PR-01(25장) · PR-03은 AI 그림을 골라도 실제 사진 — 생성 대기가 길다."""
+
+    def no_generation(self, prompt, *, count=1):
+        raise AssertionError("AI Horde를 부르면 안 된다")
+
+    def fake_search(self, query, *, count=1, **kwargs):
+        from app.agent.state import ActivityAsset
+
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url=f"https://cdn/{query.replace(' ', '-')}-{i}.jpg",
+                provider="PIXABAY",
+                verification="PENDING_CONTENT_REVIEW",
+            )
+            for i in range(count)
+        ]
+
+    monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", no_generation)
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_images", fake_search)
+    for pid in ("PR-01", "PR-03"):
+        result = resolve_activity_assets(
+            get_protocol(pid),
+            CareRequest(text="-", profile=UserProfile(content_type=ContentType.AI_IMAGE)),
+            settings=Settings(ai_horde_api_key="secret", pixabay_api_key="secret"),
+            client=httpx.Client(
+                transport=httpx.MockTransport(
+                    lambda request: (_ for _ in ()).throw(AssertionError())
+                )
+            ),
+        )
+        assert result.assets and all(a.provider == "PIXABAY" for a in result.assets), pid
 
 
 def test_default_photo_profile_uses_pixabay_for_pr01(monkeypatch):
@@ -97,14 +130,46 @@ def test_default_photo_profile_uses_pixabay_for_pr01(monkeypatch):
     assert all(asset.provider == "PIXABAY" for asset in result.assets)
 
 
+def test_pr21_without_horde_key_uses_pixabay(monkeypatch):
+    def no_generation(self, prompt, *, count=1):
+        raise AssertionError("키가 없으면 AI Horde를 부르지 않는다")
+
+    def fake_search(self, query, *, count=1, **kwargs):
+        from app.agent.state import ActivityAsset
+
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url="https://cdn/photo.jpg",
+                provider="PIXABAY",
+                verification="PENDING_CONTENT_REVIEW",
+            )
+        ]
+
+    monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", no_generation)
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_images", fake_search)
+    result = resolve_activity_assets(
+        get_protocol("PR-21"),
+        CareRequest(text="-"),
+        settings=Settings(ai_horde_api_key="", pixabay_api_key="secret"),
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: (_ for _ in ()).throw(AssertionError())
+            )
+        ),
+    )
+    assert [a.provider for a in result.assets if a.slot == "VISUAL_STILL"] == ["PIXABAY"]
+    assert any("AI_HORDE_API_KEY가 없어 Pixabay" in w for w in result.warnings)
+
+
 def test_ai_generation_failure_falls_back_to_pixabay(monkeypatch):
-    protocol = get_protocol("PR-03")
+    protocol = get_protocol("PR-21")
     assert protocol is not None
 
     def fail_generation(self, prompt, *, count=1):
         raise ContentProviderError("generation unavailable")
 
-    def fake_search(self, query, *, count=1):
+    def fake_search(self, query, *, count=1, **kwargs):
         from app.agent.state import ActivityAsset
 
         return [
@@ -131,8 +196,9 @@ def test_ai_generation_failure_falls_back_to_pixabay(monkeypatch):
             )
         ),
     )
-    assert result.assets[0].provider == "PIXABAY"
-    assert "AI 생성 실패로 Pixabay 사진을 사용함" in result.warnings[0]
+    images = [a for a in result.assets if a.slot == "VISUAL_STILL"]
+    assert [a.provider for a in images] == ["PIXABAY"]
+    assert any("AI 생성 실패로 Pixabay 사진을 사용함" in w for w in result.warnings)
 
 
 def test_pr21_uses_registered_fixed_meditation_audio_without_api_key():
@@ -686,3 +752,15 @@ def test_avoided_color_drops_llm_sceneries_but_not_user_chips(monkeypatch):
         client=_no_network(),
     )
     assert [q for q, _, _ in captured] == ["calm sea horizon"]  # 사용자가 고른 풍경은 그대로
+
+
+def test_delivered_media_marks_ai_image_only_where_it_is_generated():
+    from app.protocols import delivered_media
+    from app.schemas.evidence import Medium
+
+    # PR-21만 AI 그림이 기본이다(선택 없음) — 카드의 AI_IMAGE_UNVERIFIED와 근거 검증이 같다
+    for chosen in (ContentType.CURATED_PHOTO, ContentType.AI_IMAGE):
+        assert Medium.AI_IMAGE in delivered_media(get_protocol("PR-21"), chosen)
+    for pid in ("PR-01", "PR-03"):
+        media = delivered_media(get_protocol(pid), ContentType.AI_IMAGE)
+        assert Medium.AI_IMAGE not in media and Medium.STATIC_IMAGE in media, pid

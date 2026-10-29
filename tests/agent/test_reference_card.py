@@ -63,7 +63,6 @@ def test_s3_card_groups_chunks_and_states_what_lumi_measures():
     assert first.supports_goal and first.supported_outcomes == [Outcome.ATTENTION]
     assert first.paper.title and first.paper.url  # 논문 출처(검색 결과의 papers 행)
     assert {r.outcome for r in first.results} == {Outcome.ATTENTION}
-    assert len(first.checks) == 6
     # 재현 실패(N19) — 지지하지 않는 참고 근거
     second = got.evidence[1]
     assert not second.supports_goal and Flag.NOT_SUPPORTING in second.flags
@@ -186,7 +185,7 @@ def test_a_full_card_survives_the_checkpoint(caplog):
         order=InterventionOrder.POST_STRESS,
     )
     got = card("PR-21", IntakeResult(goal=CareGoal.S1), evidence, delivered=[Medium.AI_IMAGE])
-    assert got.evidence and got.evidence[0].checks
+    assert got.evidence and got.evidence[0].excerpts
 
     with caplog.at_level(logging.WARNING):
         restored = serializer().loads_typed(serializer().dumps_typed(got))

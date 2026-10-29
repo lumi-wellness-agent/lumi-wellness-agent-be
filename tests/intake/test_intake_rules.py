@@ -3,6 +3,8 @@
 LLM · LangGraph 없이 본다. 계약은 app/schemas/intake.py 모듈 docstring.
 """
 
+import random
+
 import pytest
 from pydantic import ValidationError
 
@@ -244,7 +246,7 @@ def test_restate_skip_starts_with_default_goal():
         CareRequest(text="ㅋㅋ"),
         [recorded],
     )
-    assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    assert out.goal in rules.DEFAULT_CHOICES and out.goal_source is GoalSource.DEFAULT
     # 되묻기가 아닌 질문은 건너뛸 수 없고, 답은 하나만
     state_q = rules.fixed_question(QuestionSlot.STATE, 1)
     with pytest.raises(ValueError):
@@ -347,12 +349,39 @@ def test_goal_from_inference_with_target_outcomes():
     assert same.secondary_goal is None
 
 
+class Pick:
+    """무작위 목표를 고정한다 — random.Random.choice 자리."""
+
+    def __init__(self, goal: CareGoal):
+        self.goal = goal
+
+    def choice(self, options):
+        assert self.goal in options
+        return self.goal
+
+
+def test_default_goal_is_random_among_three():
+    # 단서가 없으면 S2 고정이 아니라 세 목표 중 무작위(2026-10-29 결정)
+    no_cues = inference(has_cues=False)
+    seen = {
+        rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"), rng=random.Random(i)).goal
+        for i in range(30)
+    }
+    assert seen == set(rules.DEFAULT_CHOICES) == {CareGoal.S1, CareGoal.S2, CareGoal.S3}
+    out = rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"), rng=Pick(CareGoal.S3))
+    assert out.goal is CareGoal.S3 and out.goal_source is GoalSource.DEFAULT
+    assert out.target_outcomes  # 고른 목표의 결과 지표가 붙는다
+    assert "무작위" in out.goal_reason
+
+
 def test_goal_defaults_and_priorities():
     unknown = [
         turn(QuestionSlot.STATE, 1, answer={}),
         turn(QuestionSlot.STATE_FOLLOWUP, 2, answer={}),
     ]
-    out = rules.apply_goal(IntakeResult(), inference(), CareRequest(text="…"), unknown)
+    out = rules.apply_goal(
+        IntakeResult(), inference(), CareRequest(text="…"), unknown, rng=Pick(CareGoal.S2)
+    )
     assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT  # 두 질문 모두 모름
     assert out.target_outcomes == [Outcome.SUBJECTIVE_STRESS, Outcome.AFFECT]
 
@@ -374,7 +403,7 @@ def test_goal_defaults_and_priorities():
         "N01",
     ]
     out = rules.apply_goal(IntakeResult(), no_cues, CareRequest(text="…"))
-    assert out.goal is CareGoal.S2 and out.goal_source is GoalSource.DEFAULT
+    assert out.goal in rules.DEFAULT_CHOICES and out.goal_source is GoalSource.DEFAULT
     assert out.goal_evidence == []  # 정의로 판단한 것이 아니다
     out = rules.apply_goal(IntakeResult(), inference(), CareRequest(text="…", goal=CareGoal.S3))
     assert out.goal is CareGoal.S3 and out.goal_source is GoalSource.CHIP
@@ -420,3 +449,106 @@ def test_goal_definitions_quote_the_papers_the_cue_table_cites():
         assert len(defs) >= 2
         assert {d.paper_id for d in defs} <= set(cues.goals[goal].sources)
         assert all(d.concept and d.page and d.sentence.endswith(".") for d in defs)
+
+
+# ── 상황과 증상이 엇갈릴 때 · 남의 위험 이야기 (10-29) ─────────────────────────────────────────
+
+
+def test_mismatch_asks_current_state_when_situation_and_symptom_disagree():
+    # "야근하고 나니 신경이 곤두서 있어요" — 피로 후인데 긴장이 중심
+    r = reading(order_condition=InterventionOrder.POST_FATIGUE, symptom_mismatch=True)
+    assert rules.state_question(r, []) is None  # 상황은 정했으니 시점 질문은 없다
+    q = rules.mismatch_question(r, [])
+    assert q is not None and q.slot is QuestionSlot.STATE_FOLLOWUP and q.turn == 1
+    labels = [o.label for o in q.groups[0].options]
+    assert labels[-1] == UNKNOWN_LABEL
+    hints = [o.set.get("goal_hint") for o in q.groups[0].options]
+    assert hints == [["S2"], ["S3"], None]
+    for option in q.groups[0].options:  # 보기 값이 재질문 slot 계약 안이다
+        parse_set(QuestionSlot.STATE_FOLLOWUP, option.set)
+
+
+def test_mismatch_question_only_once_and_only_when_situation_is_known():
+    assert rules.mismatch_question(reading(symptom_mismatch=True), []) is None  # 상황 미상
+    known = reading(order_condition=InterventionOrder.PRE_STRESS, symptom_mismatch=True)
+    assert (
+        rules.mismatch_question(reading(order_condition=InterventionOrder.PRE_STRESS), []) is None
+    )
+    asked = [turn(QuestionSlot.STATE_FOLLOWUP, 1, answer={})]
+    assert rules.mismatch_question(known, asked) is None  # 이미 물었다
+    timing = [turn(QuestionSlot.STATE, 1, text="곧 시험이에요")]
+    assert rules.mismatch_question(known, timing) is None  # 시점 질문 뒤는 기존 재질문 몫
+    full = [turn(QuestionSlot.CONTEXT, n, answer={}) for n in (1, 2, 3)]
+    assert rules.mismatch_question(known, full) is None  # 예산 초과
+
+
+def test_chosen_current_state_wins_over_inference():
+    picked = IntakeResult(goal_hint=[CareGoal.S2])
+    out = rules.apply_goal(
+        picked, inference(goal=CareGoal.S3, secondary_goal=None), CareRequest(text="…")
+    )
+    assert (out.goal, out.secondary_goal, out.goal_source) == (
+        CareGoal.S2,
+        CareGoal.S3,
+        GoalSource.INFERRED,
+    )
+    assert "재질문" in out.goal_reason
+    # 둘 다 골랐거나 추론과 같으면 추론 그대로
+    both = IntakeResult(goal_hint=[CareGoal.S3, CareGoal.S2])
+    assert (
+        rules.apply_goal(both, inference(goal=CareGoal.S3), CareRequest(text="…")).goal
+        is CareGoal.S3
+    )
+
+
+def test_third_party_risk_restates_with_fixed_help_text():
+    r = reading(relevance="OFF_TOPIC", third_party_risk=True, restate_text="LLM 문장")
+    q = rules.restate_question(r, [])
+    assert q is not None and q.slot is QuestionSlot.RESTATE
+    assert q.text == rules.THIRD_PARTY_TEXT
+    assert "109" in q.text and "당신의 이야기" in q.text
+    # LLM이 RELEVANT로 읽어도 남의 위험 이야기면 109를 알리고 되묻는다(2026-10-29 평가)
+    relevant = rules.restate_question(reading(third_party_risk=True), [])
+    assert relevant is not None and relevant.text == rules.THIRD_PARTY_TEXT
+    # 질문을 시작한 뒤에는 되묻지 않는다
+    assert rules.restate_question(r, [turn(QuestionSlot.STATE, 1, answer={})]) is None
+
+
+def test_diagnosis_question_only_restates_without_diagnosing():
+    r = reading(relevance="OFF_TOPIC", diagnosis_request=True, restate_text="우울증일 수 있어요")
+    q = rules.restate_question(r, [])
+    assert q is not None and q.text == rules.DIAGNOSIS_TEXT  # LLM 문장을 쓰지 않는다
+    assert "진단은 하지 못해요" in q.text and q.skip_label == SKIP_LABEL
+    # 자기 상태도 말했으면(RELEVANT) 상태만 읽고 이어 간다
+    assert rules.restate_question(reading(diagnosis_request=True), []) is None
+
+
+def test_goal_mismatch_found_by_code_after_inference():
+    exam = IntakeResult(
+        order_condition=InterventionOrder.PRE_STRESS,
+        goal=CareGoal.S3,
+        goal_source=GoalSource.INFERRED,
+    )
+    q = rules.goal_mismatch_question(exam, [])
+    assert q is not None and q.slot is QuestionSlot.STATE_FOLLOWUP and q.text == rules.MISMATCH_TEXT
+    overtime = exam.model_copy(
+        update={"order_condition": InterventionOrder.POST_FATIGUE, "goal": CareGoal.S2}
+    )
+    assert rules.goal_mismatch_question(overtime, []) is not None
+    # 상황과 같은 쪽 · 반복 생각 · 계기 없음 · 재질문 답 · 기본값 · 이미 물음이면 묻지 않는다
+    same = exam.model_copy(update={"goal": CareGoal.S2})
+    rumination = exam.model_copy(update={"goal": CareGoal.S1})
+    daily = exam.model_copy(update={"order_condition": InterventionOrder.NO_INDUCTION})
+    hinted = exam.model_copy(update={"goal_hint": [CareGoal.S3]})
+    default = exam.model_copy(update={"goal_source": GoalSource.DEFAULT})
+    for intake in (same, rumination, daily, hinted, default):
+        assert rules.goal_mismatch_question(intake, []) is None
+    asked = [turn(QuestionSlot.STATE_FOLLOWUP, 1, answer={})]
+    assert rules.goal_mismatch_question(exam, asked) is None
+
+
+def test_goal_reason_never_repeats_a_diagnosis_name():
+    said = inference(goal=CareGoal.S2, secondary_goal=None, reason="'불안장애인가요'는 긴장 단서")
+    out = rules.apply_goal(IntakeResult(), said, CareRequest(text="…"))
+    assert out.goal is CareGoal.S2
+    assert not any(w in out.goal_reason for w in rules.DIAGNOSIS_WORDS)

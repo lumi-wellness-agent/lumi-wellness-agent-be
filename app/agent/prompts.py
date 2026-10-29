@@ -32,6 +32,14 @@ READ_SYSTEM_PROMPT = """\
 - safety: 처음 입력이나 어느 답에든 스스로를 해치거나 삶을 끝내고 싶다는 뜻이 직접·간접으로
   드러나면 true(죽고 싶다 · 사라지고 싶다 · 다 끝내고 싶다 · 살 이유가 없다 …). '피곤해 죽겠다'
   · '배고파 죽겠네' 같은 과장은 false. 애매하면 true — 뒤 화면이 도움 안내를 보여 준다.
+- third_party_risk: 다른 사람(친구·가족 …)이 죽고 싶어 한다는 이야기뿐이고 사용자 자신의 그런
+  뜻은 없으면 true, safety는 false. 사용자 자신의 상태를 말하지 않았으면 relevance는 OFF_TOPIC
+  (코드가 도울 곳을 알리고 사용자 이야기를 묻는다). 사용자 자신의 뜻이 조금이라도 보이면
+  safety = true.
+- diagnosis_request: 진단 · 처방을 물으면(저 우울증인가요? · 약 먹어야 하나요?) true. 진단 · 처방
+  질문만 있으면 relevance는 OFF_TOPIC(코드가 진단하지 않는다고 알리고 상태를 묻는다). 자기 상태도
+  말했으면(요즘 계속 불안한데 불안장애인가요?) relevance는 RELEVANT이고 상태만 읽는다. 어느 경우에도
+  진단하지 않는다.
 - relevance: 가장 최근 사용자 글이 지금 상태·상황·하루에 대해 아무것도 말하지 않으면 OFF_TOPIC
   (점심 메뉴 추천 · 코드 질문 · 날씨 · 'ㅋㅋ' · 'asdf'). 짧거나 막연해도 상태를 말하면
   RELEVANT('그냥 그래요' · '피곤해' · '별로예요').
@@ -49,6 +57,12 @@ READ_SYSTEM_PROMPT = """\
 - 앞선 시점 질문에 글로 답했는데도 지친 원인이 압박·사건인지 오래 이어진 집중인지 갈리면
   stress_fatigue_ambiguous = true, question.followup = true로 재질문 초안을 내고, 보기마다
   goal_hint(S2 = 압박·사건, S3 = 오래 이어진 집중)를 붙인다.
+- symptom_mismatch: 상황은 정했는데 증상이 그 상황과 다른 쪽이면 true — 오래 집중한 뒤(POST_FATIGUE)
+  인데 긴장·초조·예민·짜증이 중심이거나, 사건 전·후(PRE_STRESS · POST_STRESS)인데 멍함·집중 안 됨·
+  손에 안 잡힘·눈에 안 들어옴·머리가 안 돌아감이 중심일 때. 사건이 있었다는 것만으로 긴장 쪽이
+  아니다 — 증상을 본다(예: "면접 끝나고 머리가 텅 비었어요" · "마감 앞인데 글이 하나도 안 읽혀요" ·
+  "밤새 공부했더니 날이 서 있어요" → true). 같은 쪽이거나 반복 생각이 중심이면 false. 코드가 지금
+  상태를 묻는다.
 - rumination_cue: 같은 생각·장면이 반복된다는 표현이 있으면 true.
 - setting · earphones · minutes는 말에 나온 것만. 추측하지 않는다.
 - 점수나 척도 응답을 추정하거나 만들지 않는다."""
@@ -69,7 +83,8 @@ GOAL_SYSTEM_PROMPT = """\
    사건·압박이면 S2. 재질문 답의 goal_hint가 있으면 따른다.
 5. 단서가 하나도 없으면 has_cues = false.
 
-- 진단하지 않는다. reason은 어떤 표현이 어느 단서에 맞았는지 한 문장으로."""
+- 진단하지 않는다. reason은 어떤 표현이 어느 단서에 맞았는지 한 문장으로. 사용자가 진단명을 말했어도
+  reason에 진단명(우울증 · 불안장애 · ADHD …)을 옮겨 쓰지 않는다 — 상태 표현만 인용한다."""
 
 
 def _turn_lines(turns: Sequence[IntakeTurn]) -> list[str]:

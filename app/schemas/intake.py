@@ -58,13 +58,14 @@ MINUTES_CHOICES = (3, 5, 10, 20)
 MINUTES_ASK_BOUNDARIES = (5, 10, 20)
 UNKNOWN_LABEL = "잘 모르겠어요"
 OPENING_TEXT = "오늘 상황이 어떠세요?"  # FE 시작 화면의 고정 질문(답 = CareRequest.text)
-SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → S2 DEFAULT
+SKIP_LABEL = "그냥 시작할게요"  # 되묻기 화면의 출구 → 무작위 DEFAULT 목표
 
 
 class QuestionSlot(StrEnum):
     RESTATE = "restate"  # 입구 되묻기 — 관계없는 답 뒤. 글로만 답하고 예산에 세지 않는다
     STATE = "state"  # 시점 질문 — 사건 전·후 · 오래 집중한 뒤 · 계기 없음
-    STATE_FOLLOWUP = "state_followup"  # 재질문 — 원인(압박 vs 오래 이어진 집중). 목표 단서도 받는다
+    # 재질문 — 원인(압박 vs 오래 집중), 또는 상황 · 증상이 엇갈리면 지금 상태. goal_hint도 받는다
+    STATE_FOLLOWUP = "state_followup"
     CONTEXT = "context"  # 환경 칩 — setting · earphones · minutes
 
 
@@ -88,7 +89,7 @@ class IntakeEndReason(StrEnum):
     SAFETY = "SAFETY"  # 처음 입력이나 글 답에 안전 신호(① safety) — 세션 종료
 
 
-DEFAULT_GOAL = CareGoal.S2  # 후보가 가장 많고 1순위(PR-06)의 근거 등급이 A·A다
+DEFAULT_GOAL = CareGoal.S2  # finish의 마지막 안전망. 단서 없음은 intake_rules.default_goal(무작위)
 
 # slot → set에 쓸 수 있는 키
 SLOT_KEYS: dict[QuestionSlot, frozenset[str]] = {

@@ -19,9 +19,11 @@ supabase/migrations/20261027000000_care_records.sql.
 - 행은 모두 auth.users를 따라 지워진다. 탈퇴(delete_user, DELETE /me)는 auth.users 행을 지워 기록 ·
   원문 · 동의와 Supabase의 로그인 세션 · 연동 계정을 함께 지우고, 그 사용자의 체크포인트도 지운다.
   대시보드에서 사용자를 지운 경우 남은 체크포인트는 다음 정리 작업이 지운다.
+- 회원이 자기 기록을 다시 보는 활동 기록(history, GET /me/sessions)은 분석 테이블만 읽는다 — 원문은
+  싣지 않는다.
 
 저장소는 둘이다 — DATABASE_URL이 있으면 PostgresStore, 없으면(테스트 · DB 없는 로컬) MemoryStore.
-둘 다 같은 행 함수(session_columns · round_row · text_row)를 쓴다.
+둘 다 같은 행 함수(session_columns · round_row · text_row · history_row)를 쓴다.
 """
 
 from collections.abc import Iterable
@@ -206,6 +208,40 @@ def text_row(values: dict) -> dict:
     }
 
 
+# ── 행 → 활동 기록 ────────────────────────────────────────────────────────────────────────
+
+# 활동 기록에 싣는 라운드 칸 — END payload의 rounds와 같다. 고른 과정 · 근거 ID 같은 분석 칸은 뺀다
+HISTORY_ROUND_FIELDS = (
+    "round",
+    "protocol_id",
+    "minutes",
+    "completed",
+    "deltas",
+    "improved",
+    "next_step",
+)
+
+
+def history_row(
+    session_id: str,
+    started_at: datetime,
+    ended_at: datetime | None,
+    goal: str | None,
+    goal_scale: dict | None,
+    rounds: Iterable[dict],
+) -> dict:
+    """활동 기록의 세션 하나. ended_at이 None이면 마치지 않은 세션이고, 목표 척도의 세션 변화
+    (goal_scale)는 DONE으로 끝난 세션의 END payload에만 있다."""
+    return {
+        "session_id": session_id,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "goal": goal,
+        "rounds": [{key: r[key] for key in HISTORY_ROUND_FIELDS} for r in rounds],
+        "goal_scale": goal_scale,
+    }
+
+
 # ── 저장소 ────────────────────────────────────────────────────────────────────────────────
 
 
@@ -228,6 +264,11 @@ class SessionStore(Protocol):
     async def recent_protocols(self, user_id: UUID, limit: int) -> list[str]:
         """이 사용자의 지난 라운드에서 한 활동 — 최근 것부터 limit개(중복 없이). 새 세션의 후보
         추천 순서에서 가중치를 낮춘다(protocols.RECENT_FACTOR)."""
+        ...
+
+    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+        """활동 기록 — 이 사용자가 활동을 한(라운드 기록이 있는) 세션을 최근 것부터 limit개
+        (history_row). 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠진다."""
         ...
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
@@ -352,6 +393,29 @@ class MemoryStore:
         )
         return list(dict.fromkeys(pid for *_, pid in mine[:limit]))
 
+    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+        rounds: dict[str, list[dict]] = {}
+        for (sid, _), row in sorted(self.rounds.items()):
+            rounds.setdefault(sid, []).append(row)
+        mine = sorted(
+            (
+                (row["created_at"], sid)
+                for sid, row in self.sessions.items()
+                if row["user_id"] == user_id and sid in rounds
+            ),
+            reverse=True,
+        )
+        out = []
+        for _, sid in mine[:limit]:
+            row = self.sessions[sid]
+            goal_scale = (row["end_summary"] or {}).get("goal_scale")
+            out.append(
+                history_row(
+                    sid, row["created_at"], row["ended_at"], row["goal"], goal_scale, rounds[sid]
+                )
+            )
+        return out
+
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         now, row = self.clock(), self.sessions[record.id]
         columns = session_columns(values, view, guest=record.guest)
@@ -465,6 +529,20 @@ where s.user_id = %s
 order by r.created_at desc, r.round desc
 limit %s
 """
+# 활동 기록 — 이 사용자가 활동을 한(라운드 기록이 있는) 세션, 최근 것부터(care_sessions_user_idx)
+HISTORY_SQL = """
+select s.id::text, s.created_at, s.ended_at, s.goal, s.end_summary -> 'goal_scale'
+from public.care_sessions s
+where s.user_id = %s
+  and exists (select 1 from public.care_rounds r where r.session_id = s.id)
+order by s.created_at desc
+limit %s
+"""
+HISTORY_ROUNDS_SQL = f"""
+select session_id::text, {", ".join(HISTORY_ROUND_FIELDS)} from public.care_rounds
+where session_id = any(%s)
+order by session_id, round
+"""
 # 원문 동의가 있을 때만 쓴다 — 동의는 쓰는 순간의 값을 본다
 TEXT_SQL = """
 insert into public.care_texts (
@@ -557,6 +635,22 @@ class PostgresStore:
         async with self.pool.connection() as conn:
             cur = await conn.execute(RECENT_SQL, (user_id, limit))
             return list(dict.fromkeys(pid for (pid,) in await cur.fetchall()))
+
+    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(HISTORY_SQL, (user_id, limit))
+            sessions = await cur.fetchall()
+            if not sessions:
+                return []
+            cur = await conn.execute(HISTORY_ROUNDS_SQL, ([UUID(sid) for sid, *_ in sessions],))
+            rounds: dict[str, list[dict]] = {}
+            for sid, *values in await cur.fetchall():
+                row = dict(zip(HISTORY_ROUND_FIELDS, values, strict=True))
+                rounds.setdefault(sid, []).append(row)
+        return [
+            history_row(sid, started_at, ended_at, goal, goal_scale, rounds[sid])
+            for sid, started_at, ended_at, goal, goal_scale in sessions
+        ]
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         columns = session_columns(values, view, guest=record.guest)

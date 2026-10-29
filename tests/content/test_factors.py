@@ -12,7 +12,9 @@ from app.content.providers import EXCLUDED_IMAGE_TAGS
 from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 
 ROOT = Path(__file__).resolve().parents[2]
-PAPERS = {row["rc_id"] for row in csv.DictReader((ROOT / "data" / "manifest.csv").open())}
+# Windows 기본 인코딩(cp949)으로 열면 깨진다 — 저장소 파일은 UTF-8
+MANIFEST = (ROOT / "data" / "manifest.csv").read_text(encoding="utf-8").splitlines()
+PAPERS = {row["rc_id"] for row in csv.DictReader(MANIFEST)}
 ENUMS = {
     factors.SCENERY: Scenery,
     factors.SOUNDSCAPE: Soundscape,

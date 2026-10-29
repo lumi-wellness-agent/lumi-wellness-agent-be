@@ -14,7 +14,7 @@ from langgraph.types import Command
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
-from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
+from app.agent.intake_rules import DEFAULT_CHOICES, FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
 from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
 from app.agent.nodes.replanner import NextStepChoice, next_step_options, route_after_confirm
@@ -417,7 +417,7 @@ def test_two_unknown_answers_start_with_default_goal_without_inference():
     out = run(graph, answer("q2"))  # 또 잘 모르겠어요
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0  # 추론을 부르지 않는다
 
 
@@ -472,7 +472,7 @@ def test_restate_skip_starts_with_default_goal_without_inference():
     out = run(graph, Command(resume={"question_id": "r1", "skip": True}))
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0 and intaker.read_turns == [0]
     assert out["intake_turns"][0].skipped
 
@@ -484,7 +484,8 @@ def test_no_cues_starts_with_default_goal_and_bad_answers_are_rejected():
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="그냥 그래요")})
     assert out["__interrupt__"][0].value["measure"] == "PRE"
-    assert out["intake"].goal is CareGoal.S2 and out["intake"].goal_source is GoalSource.DEFAULT
+    assert out["intake"].goal in DEFAULT_CHOICES
+    assert out["intake"].goal_source is GoalSource.DEFAULT
 
     graph = graph_with(
         FakePlanner(), FakeIntaker(reading(question=ASK_TIMING), goal=inference(CareGoal.S2))
@@ -714,3 +715,28 @@ def test_routes():
     # S3의 MFVAS는 라운드마다 재므로 종료에 다시 묻지 않는다
     s3 = {"intake": IntakeResult(goal=CareGoal.S3), "next_step": NextStep.END}
     assert route_after_confirm(s3) == END
+
+
+def test_goal_mismatch_after_inference_asks_current_state_then_reinfers():
+    # "곧 시험인데 머리가 안 돌아가요" — ①은 엇갈림을 못 잡았고 추론은 S3, 상황(시험 전)은 S2 쪽
+    intaker = FakeIntaker(
+        reading(
+            order_condition=InterventionOrder.PRE_STRESS,
+            setting=Setting.HOME,
+            earphones=True,
+            minutes=10,
+        ),
+        goal=inference(CareGoal.S3),
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    out = run(graph, {"request": CareRequest(text="곧 시험인데 머리가 안 돌아가요")})
+    q = out["__interrupt__"][0].value
+    assert q["slot"] == "state_followup" and q["text"] == "지금은 어느 쪽에 더 가까워요?"
+    assert intaker.goal_calls == 1
+
+    out = run(graph, answer(q["question_id"], goal_hint=["S2"]))  # 긴장되거나 예민해요
+    while "measure" not in out["__interrupt__"][0].value:  # 남은 환경 질문은 건너뛴다
+        out = run(graph, answer(out["__interrupt__"][0].value["question_id"]))
+    intake = out["intake"]
+    assert intake.goal is CareGoal.S2 and intake.secondary_goal is CareGoal.S3
+    assert intaker.goal_calls == 2  # 답을 받아 다시 정했다 — 다시 묻지는 않는다

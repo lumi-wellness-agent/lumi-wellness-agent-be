@@ -180,6 +180,47 @@ def test_a_finished_session_is_recorded_and_follows_consent_and_account_removal(
     asyncio.run(in_rollback(test))
 
 
+def test_history_reads_the_sessions_with_activities_and_their_rounds():
+    async def test(conn, store):
+        user_id = await new_user(conn)
+        await store.save_consent(user_id, raw_text=False)
+        graph = build_graph(
+            FakePlanner(BREATHING),
+            FakeIntaker(S2_READING, goal=inference(CareGoal.S2)),
+            memory_checkpointer(),
+        )
+        request = CareRequest(text="발표 앞두고 긴장돼요")
+        waiting = SessionRecord(id=str(uuid.uuid4()), user_id=user_id)  # 활동 전에 멈췄다
+        await store.create(waiting.id, user_id, request)
+        await drive(store, waiting, graph, [{"request": request}])
+        record = SessionRecord(id=str(uuid.uuid4()), user_id=user_id)
+        await store.create(record.id, user_id, request)
+        final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
+        end = await drive(
+            store,
+            record,
+            graph,
+            [
+                {"request": request},
+                Command(resume=PRE_S2),
+                Command(resume={"completed": True}),
+                Command(resume=sam(5, 4)),
+                Command(resume={"next_step": "END"}),
+                Command(resume=final),
+            ],
+        )
+
+        (session,) = await store.history(user_id, 20)
+        assert (session["session_id"], session["goal"]) == (record.id, "S2")
+        assert session["ended_at"] is not None
+        # 라운드 행과 END payload가 같은 기록을 담는다
+        assert session["rounds"] == end["payload"]["rounds"]
+        assert session["goal_scale"] == end["payload"]["goal_scale"]
+        assert await store.history(await new_user(conn), 20) == []
+
+    asyncio.run(in_rollback(test))
+
+
 def test_a_safety_end_drops_the_texts_already_kept():
     async def test(conn, store):
         user_id = await new_user(conn)

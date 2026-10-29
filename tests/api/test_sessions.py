@@ -393,8 +393,9 @@ def test_off_topic_input_is_restated_and_can_be_skipped():
 
     body = client.post(f"/sessions/{sid}/answer", json={"question_id": "r1", "skip": True}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "PRE")
-    # 건너뛰면 추론 없이 S2(기본값)로 시작한다 — 목표 척도가 STAI-6다
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    # 건너뛰면 추론 없이 세 목표 중 무작위로 시작한다(10-29) — SAM + 그 목표의 척도
+    ids = [i["instrument_id"] for i in body["payload"]["instruments"]]
+    assert ids[0] == "INS-SAM" and ids[1:] in (["INS-BSRI"], ["INS-STAI6"], ["INS-MFVAS"])
 
 
 def test_session_api_is_unavailable_without_a_graph():
@@ -665,6 +666,29 @@ def test_account_deletion_removes_the_user_their_records_and_checkpoints():
         assert client.get(f"/sessions/{sid}").status_code == 404
     # 운영에서는 로그인 세션도 지워져 같은 토큰이 401(SESSION_REVOKED)이다 — tests/test_auth.py
     assert client.get("/me/consent").json()["agreed"] is False
+
+
+def test_members_see_their_activity_records_and_guests_have_none():
+    client = client_for()
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    start(client)  # 활동 전에 멈춘 세션은 기록에 없다
+    sid = run_s2_to_end(client)
+
+    (session,) = client.get("/me/sessions").json()["sessions"]
+    end = client.get(f"/sessions/{sid}").json()["payload"]
+    assert (session["session_id"], session["goal"]) == (sid, "S2")
+    assert session["started_at"] < session["ended_at"]
+    assert session["goal_scale"] == end["goal_scale"]
+    # 라운드는 END payload의 rounds에 활동 이름을 붙인 것이다
+    name = protocols.get_protocol("PR-06").name
+    assert session["rounds"] == [{**r, "name": name} for r in end["rounds"]]
+    assert client.get("/me/sessions", params={"limit": 0}).status_code == 422
+
+    login(client.app, BOB)  # 남의 기록은 보이지 않는다
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    login(client.app, GUEST)
+    res = client.get("/me/sessions")
+    assert (res.status_code, res.json()["detail"]["code"]) == (403, "MEMBERS_ONLY")
 
 
 def test_a_guest_tries_a_session_without_consent_and_leaves_no_content():
