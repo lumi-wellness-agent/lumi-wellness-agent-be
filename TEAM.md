@@ -53,7 +53,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | 완료 | `app/agent/state.py` `graph.py` `checkpoint.py` | v2 state · 배선 · 직렬화 허용 타입 |
 | 완료 | `app/agent/nodes/intake.py` `measure.py` `executor.py` `evaluator.py` `replanner.py` | 노드 뼈대. intake·measure는 담당이 본문을 채운다 |
 | 완료 | `app/schemas/protocol.py` `app/protocols.py` | 활동 노드 본문 스키마 · JSON 로더 · 후보 조회(`candidates` 등급 순 · 환경 필터, `plan_candidates` 완화 순서) · LLM용 압축본(`compact`) |
-| 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 TODO, S3용 MFVAS는 PROVISIONAL(팀 작성·미검증) |
+| 완료 | `app/instruments.py` `data/instruments/` | 측정 도구 계약 · 채점. SAM은 READY, STAI-6·BSRI는 PROVISIONAL(한국어 번역 초안, #79), S3용 MFVAS는 PROVISIONAL(팀 작성·미검증) |
 | 완료 | `scripts/scaffold_protocols.py` `data/protocols/PR-02…22.json` | 워크북에서 만든 활동 노드 초안 20개(PR-01은 손으로 쓴 기준) |
 | 완료 | `app/agent/nodes/executor.py` `app/static/coloring/` | 활동 노드 21개 통합(10-27) — prepare가 `content_spec`(대본 · 재생 시점 · 화면 명세)과 NOTICE 단계 모듈(PR-16)을 RUN 페이로드로 넘긴다. C 파트 실행 계약(`scratch/pr11`~`pr19`)을 `content_spec.session_ui`로 옮기고 컬러링 도안 SVG 11개를 검수 자산으로 등록했다 |
 | 완료 | `app/agent/assembly.py` `app/agent/llm.py` `app/config.py` `.env.example` | 모델 조립 — gpt-5.4-mini 하나(`OPENAI_API_KEY` · `LLM_MODEL`, 10-28 gpt-4o-mini에서 교체), 폴백 claude-haiku-5-5(`ANTHROPIC_API_KEY`). 5xx 재시도 1회 · 4xx 즉시 폴백 |

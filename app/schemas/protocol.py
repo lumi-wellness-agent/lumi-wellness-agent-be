@@ -3,7 +3,7 @@
 앞부분(ProtocolEvidenceSection)은 근거 연결 — evidence[]·grades. PR-A 계약 2. plan의 근거 검색이
 evidence[]의 key(ARM은 experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 먼저 찾는다
 (nodes/planner.find_evidence). 근거는 활동 노드를 제약하는 장치가 아니라 Reference
-카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 83편 밖 근거뿐인
+카드에 보여 줄 최소한의 출처다. 그래서 등급을 계산하지 않고 구조만 검사한다. 84편 밖 근거뿐인
 노드(PR-21)는 evidence[]를 비워 둔다.
 
 뒷부분(CareProtocol)은 본문 — steps · content_spec · measures · duration · eligibility … 활동 노드
@@ -155,7 +155,7 @@ class ProtocolEvidenceSection(BaseModel):
     intervention_order: list[InterventionOrder] = []
     paper_id_scheme: str
     grades: dict[Outcome, GradeEntry]
-    evidence: list[ProtocolEvidenceRef] = []  # 83편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
+    evidence: list[ProtocolEvidenceRef] = []  # 84편 밖 근거뿐이면 비운다(PR-21 Lymeus 2017)
 
     @field_validator("intervention_order", mode="before")
     @classmethod
