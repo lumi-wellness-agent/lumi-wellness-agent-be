@@ -282,6 +282,14 @@ def goal_definitions(intake: IntakeResult) -> list[GoalDefinitionRef]:
     return out
 
 
+def adapted_protocol(protocol: CareProtocol) -> bool:
+    """활동 노드가 연구 자극을 LUMI에 맞게 바꿨다고 표시했다(각색 대본 · 다른 음원 — PR-06 ·
+    07 …). 근거 플래그와 따로 ADAPTED_STIMULUS 배지를 켠다. 추천 이유 입력의 '꼭 밝힐 것'도 이
+    판정을 쓴다."""
+    flags = protocol.user_facing_flags
+    return _ADAPTED in (flags.get("when_adapted_script"), flags.get("asset_fidelity"))
+
+
 def card_badges(
     protocol: CareProtocol,
     goal: CareGoal,
@@ -294,7 +302,6 @@ def card_badges(
     flags = protocol.user_facing_flags
     by_goal = flags.get("by_goal") or {}
     ai_image = Medium.AI_IMAGE in delivered
-    adapted_protocol = _ADAPTED in (flags.get("when_adapted_script"), flags.get("asset_fidelity"))
     # 지지 근거가 모두 다른 자극일 때만(없으면 인용한 근거 전부로 본다). 생성 이미지 때문에 붙은
     # 플래그는 AI_IMAGE_UNVERIFIED가 대신 밝힌다
     basis = [e for e in evidence if e.supports_goal] or list(evidence)
@@ -309,7 +316,7 @@ def card_badges(
         CardBadge.LIMITED_EVIDENCE: flags.get("default") == "LIMITED_EVIDENCE",
         CardBadge.NO_VERIFIED_EVIDENCE: not evidence,
         CardBadge.CONFLICTING_EVIDENCE: any(Flag.CONFLICTING_EVIDENCE in e.flags for e in evidence),
-        CardBadge.ADAPTED_STIMULUS: adapted_protocol or adapted_evidence,
+        CardBadge.ADAPTED_STIMULUS: adapted_protocol(protocol) or adapted_evidence,
         CardBadge.AI_IMAGE_UNVERIFIED: ai_image,
         CardBadge.RELAXED_ORDER: "order" in relaxed,
         CardBadge.RELAXED_ENVIRONMENT: "environment" in relaxed,

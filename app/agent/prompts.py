@@ -11,14 +11,15 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from app import protocols
+from app.agent import reference_card
 from app.agent.state import CareState, IntakeResult, NextStep, ReplanProposal, changed_away
 from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
-from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Outcome
+from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Medium, Outcome
 from app.schemas.intake import IntakeTurn, QuestionSlot
 from app.schemas.protocol import CareProtocol
-from app.schemas.retrieval import GOAL_OUTCOMES
+from app.schemas.retrieval import GOAL_OUTCOMES, Flag
 
 if TYPE_CHECKING:
     from app.agent.nodes.planner import ActivityChoice, CitedEvidence
@@ -150,20 +151,31 @@ CHOOSE_SYSTEM_PROMPT = """\
   사용자 표현과 함께 적는다."""
 
 # 플래그 이름을 문장에 그대로 쓰고(2026-10-28 gpt-5.4-mini 실측, S1 6회 중 4회 "ADAPTED_STIMULUS가
-# 있어"), 등급 B인 활동을 '실험적'이라 부르는 일이 있어 이름 대신 뜻을, '실험적'은 조건을 적는다
+# 있어"), 등급 B인 활동을 '실험적'이라 부르는 일이 있어 이름 대신 뜻을, '실험적'은 조건을 적는다.
+# 2026-10-29 추천 이유 평가(scripts/rationale_eval.py)에서 플래그를 뜻으로 밝히라는 지시만으로는
+# 밝힐 것이 있는 16건 중 3건만 밝혀, 밝힐 것은 코드가 정해 '## 꼭 밝힐 것'으로 싣는다
+# (must_disclose).
+# 개선 지표 밖의 결과('이완' · 전기피부활동)를 효과로 말하고, 근거에 없는 조건("짧은 시간에도")을
+# 붙이고, 고른 풍경을 문장에 써서 그 셋도 적는다
 EXPLAIN_SYSTEM_PROMPT = """\
 너는 LUMI의 케어 세션 플래너다. 고른 활동과 검증된 연구 근거로, 사용자에게 보여 줄 추천 이유를
-한국어 2~3문장으로 쓴다. 순서는 사용자 상태 → 이 활동을 고른 이유 → 근거(저자 · 연도와 개선이
-확인된 지표).
+한국어 2~3문장으로 쓴다. 순서는 사용자 상태 → 이 활동을 고른 이유 → 근거(저자(연도)와 개선이
+확인된 지표). 꼭 밝힐 것이 있으면 마지막에 '다만 …' 한 문장을 더한다(최대 4문장).
 
-- 근거 목록에 있는 연구만 언급한다. '개선 지표'에 있는 지표만 개선으로 말한다 — 정서 결과를
-  스트레스 감소로 바꿔 말하지 않는다. 목표 지지가 '아니오'인 근거는 참고로만 말한다.
-- 플래그가 있으면 이름 대신 뜻을 한 구절로 밝힌다: ADAPTED_STIMULUS는 제공 콘텐츠가 연구 자극과
-  다르다, CONFLICTING_EVIDENCE는 반대 결과도 있다, POPULATION_MISMATCH는 임상 표본 결과다.
+- 근거 목록에 있는 연구만 언급한다. 그 근거의 '개선 지표'에 있는 지표만 좋아졌다고 말한다 —
+  정서 결과를 스트레스 · 불안 감소로 바꿔 말하지 않고, 개선 지표에 없는 결과(이완 점수 · 생리
+  반응 …)는 효과로 말하지 않는다. 목표 지지가 '아니오'인 근거는 효과의 근거로 쓰지 않는다.
+- 근거에 없는 조건(시간 · 횟수 · 대상)을 덧붙이지 않는다.
+- '## 꼭 밝힐 것'의 내용은 빠짐없이 '다만 …'으로 시작하는 한 문장에 모아 마지막에 쓴다(여럿이면
+  '…고, …'로 잇는다). 자연스러운 존댓말로 고쳐 써도 되지만 뜻을 줄이지 않고, '밝힌다' · '알려
+  드린다' 같은 말은 붙이지 않는다.
 - '실험적'은 구성이 EXPERIMENTAL이거나 목표 지표 등급이 D뿐일 때만 쓴다.
-- 근거가 없으면 연구 근거를 찾지 못했다고 솔직하게 적는다.
-- enum · 플래그 이름(POST_FATIGUE · RUMINATION · ADAPTED_STIMULUS …)과 통계값(p · g · SMD)을 그대로
-  쓰지 않는다. 치료 효과를 단정하지 않고, 건강한 성인 대상 결과를 임상 효과로 넓히지 않는다.
+- enum · 플래그 이름(POST_FATIGUE · RUMINATION · ADAPTED_STIMULUS …), 활동 · 근거 ID(PR-06 ·
+  [54]), 입력의 칸 이름(개선 지표 · 목표 지지 · 플래그)과 통계값(p · g · SMD)을 그대로 쓰지
+  않는다. 한국어로만 쓰고 저자 이름만 원문(라틴 문자)으로 둔다.
+- 고른 콘텐츠(풍경 · 소리 · 작품 · 음악)는 추천 이유에 쓰지 않는다 — 화면이 따로 보인다.
+- 치료 효과를 단정하지 않고, 건강한 성인 대상 결과를 임상 효과로 넓히지 않는다.
+- '## 직전 추천 이유의 문제'가 있으면 그 문제를 고쳐 다시 쓴다.
 
 content_factors — 이 활동의 콘텐츠(풍경 · 자연음 · 작품 주제 · 이완 음악 추천)를 함께 고른다.
 - '## 콘텐츠 Factor'에 있는 칸과 값만 쓴다. 칸이 없으면 scenery [], soundscape null,
@@ -204,18 +216,22 @@ def outcome_names(outcomes: Sequence[Outcome]) -> str:
     return ", ".join(OUTCOME_NAMES.get(o, o.value) for o in outcomes) or "없음"
 
 
-def _state_lines(request: CareRequest, intake: IntakeResult) -> list[str]:
+def _state_lines(request: CareRequest, intake: IntakeResult, images: bool = True) -> list[str]:
+    """사용자 상태. images=False면 '이미지 제공' 줄을 뺀다 — 이미지를 쓰지 않는 활동(호흡 ·
+    이완 …)의 추천 이유가 이 줄 때문에 자극 차이를 밝히려 했다(2026-10-29 평가)."""
     goal = f"{intake.goal.value} — {GOAL_NAMES[intake.goal]}" if intake.goal else "미정"
     order = intake.order_condition
-    return [
+    lines = [
         f"- 목표: {goal}",
         f"- 사용자 상태: {ORDER_NAMES[order] + f'({order.value})' if order else '미상'}",
         f"- 쓸 수 있는 시간: {intake.minutes or '미상'}분",
         f"- 장소: {intake.place.value if intake.place else '미상'}",
         f"- 제약: {', '.join(intake.constraints) or '없음'}",
-        f"- 이미지 제공: {IMAGE_DELIVERY[request.profile.content_type]}",
-        f"- 요약: {intake.summary or '-'}",
     ]
+    if images:
+        lines.append(f"- 이미지 제공: {IMAGE_DELIVERY[request.profile.content_type]}")
+    lines.append(f"- 요약: {intake.summary or '-'}")
+    return lines
 
 
 def _history_parts(state: CareState) -> list[str]:
@@ -260,14 +276,53 @@ def build_choice_input(
     return "\n\n".join(parts)
 
 
+IMAGE_MEDIA = frozenset({Medium.STATIC_IMAGE, Medium.AI_IMAGE})
+
+
+def must_disclose(
+    protocol: CareProtocol, evidence: Sequence["CitedEvidence"], delivered: Sequence[Medium]
+) -> list[str]:
+    """추천 이유가 꼭 밝힐 한계 — 근거 판정과 활동 노드 표시로 코드가 정한다. Reference 카드의
+    배지(근거 없음 · 반대 결과 · 자극 변형 · AI 이미지)를 모두 덮어 카드와 추천 이유가 어긋나지
+    않는다 — 2026-10-29에는 PR-06 · PR-07 카드의 자극 변형 배지가 설명 입력에 없었다."""
+    flags = {f for c in evidence for f in c.verdict.flags}
+    # 사용자에게 보일 합니다체 문장 — 모델이 그대로 옮겨도 어색하지 않게 쓴다. 평서체에 괄호를 단
+    # 문구는 그대로 붙어 나왔다(2026-10-29 "…좋아졌습니다. 제공 콘텐츠가 … 다르다(LUMI에 맞게
+    # 바꿨다)")
+    out = []
+    if not evidence:
+        out.append("이 활동에 맞는 검증된 연구 근거는 아직 찾지 못했습니다.")
+    elif not any(c.verdict.supports_goal for c in evidence):
+        out.append("검증된 연구는 있지만 이 목표가 좋아졌다는 결과는 없습니다.")
+    if Flag.CONFLICTING_EVIDENCE in flags:
+        out.append("같은 방식의 연구 중에는 효과가 없거나 반대인 결과도 있습니다.")
+    if Medium.AI_IMAGE in delivered:
+        out.append("AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다.")
+    elif Flag.ADAPTED_STIMULUS in flags or reference_card.adapted_protocol(protocol):
+        out.append(
+            "연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다."
+        )
+    if Flag.POPULATION_MISMATCH in flags:
+        out.append("진단을 받은 사람들에게서 나온 결과라 참고로만 봐 주세요.")
+    return out
+
+
 def build_rationale_input(
     state: CareState,
     choice: "ActivityChoice",
     protocol: CareProtocol,
     evidence: Sequence["CitedEvidence"],
+    problems: Sequence[str] = (),
 ) -> str:
-    """LLM 호출 2의 사용자 메시지. 상태 · 고른 활동(구성 · 목표 지표 등급) · 검증된 근거 목록."""
+    """LLM 호출 2의 사용자 메시지. 상태 · 고른 활동(구성 · 목표 지표 등급) · 검증된 근거 · 꼭 밝힐
+    것 · (다시 물을 때) 직전 추천 이유의 문제 · 콘텐츠 Factor 칸.
+
+    목표를 지지하는 근거가 있으면 지지하지 않는 근거는 싣지 않는다 — 2026-10-29 평가에서 그런
+    근거를 효과처럼 말했다(Hicks 2020 · Trupp 2023). 그 근거들의 한계(반대 결과 …)는 꼭 밝힐 것에
+    남는다. '이미지 제공' 줄은 이미지를 쓰는 활동에만 싣는다.
+    """
     request, intake = state["request"], state["intake"]
+    delivered = protocols.delivered_media(protocol, request.profile.content_type)
     primary = GOAL_OUTCOMES[intake.goal].primary if intake.goal else []
     grades = ", ".join(
         f"{OUTCOME_NAMES.get(o, o.value)} {protocol.grades[o].grade.value}" for o in primary
@@ -277,9 +332,10 @@ def build_rationale_input(
         f" 목표 지표 등급: {grades or '없음'}",
         f"- 고른 이유: {choice.reason}",
     ]
-    if evidence:
+    shown = [c for c in evidence if c.verdict.supports_goal] or list(evidence)
+    if shown:
         evidence_lines = []
-        for cited in evidence:
+        for cited in shown:
             hit, verdict = cited.hit, cited.verdict
             paper = hit.paper
             flags = ", ".join(f.value for f in verdict.flags) or "없음"
@@ -290,18 +346,22 @@ def build_rationale_input(
                 f" · 개선 지표: {outcome_names(verdict.supported_outcomes)} · 플래그: {flags}"
                 f"\n  발췌: {hit.excerpt}"
             )
-        evidence_part = f"## 검증된 근거 ({len(evidence)}건)\n" + "\n".join(evidence_lines)
+        evidence_part = f"## 검증된 근거 ({len(shown)}건)\n" + "\n".join(evidence_lines)
     else:
         evidence_part = "## 검증된 근거\n검증을 통과한 근거가 없다."
-    return "\n\n".join(
-        [
-            f"## 사용자 입력\n{request.text}",
-            "## 사용자 상태\n" + "\n".join(_state_lines(request, intake)),
-            "## 고른 활동\n" + "\n".join(activity_lines),
-            evidence_part,
-            _factor_part(state, protocol),
-        ]
-    )
+    disclose = must_disclose(protocol, evidence, delivered)
+    images = bool(IMAGE_MEDIA & set(delivered))
+    parts = [
+        f"## 사용자 입력\n{request.text}",
+        "## 사용자 상태\n" + "\n".join(_state_lines(request, intake, images)),
+        "## 고른 활동\n" + "\n".join(activity_lines),
+        evidence_part,
+        "## 꼭 밝힐 것\n" + ("\n".join(f"- {d}" for d in disclose) or "없음"),
+    ]
+    if problems:
+        parts.append("## 직전 추천 이유의 문제\n" + "\n".join(f"- {p}" for p in problems))
+    parts.append(_factor_part(state, protocol))
+    return "\n\n".join(parts)
 
 
 def _factor_part(state: CareState, protocol: CareProtocol) -> str:
