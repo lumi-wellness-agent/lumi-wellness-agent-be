@@ -42,7 +42,9 @@
           ],
           "video_queries": [
             "forest",
-            "calm forest trees"
+            "calm forest trees",
+            "woodland nature",
+            "forest sunlight trees"
           ],
           "ai_prompt": "quiet green forest with tall trees and soft grass",
           "matching_soundscapes": [
@@ -77,7 +79,9 @@
           ],
           "video_queries": [
             "stream",
-            "calm river water"
+            "calm river water",
+            "forest stream",
+            "gentle creek water"
           ],
           "ai_prompt": "calm lake and gentle river surrounded by green nature",
           "matching_soundscapes": [

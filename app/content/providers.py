@@ -4,6 +4,7 @@
 공급자 응답 전체는 로그나 상태에 남기지 않는다.
 """
 
+import random
 import time
 from typing import Any
 
@@ -12,6 +13,8 @@ import httpx
 from app.agent.state import ActivityAsset
 
 _PROVIDER_CACHE_SECONDS = 24 * 60 * 60
+# 영상 후보 — 조건을 통과한 것 중 긴 순으로 이만큼에서 무작위로 고른다(짧은 영상까지 내려가지 않게)
+VIDEO_POOL = 8
 _search_cache: dict[tuple[str, str], tuple[float, ActivityAsset]] = {}
 _image_search_cache: dict[tuple[str, str], tuple[float, list[ActivityAsset]]] = {}
 
@@ -188,10 +191,28 @@ class PixabayProvider:
         *,
         min_source_duration_seconds: int = 30,
         session_duration_seconds: int = 600,
+        rng: random.Random | None = None,
     ) -> ActivityAsset:
+        """조건(길이 · 1280×720 이상)을 통과한 영상 중 긴 순 VIDEO_POOL개에서 하나.
+
+        rng가 있으면 그 안에서 무작위로 고른다(운영 — executor가 세션마다 준다). 없으면 가장 긴
+        영상이다. 같은 검색어라도 세션마다 다른 영상을 보게 하려는 것이다(2026-10-29, 전에는 늘 가장
+        긴 하나라 PR-02 영상이 최대 4개였다). 캐시는 후보 목록을 기억하고 고르기는 매번 한다.
+        """
         cache_key = f"video:{query}:{min_source_duration_seconds}:{session_duration_seconds}"
-        if cached := _cached("PIXABAY", cache_key):
-            return cached
+        pool = _cached_images("PIXABAY", cache_key)
+        if pool is None:
+            pool = self._video_pool(query, min_source_duration_seconds, session_duration_seconds)
+            if not pool:
+                raise ContentProviderError("조건에 맞는 Pixabay 자연 영상을 찾지 못함")
+            # Pixabay 정책상 같은 검색 요청은 24시간 캐시한다.
+            _cache_images("PIXABAY", cache_key, pool, _PROVIDER_CACHE_SECONDS)
+        chosen = rng.choice(pool) if rng else pool[0]
+        return chosen.model_copy(deep=True)
+
+    def _video_pool(
+        self, query: str, min_source_duration_seconds: int, session_duration_seconds: int
+    ) -> list[ActivityAsset]:
         body = _request_json(
             self.client,
             "GET",
@@ -208,6 +229,7 @@ class PixabayProvider:
         hits = sorted(
             body.get("hits", []), key=lambda hit: hit.get("duration", 0), reverse=True
         )
+        pool: list[ActivityAsset] = []
         for hit in hits:
             source_duration = int(hit.get("duration") or 0)
             if source_duration < min_source_duration_seconds:
@@ -226,8 +248,10 @@ class PixabayProvider:
                 ),
                 None,
             )
-            if video:
-                asset = ActivityAsset(
+            if not video:
+                continue
+            pool.append(
+                ActivityAsset(
                     slot="VISUAL_VIDEO",
                     url=video["url"],
                     provider="PIXABAY",
@@ -253,10 +277,10 @@ class PixabayProvider:
                         },
                     },
                 )
-                # Pixabay 정책상 같은 검색 요청은 24시간 캐시한다.
-                _cache("PIXABAY", cache_key, asset, _PROVIDER_CACHE_SECONDS)
-                return asset
-        raise ContentProviderError("조건에 맞는 Pixabay 자연 영상을 찾지 못함")
+            )
+            if len(pool) >= VIDEO_POOL:
+                break
+        return pool
 
 
 def _allowed_freesound_license(value: str) -> str | None:
