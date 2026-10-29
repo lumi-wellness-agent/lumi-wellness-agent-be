@@ -63,6 +63,7 @@ def test_llm_output_schemas_are_what_the_prompts_describe():
         "stress_fatigue_ambiguous",
         "symptom_mismatch",
         "third_party_risk",
+        "diagnosis_request",
         "question",
         "setting",
         "earphones",

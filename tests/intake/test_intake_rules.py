@@ -480,3 +480,12 @@ def test_third_party_risk_restates_with_fixed_help_text():
     assert "109" in q.text and "당신의 이야기" in q.text
     # 자기 상태도 말했으면(RELEVANT) 되묻지 않고 이어 간다
     assert rules.restate_question(reading(third_party_risk=True), []) is None
+
+
+def test_diagnosis_question_only_restates_without_diagnosing():
+    r = reading(relevance="OFF_TOPIC", diagnosis_request=True, restate_text="우울증일 수 있어요")
+    q = rules.restate_question(r, [])
+    assert q is not None and q.text == rules.DIAGNOSIS_TEXT  # LLM 문장을 쓰지 않는다
+    assert "진단은 하지 못해요" in q.text and q.skip_label == SKIP_LABEL
+    # 자기 상태도 말했으면(RELEVANT) 상태만 읽고 이어 간다
+    assert rules.restate_question(reading(diagnosis_request=True), []) is None

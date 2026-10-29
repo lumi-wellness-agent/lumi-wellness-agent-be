@@ -7,6 +7,7 @@
        시점 질문에 '잘 모르겠어요' → followup_after_unknown()으로 고정 재질문
        상황은 분명한데 증상이 다른 목표를 가리키면 → mismatch_question()으로 지금 상태 재질문
        남의 위험만 이야기했으면 → restate_question()이 고정 문장(109 안내)으로 되묻기
+       진단 · 처방만 물었으면 → restate_question()이 고정 문장(진단하지 않음)으로 되묻기
     ③ 목표 추론(LLM) → apply_goal()   State 두 질문이 모두 모름이면 추론 없이 S2 DEFAULT
        입력은 개념 정의(원문) + 단서표(팀 요약) — app/intake_cues.py
     ④ context_groups()로 후보를 바꾸는 환경 칸만 → context_question()
@@ -120,6 +121,12 @@ class StateReading(BaseModel):
         description="다른 사람(친구·가족 …)이 죽고 싶어 한다·스스로를 해치려 한다는 이야기이고 "
         "사용자 자신의 그런 뜻은 드러나지 않으면 true(이때 safety는 false). 사용자 자신의 뜻이 "
         "조금이라도 보이면 safety = true이고 이 칸은 false",
+    )
+    diagnosis_request: bool = Field(
+        default=False,
+        description="진단 · 처방을 묻는 말(저 우울증인가요? · 약 먹어야 하나요?)이 있으면 true. "
+        "자기 상태를 함께 말했으면(요즘 계속 불안한데 불안장애인가요?) 상태만 읽고 relevance는 "
+        "RELEVANT, 진단 · 처방 질문만 있으면 OFF_TOPIC",
     )
     cues: list[str] = Field(description="판단에 쓴 사용자 표현 그대로 최대 3개")
     constraints: list[str] = Field(description="활동 제약 — 이명 · 멀미 · 눈 피로 … 없으면 []")
@@ -371,6 +378,11 @@ THIRD_PARTY_TEXT = (
     "걱정되는 분이 있다면 자살예방상담전화 109에서 함께 도울 방법을 들을 수 있어요. "
     "지금은 당신의 이야기를 듣고 싶어요. 오늘 하루는 어떠셨어요?"
 )
+# 진단 · 처방만 물었을 때(diagnosis_request) — 진단하지 않고 지금 상태를 묻는 고정 문장
+DIAGNOSIS_TEXT = (
+    "LUMI는 진단은 하지 못해요. 걱정되면 전문가와 이야기해 보세요. "
+    "지금 상태를 한두 마디로 들려주시면 쉬어 갈 활동을 찾아 드릴게요."
+)
 
 
 def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
@@ -383,6 +395,8 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
     n = len(turns) + 1  # 앞선 것은 모두 되묻기다
     if reading.third_party_risk:
         text = THIRD_PARTY_TEXT
+    elif reading.diagnosis_request:
+        text = DIAGNOSIS_TEXT
     else:
         text = (reading.restate_text or "").strip() or RESTATE_FIXED
     return IntakeQuestion(

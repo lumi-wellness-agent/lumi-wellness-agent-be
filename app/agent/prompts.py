@@ -36,6 +36,9 @@ READ_SYSTEM_PROMPT = """\
   뜻은 없으면 true, safety는 false. 사용자 자신의 상태를 말하지 않았으면 relevance는 OFF_TOPIC
   (코드가 도울 곳을 알리고 사용자 이야기를 묻는다). 사용자 자신의 뜻이 조금이라도 보이면
   safety = true.
+- diagnosis_request: 진단 · 처방을 물으면(저 우울증인가요? · 약 먹어야 하나요?) true. 진단 · 처방
+  질문만 있으면 relevance는 OFF_TOPIC(코드가 진단하지 않는다고 알리고 상태를 묻는다). 자기 상태도
+  말했으면 RELEVANT로 상태만 읽는다. 어느 경우에도 진단하지 않는다.
 - relevance: 가장 최근 사용자 글이 지금 상태·상황·하루에 대해 아무것도 말하지 않으면 OFF_TOPIC
   (점심 메뉴 추천 · 코드 질문 · 날씨 · 'ㅋㅋ' · 'asdf'). 짧거나 막연해도 상태를 말하면
   RELEVANT('그냥 그래요' · '피곤해' · '별로예요').
