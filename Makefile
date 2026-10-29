@@ -53,6 +53,8 @@ plan-trial:
 #     make rag-eval ARGS="build"
 #     make rag-eval ARGS="run --misses --out before.json --database-url postgresql://postgres:postgres@localhost:54329/postgres"
 #     make rag-eval ARGS="compare before.json after.json"
+#     make rag-eval ARGS="run --open --out before.json --md docs/rag-eval/2026-10-30-retrieval-baseline.md --title 기준선 --database-url …"
+#     make rag-eval ARGS="record before.json --md docs/rag-eval/2026-10-30-retrieval-baseline.md"
 rag-eval:
 	$(PY) scripts/rag_eval.py $(ARGS)
 

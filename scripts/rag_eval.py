@@ -5,6 +5,9 @@
     .venv/bin/python scripts/rag_eval.py run          # .env DATABASE_URL (읽기 전용)
     .venv/bin/python scripts/rag_eval.py run --database-url <URL> --out before.json --misses
     .venv/bin/python scripts/rag_eval.py compare before.json after.json
+    .venv/bin/python scripts/rag_eval.py run --database-url <URL> --out before.json \
+        --md docs/rag-eval/YYYY-MM-DD-retrieval-<주제>.md --title "기준선"   # 실행 기록까지
+    .venv/bin/python scripts/rag_eval.py record before.json --md <경로>   # 저장한 결과로 기록만
 
 - 질의: data/eval_scenarios.jsonl(목표 3 × 사용자 상태 5 × 문장 2 = 30)마다 그 목표 ·
   상태의 후보(protocols.plan_candidates, 시간 · 환경 칩 없이)를 한 바퀴 돈다. 운영 choose
@@ -34,6 +37,9 @@
   무게다 — 운영에서 나올 수 있는 검색 상황 전체의 평균이고, S2 활동이 많아 S2 상황이 많다.
 - DB는 읽기만 한다. 질의 임베딩에 OPENAI_API_KEY가 든다(없으면 dense가 비고 hybrid는
   keyword만 — 운영과 같다). content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다.
+- 실행 기록 — run --md · record가 docs/rag-eval/YYYY-MM-DD-retrieval-<주제>.md를 쓴다(구성 ·
+  지표 표 · 놓친 정답 · 다른 활동 근거 · fallback 상위 5). 해석은 같은 디렉터리의 판정
+  메모(-verdict.md)에 사람이 쓴다. 결과 JSON의 meta에 검색 구성과 코드 커밋을 남긴다.
 """
 
 from __future__ import annotations
@@ -43,6 +49,7 @@ import asyncio
 import datetime
 import json
 import math
+import subprocess
 import sys
 import time
 from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping, Sequence
@@ -706,6 +713,130 @@ def db_label(url: str) -> str:
     return f"{parts.hostname}:{parts.port or 5432}{parts.path}"
 
 
+def retrieval_setup(embedding_model: str) -> str:
+    """검색 구성 한 줄 — 운영 hybrid.search의 상수. 실행 기록끼리 바뀐 것이 보이게 남긴다."""
+    return (
+        f"hybrid RRF k={hybrid.RRF_K} · 후보 {hybrid.CANDIDATES}×2(벡터 · 키워드) · "
+        f"상위 {hybrid.TOP_K} · 키워드 유사도 {hybrid.KEYWORD_MIN_SIMILARITY} · "
+        f"임베딩 {embedding_model}"
+    )
+
+
+def git_commit() -> str | None:
+    """지금 코드의 커밋(짧은 해시). 작업 트리에 커밋 안 된 변경이 있으면 '+'를 붙인다."""
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True
+        )
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if head.returncode != 0:
+        return None
+    return head.stdout.strip() + ("+" if dirty.stdout.strip() else "")
+
+
+def _rate(value: float) -> str:
+    return "—" if math.isnan(value) else f"{value:.3f}"
+
+
+def _summary_table(summary: Mapping[str, Mapping[str, Any]], columns: Sequence[str]) -> list[str]:
+    names = [n for n in sorted(summary, key=_order) if metrics_of(n) == columns]
+    lines = [
+        "| view/mode | n | " + " | ".join(columns) + " |",
+        "| --- | ---: | " + " | ".join("---:" for _ in columns) + " |",
+    ]
+    for name in names:
+        row = summary[name]
+        cells = " | ".join(_rate(row[m]) if m in row else "—" for m in columns)
+        lines.append(f"| {name} | {row['n']} | {cells} |")
+    return lines
+
+
+def record_markdown(title: str, payload: Mapping[str, Any], queries: Mapping[str, str]) -> str:
+    """실행 기록(docs/rag-eval/YYYY-MM-DD-retrieval-<주제>.md) — run --out 결과로 쓴다.
+    queries는 케이스 ID → 질의(놓친 정답 표에 싣는다)."""
+    meta, summary, results = payload["meta"], payload["summary"], payload["results"]
+    groups = meta.get("groups") or {}
+    counts = " · ".join(f"{g} {n}" for g, n in groups.items())
+    lines = [
+        f"# 근거 검색 평가 — {title}",
+        "",
+        f"- 평가셋 `{Path(meta['cases']).name}` · 케이스 {meta['n_cases']}개"
+        + (f"({counts})" if counts else ""),
+        f"- 근거 DB `{meta['db']}` · 검색 구성 {meta.get('setup') or '—'}",
+        f"- 코드 `{meta.get('commit') or '—'}` · {meta['at']}",
+        "",
+        "## 정답이 있는 상황",
+        "",
+        *_summary_table(summary, METRICS),
+        "",
+        "## fallback — 그 활동 evidence[]에 목표 지표 근거가 없는 상황",
+        "",
+        *_summary_table(summary, FALLBACK_METRICS),
+        "",
+    ]
+    planner = [r for r in results if r.get("view") == "planner" and r["mode"] == "hybrid"]
+    missed = []
+    for r in planner:
+        if not r["gold"] or r["metrics"]["recall@5"] >= 1:
+            continue
+        ranks = r["ranks"]
+        names = [f"{g}@{ranks.get(g, '-')}" for g in r["gold"] if ranks.get(g, math.inf) > 5]
+        missed.append(f"| {r['case']} | {queries.get(r['case'], '—')} | {', '.join(names)} |")
+    lines += [f"## 상위 5 안에 못 든 정답 (planner · hybrid) — {len(missed)}건", ""]
+    if missed:
+        lines += ["| 케이스 | 질의 | 놓친 정답@순위 |", "| --- | --- | --- |", *missed]
+    else:
+        lines.append("없음.")
+    excluded = sum(len(r["excluded"]) for r in planner)
+    empty = sum(not r["gold"] for r in planner)
+    unresolved = sorted({key for r in results for key in r["unresolved"]})
+    notes = []
+    if excluded:
+        notes.append(f"- 사용자 상태로 일부러 거른 정답 {excluded}건(분모에서 뺌)")
+    if empty:
+        notes.append(f"- 정답이 모두 빠져 평균에서 뺀 케이스 {empty}개")
+    if unresolved:
+        notes.append(f"- DB에 없는 정답(분모에서 뺌): {', '.join(unresolved)}")
+    if notes:
+        lines += ["", *notes]
+    foreign_rows = [
+        f"| {r['case']} | {queries.get(r['case'], '—')} | {', '.join(r['foreign'])} |"
+        for r in planner
+        if r["gold"] and r.get("foreign")
+    ]
+    lines += ["", f"## 상위 5에 든 다른 활동의 근거 (planner · hybrid) — {len(foreign_rows)}건", ""]
+    if foreign_rows:
+        lines += ["| 케이스 | 질의 | 레코드 |", "| --- | --- | --- |", *foreign_rows]
+    else:
+        lines.append("없음.")
+    fallback = [r for r in results if r.get("view") == "fallback" and r["mode"] == "hybrid"]
+    lines += ["", f"## fallback 상위 5 (hybrid) — {len(fallback)}건", ""]
+    if fallback:
+        lines += ["| 케이스 | 질의 | 상위 5 레코드 |", "| --- | --- | --- |"]
+        for r in fallback:
+            top = sorted((rank, key) for key, rank in r["ranks"].items() if rank <= 5)
+            names = ", ".join(key for _, key in top) or "없음 — 카드에 근거가 없다"
+            lines.append(f"| {r['case']} | {queries.get(r['case'], '—')} | {names} |")
+    else:
+        lines.append("없음.")
+    return "\n".join(lines) + "\n"
+
+
+def write_record(
+    path: Path, title: str | None, payload: Mapping[str, Any], cases_path: Path
+) -> None:
+    queries = {c.id: c.query for c in load_cases(cases_path)} if cases_path.exists() else {}
+    path.write_text(record_markdown(title or path.stem, payload, queries), encoding="utf-8")
+    print(f"실행 기록: {path}")
+
+
 async def run(args: argparse.Namespace) -> int:
     url = args.database_url or get_settings().database_url
     if not url:
@@ -735,20 +866,28 @@ async def run(args: argparse.Namespace) -> int:
         print(format_foreign(results))
         print("\nfallback 상위 5에 든 근거(hybrid):")
         print(format_fallback(results))
+    embedding_model = get_settings().embedding_model
+    payload = {
+        "meta": {
+            "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "db": db_label(url),
+            "embedding_model": embedding_model,
+            "cases": str(args.cases),
+            "n_cases": len(cases),
+            "groups": {g: sum(c.group == g for c in cases) for g in GROUPS},
+            "modes": list(args.modes),
+            "open": args.open,
+            "setup": retrieval_setup(embedding_model),
+            "commit": git_commit(),
+        },
+        "summary": summary,
+        "results": [r.to_json() for r in results],
+    }
     if args.out:
-        payload = {
-            "meta": {
-                "at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "db": db_label(url),
-                "embedding_model": get_settings().embedding_model,
-                "cases": str(args.cases),
-                "n_cases": len(cases),
-            },
-            "summary": summary,
-            "results": [r.to_json() for r in results],
-        }
         args.out.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"\n결과: {args.out}")
+    if args.md:
+        write_record(args.md, args.title, payload, args.cases)
     return 0
 
 
@@ -818,9 +957,18 @@ def main() -> int:
     r.add_argument("--open", action="store_true", help="planner 질의를 필터 · 범위 없이도 돈다")
     r.add_argument("--out", type=Path, help="결과 JSON(compare용)")
     r.add_argument("--misses", action="store_true", help="못 찾은 정답 · 섞인 근거를 보인다")
+    r.add_argument(
+        "--md", type=Path, help="실행 기록(docs/rag-eval/YYYY-MM-DD-retrieval-<주제>.md)"
+    )
+    r.add_argument("--title", help="실행 기록 제목. 없으면 파일 이름")
     p = sub.add_parser("compare", help="run --out 결과 둘을 비교한다")
     p.add_argument("before", type=Path)
     p.add_argument("after", type=Path)
+    d = sub.add_parser("record", help="run --out 결과로 실행 기록을 쓴다(DB · LLM 없음)")
+    d.add_argument("result", type=Path, help="run --out 결과")
+    d.add_argument("--md", type=Path, required=True, help="실행 기록 경로")
+    d.add_argument("--title", help="실행 기록 제목. 없으면 파일 이름")
+    d.add_argument("--cases", type=Path, default=CASES, help="질의를 찾을 케이스 파일")
     args = parser.parse_args()
 
     if args.command == "collect":
@@ -835,6 +983,10 @@ def main() -> int:
         return 0
     if args.command == "compare":
         print(compare(args.before, args.after))
+        return 0
+    if args.command == "record":
+        payload = json.loads(args.result.read_text(encoding="utf-8"))
+        write_record(args.md, args.title, payload, args.cases)
         return 0
     return asyncio.run(run(args))
 
