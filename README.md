@@ -391,7 +391,7 @@ make run                # http://127.0.0.1:8000/health
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
-| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
+| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · CP@5(RAGAS Context Precision) · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
 | `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `report --md`는 `docs/rag-eval/` 실행 기록을, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
 
@@ -484,6 +484,21 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
+### RAGAS 지표 대응
+
+RAG 평가는 RAGAS의 검색 지표 2개 · 생성 지표 2개에 맞춰 이 저장소의 스크립트로 잽니다(RAGAS 라이브러리는 쓰지
+않습니다). Factual Correctness는 정답 답변(reference)과 대조하는 지표인데, 추천 이유는 정답 문장이 하나로 정해지지
+않아 쓰지 않습니다.
+
+| RAGAS 지표 | 이 저장소의 평가 | 2026-10-29 |
+| --- | --- | --- |
+| Context Recall | 근거 검색 평가 Recall@K — 정답 레코드 중 상위 K에 든 비율(RAGAS ID 기반 Context Recall과 같은 계산) | planner · hybrid Recall@5 0.989 |
+| Context Precision | 근거 검색 평가 CP@5 — RAGAS Context Precision@5 공식, 관련 여부는 정답 레코드로 판정 | planner 1.000(구조적 — 범위 · 필터 뒤 후보가 정답뿐), open hybrid 0.575 · dense 0.772 |
+| Faithfulness | 추천 이유 평가 Judge `faithful` · `outcomes`(+ 규칙 `years` · `stats`) — 추천 이유 단위 PASS · FAIL | faithful 36/36(Judge 35, 사람 조정) · outcomes 35/36 |
+| Response Relevancy | 추천 이유 평가 Judge `personal` — 사용자 상태 → 고른 이유 → 근거 | 36/36 |
+
+- Judge 숫자는 사람 판정(Judge 판정을 가린 18건, 일치 15/18)으로 확인했습니다 — 「추천 이유 평가」.
+
 ### 근거 검색 평가
 
 `data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다(2026-10-28 갱신, 180문항). 운영 plan 노드가
@@ -512,8 +527,9 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
 - **평균.** 문항마다 같은 무게입니다 — 운영에서 나올 수 있는 검색 상황 전체의 평균입니다. 활동이 S2에 17개
   (S1 · S3는 4개씩)라 planner 163문항 중 119문항이 S2입니다.
 - `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense · keyword 세 방식으로 Hit@K ·
-  Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 레코드 중 그 활동 `evidence[]` 밖의 비율 — 낮을수록
-  좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. K는 레코드 수입니다 — chunk 순위에서 레코드가
+  Recall@K · MRR(K = 3 · 5 · 10), CP@5(RAGAS Context Precision@5 — 상위 5 안의 정답 자리마다 그 자리까지의
+  정밀도를 평균, 정답이 정답 아닌 레코드보다 모두 위면 1)와 Foreign@5(상위 5 레코드 중 그 활동 `evidence[]` 밖의
+  비율 — 낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. K는 레코드 수입니다 — chunk 순위에서 레코드가
   처음 나온 순서로 셉니다(운영 plan이 서로 다른 레코드 5개를 싣는 것과 같다, `hybrid.top_records`). 2026-10-28
   측정까지는 chunk 위치로 셌습니다. DB는 lumi-pg로 돌립니다 — 운영
   Supabase의 session pooler(5432)는 클라이언트 한도가 15라 다른 연결과 겹치면 평가 풀이 연결을 못 엽니다.
@@ -522,15 +538,15 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
 
 2026-10-29 측정(180문항, text-embedding-3-small, lumi-pg). 기록은 [판정 메모](docs/rag-eval/2026-10-29-retrieval-verdict.md) ·
 [기준선](docs/rag-eval/2026-10-29-retrieval-baseline.md) · [레코드 상위 5](docs/rag-eval/2026-10-29-retrieval-top-records.md) ·
-[라벨 수정](docs/rag-eval/2026-10-29-retrieval-labels.md)이다:
+[라벨 수정](docs/rag-eval/2026-10-29-retrieval-labels.md) · [Context Precision@5](docs/rag-eval/2026-10-29-retrieval-context-precision.md)이다:
 
-| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | Foreign@5 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| planner · hybrid | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 0 |
-| planner · dense | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 0 |
-| planner · keyword | 163 | 0.957 | 0.855 | 0.895 | 0.895 | 0.957 | 0 |
-| open · hybrid | 163 | 0.712 | 0.456 | 0.566 | 0.756 | 0.630 | 0.639 |
-| open · dense | 163 | 0.902 | 0.616 | 0.758 | 0.901 | 0.819 | 0.534 |
+| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | CP@5 | Foreign@5 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| planner · hybrid | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · dense | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · keyword | 163 | 0.957 | 0.855 | 0.895 | 0.895 | 0.957 | 0.957 | 0 |
+| open · hybrid | 163 | 0.712 | 0.456 | 0.566 | 0.756 | 0.630 | 0.575 | 0.639 |
+| open · dense | 163 | 0.902 | 0.616 | 0.758 | 0.901 | 0.819 | 0.772 | 0.534 |
 
 | view · 방식 | n | found@5 평균 | 근거 0건 |
 | --- | --- | --- | --- |
@@ -544,6 +560,9 @@ fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict
   PR-19 JSON의 정서 태그를 뺐다 — 검색이 아니라 정답 정의를 고친 것이다(0.989).
 - 남은 6문항은 모두 PR-14다. 정답이 7개라 상위 5에 다 들 수 없고(Recall@10 1.000), 원문이 없는 E02-E1 · P30-E1이
   6~7위다.
+- planner의 CP@5 1.000은 순위가 아니라 구조에서 나온다 — 163문항 모두 상위 5에 정답 아닌 레코드가 없다(그 활동
+  `evidence[]` 안을 목표 지표 · 연구 조건 필터로 찾아 후보가 정답뿐이다). 순위 자체의 질은 범위 · 필터가 없는
+  open에서 보고, 거기서는 dense(0.772)가 hybrid(0.575)보다 높다(판정 메모 판정 6).
 - 사용자 상태 정책으로 정답 19건을 분모에서 뺐다(예: 사건 전 사용자에게 스트레스 뒤 회복 연구).
 - fallback 2문항(PR-15를 사건 전 · 오래 집중한 뒤에 고른 경우)은 상위 5가 비어 Reference 카드에 근거가 없다 —
   빌려 올 S1 컬러링 연구 P32-E1이 스트레스 뒤(POST_STRESS) 조건이라 그 상태에 인용할 수 없다. PR-21은 PR-09의
@@ -727,6 +746,12 @@ docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 �
   번의 입력 토큰이 7,043 → 7,541(+7%)이 됐고, 반대 결과 플래그가 새로 붙은 PR-18 · PR-19 계획까지 모두 밝혔다.
   남은 실패는 근거에 없는 '건강한 성인'(설명 프롬프트의 문구를 대상 설명으로 옮겨 씀) · 개선 지표 밖의 '마음챙김
   점수' · 즉시 효과 단정이 1건씩이다.
+- 사람 라벨(검색 개선 후 측정에서 `sheet`가 뽑은 18건, Judge 판정을 가리고 판정) — Judge와 15/18 일치. 어긋난 3건은
+  바로 위 '남은 실패' 3건이었고, 조정해 보니 '마음챙김 점수'(outcomes) · 즉시 효과 단정(hedged)은 Judge가 맞고
+  '건강한 성인'(faithful)은 통과로 정했다 — 임상 표본 플래그가 없는 근거를 일반 성인 표본으로 부르는 것은 지어낸
+  조건이 아니다(Judge 기준에 넣었다). 조정한 라벨로 faithful 36/36 · 전부 통과 34/36이다. blind 판정이 모두
+  통과라 κ는 0이다 — 둘이 같은 곳에서 위반을 찾는지는 이 표본으로 알 수 없다([판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
+  판정 5).
 
 ## 배포 (Vercel)
 

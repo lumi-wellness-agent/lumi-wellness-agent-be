@@ -31,9 +31,19 @@ def test_metrics_count_records_not_chunks():
     assert m["hit@3"] == 1.0 and m["hit@5"] == 1.0
     assert m["recall@3"] == 1 / 3 and m["recall@5"] == 2 / 3 and m["recall@10"] == 2 / 3
     assert m["mrr"] == 1.0
+    assert m["cp@5"] == (1 / 1 + 2 / 4) / 2  # 정답 자리 1 · 4
     none = rag_eval.metrics(ranks, [C])
     assert none["hit@10"] == 0.0 and none["recall@10"] == 0.0 and none["mrr"] == 0.0
+    assert none["cp@5"] == 0.0
     assert math.isnan(rag_eval.recall_at(ranks, [], 5))
+
+
+def test_context_precision_averages_precision_at_each_gold_rank():
+    # RAGAS Context Precision@5 — 정답 자리 1 · 3에서 Precision@k는 1/1 · 2/3
+    assert rag_eval.context_precision_at({A: 1, C: 2, B: 3}, [A, B]) == (1 + 2 / 3) / 2
+    assert rag_eval.context_precision_at({A: 1, B: 2, C: 3}, [A, B]) == 1.0  # 정답이 모두 위
+    assert rag_eval.context_precision_at({C: 1, B: 2, A: 6}, [A, B]) == 1 / 2  # 6위는 셈 밖
+    assert rag_eval.context_precision_at({C: 1, A: 6}, [A]) == 0.0  # 상위 5에 정답이 없다
 
 
 def test_foreign_counts_top_records_outside_the_activity_evidence():
