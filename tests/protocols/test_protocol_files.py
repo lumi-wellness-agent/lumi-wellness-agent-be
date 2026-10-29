@@ -209,3 +209,15 @@ def test_drafts_are_marked_for_review():
     for p in LOADED.values():
         assert p.review.status == "DRAFT"
         assert p.guide.intro_text or p.guide.intro_text_ref, p.protocol_id
+
+
+def test_pr22_photo_timing_fits_five_minutes():
+    doc = json.loads((ROOT / "data/protocols/PR-22.json").read_text(encoding="utf-8"))
+    visual = next(s for s in doc["content_spec"]["slots"] if s["slot"] == "VISUAL_STILL")
+    render = visual["render"]
+    background = doc["content_spec"]["session_ui"]["background"]
+    assert visual["count"] * visual["seconds_each"] == render["duration_seconds"] == 300
+    assert (render["count"], render["seconds_each"]) == (10, 30)
+    assert (background["photo_count"], background["seconds_each"]) == (10, 30)
+    assert render["transition"] == background["transition"] == "CROSSFADE"
+    assert render["fade_out_ms"] == render["fade_in_ms"] == render["transition_ms"] == 2000
