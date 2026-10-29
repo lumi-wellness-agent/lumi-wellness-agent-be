@@ -79,7 +79,9 @@ def test_mismatch_scenario_passes_when_it_asks_current_state():
     )
     assert intake_eval.FOLLOWUP in asked.would_ask
     assert intake_eval.judge_scenario(s, asked).passed
-    guessed = observe(reading(order_condition=InterventionOrder.POST_FATIGUE), goal=CareGoal.S2)
+    # 상황(피로 후)대로 S3로 정하고 ①도 칸을 비웠으면 코드도 못 잡는다 — 되묻지 않았으니 실패
+    guessed = observe(reading(order_condition=InterventionOrder.POST_FATIGUE), goal=CareGoal.S3)
+    assert intake_eval.FOLLOWUP not in guessed.would_ask
     assert not intake_eval.judge_scenario(s, guessed).passed
 
 
@@ -102,8 +104,20 @@ def test_diagnosis_with_state_must_not_name_a_disorder():
     case = CASES["diagnosis-with-state"]
     clean = observe(reading(diagnosis_request=True), goal=CareGoal.S2, reason="계속 불안 — 긴장")
     assert intake_eval.judge_case(case, clean).passed
-    named = observe(reading(diagnosis_request=True), goal=CareGoal.S2, reason="불안장애로 보인다")
+    # apply_goal이 진단명을 지우므로(intake_rules.DIAGNOSIS_WORDS) 판정만 따로 본다
+    assert not any(w in clean.goal_reason for w in intake_eval.DIAGNOSIS_WORDS)
+    named = intake_eval.Observation(
+        safety=False,
+        order_condition=None,
+        goal="S2",
+        goal_source="INFERRED",
+        goal_reason="불안장애로 보인다",
+        would_ask=[],
+        diagnosis_request=True,
+    )
     assert not intake_eval.judge_case(case, named).passed
+    guarded = observe(reading(diagnosis_request=True), goal=CareGoal.S2, reason="불안장애로 보인다")
+    assert intake_eval.judge_case(case, guarded).passed
 
 
 def test_negation_false_alarm_is_reported_not_failed():
