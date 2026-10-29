@@ -30,11 +30,13 @@
   가중치 실험용).
 - 방식(mode): hybrid(운영과 같은 RRF) · dense(벡터 순위만) · keyword(낱말 순위만). SQL ·
   필터 · 후보 수는 app/retrieval/hybrid.py의 것을 그대로 쓴다.
-- 지표: Hit@K(정답 레코드가 상위 K chunk 안에 하나라도), Recall@K(정답 레코드 중 상위 K
-  chunk 안의 비율), MRR(첫 정답 chunk 순위의 역수). K = 3 · 5 · 10. Foreign@5는 상위 5
-  chunk에 든 레코드 중 그 활동 evidence[] 밖의 비율이다 — plan이 상위 5건을 검증해
-  인용하므로 Reference 카드에 남의 근거가 섞이는 정도다. 낮을수록 좋다. 평균은 문항마다 같은
-  무게다 — 운영에서 나올 수 있는 검색 상황 전체의 평균이고, S2 활동이 많아 S2 상황이 많다.
+- 지표: Hit@K(정답 레코드가 상위 K 레코드 안에 하나라도), Recall@K(정답 레코드 중 상위 K
+  레코드 안의 비율), MRR(첫 정답 레코드 순위의 역수). K = 3 · 5 · 10. 레코드 순위는 chunk
+  순서에서 처음 나온 차례다 — plan이 서로 다른 레코드 상위 5개를 인용하므로(hybrid.top_records)
+  그 차례가 곧 인용 순서다. 2026-10-29 기준선까지는 chunk 순위(그 레코드 chunk 중 가장 좋은
+  자리)였다. Foreign@5는 상위 5 레코드 중 그 활동 evidence[] 밖의 비율이다 — Reference 카드에
+  남의 근거가 섞이는 정도다. 낮을수록 좋다. 평균은 문항마다 같은 무게다 — 운영에서 나올 수 있는
+  검색 상황 전체의 평균이고, S2 활동이 많아 S2 상황이 많다.
 - DB는 읽기만 한다. 질의 임베딩에 OPENAI_API_KEY가 든다(없으면 dense가 비고 hybrid는
   keyword만 — 운영과 같다). content를 바꿔 다시 적재하기 전후에 돌려 compare로 비교한다.
 - 실행 기록 — run --md · record가 docs/rag-eval/YYYY-MM-DD-retrieval-<주제>.md를 쓴다(구성 ·
@@ -84,7 +86,9 @@ SCENARIOS = ROOT / "data" / "eval_scenarios.jsonl"
 QUERIES = ROOT / "data" / "rag_eval_queries.jsonl"
 CASES = ROOT / "data" / "rag_eval.jsonl"
 KS = (3, 5, 10)
-LIMIT = max(KS)
+LIMIT = max(KS)  # 지표를 재는 레코드 수
+# 레코드 LIMIT개를 고를 만큼 순위를 매기는 chunk 수(hybrid.CHUNK_LIMIT과 같은 비율)
+CHUNK_FETCH = 4 * LIMIT
 GROUPS = ("planner", "fallback")
 VIEWS = ("planner", "fallback", "open")  # open = planner 질의를 필터 · 범위 없이(run --open)
 MODES = ("hybrid", "dense", "keyword")
@@ -369,10 +373,11 @@ def load_cases(path: Path = CASES) -> list[EvalCase]:
 
 
 def record_ranks(ranked_ids: Sequence[int], key_of: Mapping[int, Key]) -> dict[Key, int]:
-    """chunk 순위 → 레코드 순위(그 레코드의 chunk 중 가장 좋은 순위)."""
+    """chunk 순위 → 레코드 순위(chunk 순서에서 처음 나온 차례). plan이 서로 다른 레코드 상위
+    TOP_K개를 인용하므로(hybrid.top_records) 이 차례가 곧 인용 순서다."""
     ranks: dict[Key, int] = {}
-    for rank, chunk_id in enumerate(ranked_ids, 1):
-        ranks.setdefault(key_of[chunk_id], rank)
+    for chunk_id in ranked_ids:
+        ranks.setdefault(key_of[chunk_id], len(ranks) + 1)
     return ranks
 
 
@@ -605,8 +610,8 @@ async def evaluate(
                 for row in rows
             }
             for mode in modes:
-                rankings = (rank_rows(rows, mode, LIMIT) for rows in rows_list)
-                ranked = merge_rankings(rankings, LIMIT)
+                rankings = (rank_rows(rows, mode, CHUNK_FETCH) for rows in rows_list)
+                ranked = merge_rankings(rankings, CHUNK_FETCH)
                 results.append(
                     CaseResult(
                         case=case,
@@ -717,7 +722,8 @@ def retrieval_setup(embedding_model: str) -> str:
     """검색 구성 한 줄 — 운영 hybrid.search의 상수. 실행 기록끼리 바뀐 것이 보이게 남긴다."""
     return (
         f"hybrid RRF k={hybrid.RRF_K} · 후보 {hybrid.CANDIDATES}×2(벡터 · 키워드) · "
-        f"상위 {hybrid.TOP_K} · 키워드 유사도 {hybrid.KEYWORD_MIN_SIMILARITY} · "
+        f"레코드 상위 {hybrid.TOP_K}(chunk {hybrid.CHUNK_LIMIT}개에서) · "
+        f"키워드 유사도 {hybrid.KEYWORD_MIN_SIMILARITY} · "
         f"임베딩 {embedding_model}"
     )
 

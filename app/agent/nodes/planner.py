@@ -270,7 +270,8 @@ async def _search_media(
     query: str,
     evidence_keys: Sequence[str] = (),
 ) -> list[EvidenceHit]:
-    """제공 매체마다 하이브리드 검색을 돌려 점수 순으로 합친다(상위 hybrid.TOP_K)."""
+    """제공 매체마다 하이브리드 검색을 돌려 점수 순으로 합치고, 서로 다른 레코드 상위
+    hybrid.TOP_K개의 chunk를 모두 남긴다(hybrid.top_records)."""
     delivered = protocols.delivered_media(protocol, session.content_type)
     found: dict[int, EvidenceHit] = {}
     for medium in dict.fromkeys(study_medium(m) for m in delivered):
@@ -281,13 +282,14 @@ async def _search_media(
             intervention_order=session.user_order,
             outcomes=GOAL_OUTCOMES[session.goal].primary,
             evidence_keys=evidence_keys,
+            limit=hybrid.CHUNK_LIMIT,
         )
         for hit in hits:
             known = found.get(hit.evidence_record_id)
             if known is None or hit.score > known.score:
                 found[hit.evidence_record_id] = hit
     ranked = sorted(found.values(), key=lambda h: (-h.score, h.evidence_record_id))
-    return ranked[: hybrid.TOP_K]
+    return hybrid.top_records(ranked)
 
 
 async def verify_evidence(
