@@ -25,6 +25,7 @@ from app.content.providers import (
     PixabayProvider,
 )
 from app.content.proxy import proxied_url
+from app.protocols import is_ai_image_slot
 from app.schemas.care import CareRequest, ContentType
 from app.schemas.content import ContentFactors, FactorSource, Soundscape
 from app.schemas.protocol import CareProtocol, SlotType
@@ -275,11 +276,9 @@ def resolve_activity_assets(
             provider = selection.get("provider")
             try:
                 slot_assets: list[ActivityAsset] = []
-                generation = spec.get("generation", {})
+                # AI 그림은 사진 한 장 모드(PR-21)에만 — 규칙은 protocols.is_ai_image_slot 하나
                 ai_image_requested = (
-                    slot.slot is SlotType.VISUAL_STILL
-                    and request.profile.content_type is ContentType.AI_IMAGE
-                    and generation.get("provider") == "AI_HORDE"
+                    request.profile.content_type is ContentType.AI_IMAGE and is_ai_image_slot(slot)
                 )
                 if ai_image_requested:
                     if not settings.ai_horde_api_key:
