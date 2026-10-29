@@ -342,11 +342,15 @@ def resolve_activity_assets(
                             warnings += color_warnings
                     else:
                         render = spec.get("render", {})
-                        candidate_ids = selection.get("candidate_video_ids", [])
+                        fixed_id = selection.get("fixed_video_id")
+                        candidate_ids = (
+                            [fixed_id] if fixed_id else selection.get("candidate_video_ids", [])
+                        )
                         if candidate_ids:
                             # 선택은 세션 준비 때 한 번만. 반복 재생 때 다시 뽑지 않는다.
                             ids = list(dict.fromkeys(int(v) for v in candidate_ids))[:3]
-                            (rng or random.SystemRandom()).shuffle(ids)
+                            if not fixed_id:
+                                (rng or random.SystemRandom()).shuffle(ids)
                             for video_id in ids:
                                 try:
                                     video = pixabay.video_by_id(
@@ -357,6 +361,9 @@ def resolve_activity_assets(
                                         session_duration_seconds=int(
                                             render.get("duration_seconds", 1200)
                                         ),
+                                    )
+                                    video.metadata["selection_mode"] = (
+                                        "FIXED" if fixed_id else "RANDOM_CANDIDATE"
                                     )
                                     slot_assets = [video]
                                     break
