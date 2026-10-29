@@ -478,8 +478,11 @@ def test_third_party_risk_restates_with_fixed_help_text():
     assert q is not None and q.slot is QuestionSlot.RESTATE
     assert q.text == rules.THIRD_PARTY_TEXT
     assert "109" in q.text and "당신의 이야기" in q.text
-    # 자기 상태도 말했으면(RELEVANT) 되묻지 않고 이어 간다
-    assert rules.restate_question(reading(third_party_risk=True), []) is None
+    # LLM이 RELEVANT로 읽어도 남의 위험 이야기면 109를 알리고 되묻는다(2026-10-29 평가)
+    relevant = rules.restate_question(reading(third_party_risk=True), [])
+    assert relevant is not None and relevant.text == rules.THIRD_PARTY_TEXT
+    # 질문을 시작한 뒤에는 되묻지 않는다
+    assert rules.restate_question(r, [turn(QuestionSlot.STATE, 1, answer={})]) is None
 
 
 def test_diagnosis_question_only_restates_without_diagnosing():

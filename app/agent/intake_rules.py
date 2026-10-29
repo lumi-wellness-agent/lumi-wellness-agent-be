@@ -88,7 +88,8 @@ class StateReading(BaseModel):
     relevance: Relevance = Field(
         description="가장 최근 사용자 글(처음 입력, 되묻기에 답했으면 그 답)이 지금 상태·상황·"
         "하루에 대해 아무것도 말하지 않으면 OFF_TOPIC(점심 메뉴 추천해줘 · 코드 짜줘 · ㅋㅋ · "
-        "asdf). '그냥 그래요' · '피곤해' · '별로'처럼 짧아도 상태를 말하면 RELEVANT"
+        "asdf). '그냥 그래요' · '피곤해' · '별로'처럼 짧아도 상태를 말하면 RELEVANT. 진단 · 처방 "
+        "질문이 섞여도 자기 상태를 말했으면 RELEVANT(요즘 계속 불안한데 불안장애인가요?)"
     )
     restate_text: str | None = Field(
         description="OFF_TOPIC일 때만 — 사용자 말을 가볍게 받아 주고, 오늘 상황이나 하루를 한두 "
@@ -113,8 +114,9 @@ class StateReading(BaseModel):
         default=False,
         description="상황(order_condition)은 정했는데 증상이 상황과 다른 목표를 가리키면 true — "
         "POST_FATIGUE인데 긴장·초조·예민·짜증이 중심이거나(S2 쪽), PRE_STRESS·POST_STRESS인데 "
-        "멍함·집중 안 됨·머리가 안 돌아감이 중심일 때(S3 쪽). 상황과 증상이 같은 쪽이거나 반복 "
-        "생각(S1)이 중심이면 false",
+        "멍함·집중 안 됨·손에 안 잡힘·눈에 안 들어옴·머리가 안 돌아감이 중심일 때(S3 쪽). 사건이 "
+        "있었다는 것만으로 S2가 아니다 — 증상을 본다. 상황과 증상이 같은 쪽이거나 반복 생각(S1)이 "
+        "중심이면 false",
     )
     third_party_risk: bool = Field(
         default=False,
@@ -390,7 +392,11 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
 
     문장은 LLM이 사용자 말에 맞춰 만들고, 비었으면 고정 문장을 쓴다.
     """
-    if reading.relevance is not Relevance.OFF_TOPIC or counted(turns):
+    if counted(turns):
+        return None
+    # 남의 위험 이야기는 relevance와 관계없이 되묻는다 — LLM이 "친구가 죽고 싶대요"를 RELEVANT로
+    # 읽어 109 안내 없이 지나갔다(2026-10-29 intake 평가 0/3)
+    if reading.relevance is not Relevance.OFF_TOPIC and not reading.third_party_risk:
         return None
     n = len(turns) + 1  # 앞선 것은 모두 되묻기다
     if reading.third_party_risk:
