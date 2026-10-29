@@ -667,6 +667,29 @@ def test_account_deletion_removes_the_user_their_records_and_checkpoints():
     assert client.get("/me/consent").json()["agreed"] is False
 
 
+def test_members_see_their_activity_records_and_guests_have_none():
+    client = client_for()
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    start(client)  # 활동 전에 멈춘 세션은 기록에 없다
+    sid = run_s2_to_end(client)
+
+    (session,) = client.get("/me/sessions").json()["sessions"]
+    end = client.get(f"/sessions/{sid}").json()["payload"]
+    assert (session["session_id"], session["goal"]) == (sid, "S2")
+    assert session["started_at"] < session["ended_at"]
+    assert session["goal_scale"] == end["goal_scale"]
+    # 라운드는 END payload의 rounds에 활동 이름을 붙인 것이다
+    name = protocols.get_protocol("PR-06").name
+    assert session["rounds"] == [{**r, "name": name} for r in end["rounds"]]
+    assert client.get("/me/sessions", params={"limit": 0}).status_code == 422
+
+    login(client.app, BOB)  # 남의 기록은 보이지 않는다
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    login(client.app, GUEST)
+    res = client.get("/me/sessions")
+    assert (res.status_code, res.json()["detail"]["code"]) == (403, "MEMBERS_ONLY")
+
+
 def test_a_guest_tries_a_session_without_consent_and_leaves_no_content():
     client = client_for(consent=False)
     login(client.app, GUEST)  # 비로그인 — FE의 signInAnonymously

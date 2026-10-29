@@ -194,6 +194,62 @@ def test_recent_protocols_are_the_users_latest_rounds_without_repeats():
     asyncio.run(scenario())
 
 
+def test_history_lists_the_users_sessions_with_activities_latest_first():
+    clock = iter(datetime(2026, 10, 29, 9, tzinfo=UTC) + timedelta(hours=h) for h in range(10))
+    store = records.MemoryStore(clock=lambda: next(clock))
+    alice, bob = uuid.uuid4(), uuid.uuid4()
+    rule = ReplanProposal(recommended=NextStep.END, reason="-", options=[NextStep.END])
+    scale = {
+        "instrument_id": "INS-STAI6",
+        "pre": {"total": 50.0},
+        "end": {"total": 40.0},
+        "delta": {"total": -10.0},
+    }
+    confirm = {"step": "CONFIRM", "node": "confirm", "payload": {}}
+    done = {"step": "END", "node": None, "payload": {"reason": "DONE", "goal_scale": scale}}
+
+    async def session(user: uuid.UUID, *protocol_ids: str, view: dict = confirm) -> str:
+        sid = str(uuid.uuid4())
+        await store.create(sid, user, CareRequest(text="-"))
+        values = {
+            "request": CareRequest(text="-"),
+            "intake": IntakeResult(goal=CareGoal.S2),
+            "rounds": [finished_round(p, NextStep.CHANGE_ACTIVITY, rule) for p in protocol_ids],
+        }
+        await store.save(records.SessionRecord(id=sid, user_id=user), values, view)
+        return sid
+
+    async def scenario() -> None:
+        finished = await session(alice, "PR-06", "PR-07", view=done)
+        await session(bob, "PR-19")
+        await session(alice)  # 활동 전에 멈췄다 — 기록에 없다
+        resting = await session(alice, "PR-20")  # 마치지 않고 쉬는 중
+
+        history = await store.history(alice, 5)
+        assert [s["session_id"] for s in history] == [resting, finished]  # 최근 것부터
+        latest, first = history
+        assert (latest["ended_at"], latest["goal_scale"]) == (None, None)
+        assert (first["goal"], first["goal_scale"]) == ("S2", scale)
+        assert first["started_at"] < first["ended_at"] < latest["started_at"]
+        # 라운드는 END payload의 rounds와 같은 칸만 — 고른 과정 · 근거 ID는 싣지 않는다
+        assert first["rounds"] == [
+            {
+                "round": number,
+                "protocol_id": protocol_id,
+                "minutes": 5,
+                "completed": True,
+                "deltas": {},
+                "improved": True,
+                "next_step": "CHANGE_ACTIVITY",
+            }
+            for number, protocol_id in ((1, "PR-06"), (2, "PR-07"))
+        ]
+        assert [s["session_id"] for s in await store.history(alice, 1)] == [resting]
+        assert await store.history(uuid.uuid4(), 5) == []
+
+    asyncio.run(scenario())
+
+
 def test_intake_records_carry_definition_papers_not_sentences():
     intake = IntakeResult.model_validate(
         {
