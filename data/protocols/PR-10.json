@@ -358,25 +358,17 @@
           ],
           "min_source_duration_seconds": 10,
           "quality_gate": "자연 영상·출처·이용 조건·반복 재생 적합성 검토",
-          "candidate_video_ids": [
-            165178,
-            75383,
-            136620
-          ],
-          "mode": "RANDOM_CANDIDATE",
+          "mode": "FIXED",
           "candidate_review": "PAGE_METADATA_ONLY",
-          "candidate_source_urls": [
-            "https://pixabay.com/videos/leaves-plants-wind-forest-nature-165178/",
-            "https://pixabay.com/videos/trees-leaves-wind-forest-nature-75383/",
-            "https://pixabay.com/videos/trees-leaves-wind-green-season-136620/"
-          ]
+          "fixed_video_id": 165178,
+          "source_url": "https://pixabay.com/videos/leaves-plants-wind-forest-nature-165178/"
         },
         "render": {
           "video_mode_only": true,
           "loop": true,
           "activity_seconds": 1200,
           "nature_sound": "MUTED",
-          "note": "한 세션에서 선택된 영상 하나만 반복. 10초 이상 HD 후보 중 하나를 고르며 20분 원본은 미확보. 실제 움직임·반복 경계는 재생 검토 필요.",
+          "note": "사용자가 확인한 Pixabay 165178 영상 하나를 모든 세션에서 반복한다. 20분 원본은 미확보이며 반복 경계는 재생 검토 필요.",
           "duration_seconds": 1200,
           "loop_boundary_review": "PENDING"
         },
@@ -592,7 +584,7 @@
       "영상 파일 선정, 저작권 및 반복 경계 확인",
       "Pixabay 영상 검색의 키, 영상 반복 및 실제 환경 모드에서 검색 생략 분기 검증 필요",
       "안내 음성은 녹음하지 않는다 — FE가 scripts를 render 시점에 화면에 띄우고 브라우저 speechSynthesis(ko-KR)로 읽는다(2026-10-27 결정, generation.provider BROWSER_SPEECH_SYNTHESIS). 기기마다 목소리·속도가 달라 길이·겹침 검수는 speechSynthesis로 한다",
-      "사용자 결정: 숲·잎·바람 후보 최대 3개 중 세션당 하나를 고정 반복. 영상 원음과 종료 알림음은 사용하지 않음. 후보는 페이지 정보만 확인했으며 실제 영상 움직임과 반복 경계는 검토 대기. 원본 최소 길이는 LUMI 구현 선택으로 30초에서 10초로 변경."
+      "사용자 결정(2026-10-29): 영상은 Pixabay 165178 하나로 고정, 무작위 선택하지 않음. 실제 자연환경 화면은 FE에서 원형 디지털 타이머·음성 재생 중 장식 파형을 표시. 원음·종료 알림음 없음. 영상 반복 경계와 모바일 검수는 대기."
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-10, 근거 arm 6행",
     "reviewed_by": null,
