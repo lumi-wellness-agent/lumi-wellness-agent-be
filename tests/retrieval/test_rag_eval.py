@@ -105,6 +105,61 @@ def test_compare_shows_a_dash_for_metrics_older_results_lack(tmp_path):
     assert lines[-1] == "hybrid recall@5 · foreign@5가 바뀐 케이스 없음"
 
 
+def test_record_markdown_lists_setup_metrics_misses_and_borrowed_records():
+    planner_metrics = {m: 1.0 for m in rag_eval.METRICS} | {"recall@5": 0.5, "foreign@5": 0.25}
+    payload = {
+        "meta": {
+            "at": "2026-10-30T10:00:00",
+            "db": "localhost:54329/postgres",
+            "cases": "data/rag_eval.jsonl",
+            "n_cases": 2,
+            "groups": {"planner": 1, "fallback": 1},
+            "setup": rag_eval.retrieval_setup("text-embedding-3-small"),
+            "commit": "8849fbc",
+        },
+        "summary": {
+            "planner/hybrid": {"n": 1, **planner_metrics},
+            "fallback/hybrid": {"n": 1, "found@5": 0.0, "empty@5": 1.0},
+        },
+        "results": [
+            {
+                "case": "S2-pre-a-PR-06",
+                "view": "planner",
+                "mode": "hybrid",
+                "ranks": {"P16/P16-E1": 1, "P18/P18-E2": 7, "P17/-": 3},
+                "gold": ["P16/P16-E1", "P18/P18-E2"],
+                "unresolved": [],
+                "excluded": ["P32/P32-E1"],
+                "foreign": ["P17/-"],
+                "metrics": planner_metrics,
+            },
+            {
+                "case": "S1-pre-b-PR-15",
+                "view": "fallback",
+                "mode": "hybrid",
+                "ranks": {},
+                "gold": [],
+                "unresolved": [],
+                "excluded": [],
+                "foreign": [],
+                "metrics": {"found@5": 0.0, "empty@5": 1.0},
+            },
+        ],
+    }
+    queries = {"S2-pre-a-PR-06": "slow breathing anxiety stress"}
+    text = rag_eval.record_markdown("기준선", payload, queries)
+    assert text.startswith("# 근거 검색 평가 — 기준선\n")
+    assert "케이스 2개(planner 1 · fallback 1)" in text and "코드 `8849fbc`" in text
+    assert f"RRF k={rag_eval.hybrid.RRF_K}" in text
+    assert "| planner/hybrid | 1 | " in text and "| 0.500 |" in text
+    assert "| fallback/hybrid | 1 | 0.000 | 1.000 |" in text
+    assert "## 상위 5 안에 못 든 정답 (planner · hybrid) — 1건" in text
+    assert "| S2-pre-a-PR-06 | slow breathing anxiety stress | P18/P18-E2@7 |" in text
+    assert "- 사용자 상태로 일부러 거른 정답 1건(분모에서 뺌)" in text
+    assert "| S2-pre-a-PR-06 | slow breathing anxiety stress | P17/- |" in text
+    assert "| S1-pre-b-PR-15 | — | 없음 — 카드에 근거가 없다 |" in text
+
+
 def test_merge_rankings_keeps_best_score_and_breaks_ties_by_id():
     first = [(10, 0.5), (11, 0.4)]
     second = [(11, 0.6), (12, 0.6), (13, 0.1)]

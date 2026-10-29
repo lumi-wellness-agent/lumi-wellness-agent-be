@@ -468,6 +468,10 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 `data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다(2026-10-28 갱신, 180문항). 운영 plan 노드가
 마주칠 수 있는 검색 상황(활동 × 목표 × 사용자 상태)을 전부 덮습니다.
 
+평가 기록은 추천 이유 평가와 같은 `docs/rag-eval/`에 `YYYY-MM-DD-retrieval-<주제>.md`로 남깁니다 — `run --md`(또는
+저장한 결과로 `record`)가 실행 기록(평가셋 · 근거 DB · 검색 구성 · 코드 커밋 · 지표 표 · 놓친 정답 · 다른 활동 근거 ·
+fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict.md`)에 씁니다.
+
 - **시나리오.** `data/eval_scenarios.jsonl`은 목표 3 × 사용자 상태 5(사건 전 · 사건 후 · 오래 집중한 뒤 ·
   계기 없음 · 잘 모르겠어요) × 문장 2(직접 · 돌려 말하기) = 30개입니다. 칩(`setting` · `earphones` ·
   `minutes`)은 같은 시나리오를 쓰는 계획 평가용입니다.
