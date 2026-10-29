@@ -220,7 +220,6 @@ def card_evidence(cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]]) -> list[
                     )
                     for h in chunks
                 ],
-                checks=verdict.checks,
                 evidence_record_ids=[h.evidence_record_id for h in chunks],
             )
         )

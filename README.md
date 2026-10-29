@@ -339,7 +339,7 @@ payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/c
 | `badges` | 화면 배지(`CardBadge`) — `EXPERIMENTAL` · `LIMITED_EVIDENCE` · `NO_VERIFIED_EVIDENCE` · `CONFLICTING_EVIDENCE` · `ADAPTED_STIMULUS` · `AI_IMAGE_UNVERIFIED` · `RELAXED_ORDER` · `RELAXED_ENVIRONMENT` · `DEFAULT_GOAL` · `PROVISIONAL_MEASURE`. 문구 · 색은 FE가 정하고 설명 문장은 `limits` · `goal.notes`에 있다 |
 | `goal` | 목표와 라벨, 정한 방식(`INFERRED` · `DEFAULT` · `CHIP`)과 판단 이유, **목표 근거**(추론한 목표 · 부목표의 개념 정의 원문 · 개념 · 쪽 · 논문), 근거가 보는 1차 지표, LUMI가 재는 척도(`measured_by`, 임시 도구면 `provisional`), `notes`(기본 목표 · S3 "주의 용량은 재지 않는다" · 임시 척도) |
 | `grades` | 이 활동의 목표 1차 지표별 근거 등급(프로토콜 시트, A–D · — · 미확인) |
-| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문), 검증 6항목(`checks`, 자세히 보기용). 목표를 지지하는 것이 앞 |
+| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문). 검증 6항목의 사유(로그 문장)는 싣지 않는다 — 실패한 비차단 검사는 플래그 · 한계 문장으로 밝힌다. 목표를 지지하는 것이 앞 |
 | `limits` | 카드 끝 한계 문장 — 고정 고지, 배지마다 한 문장(프로토콜 작성자의 `reference_card_note`가 있으면 그것으로), 프로토콜의 대상 메모 |
 
 - `EXPERIMENTAL`은 `composition`이 `EXPERIMENTAL`이거나 프로토콜 `user_facing_flags`가 그 목표에서 실험적이라고 할 때,
