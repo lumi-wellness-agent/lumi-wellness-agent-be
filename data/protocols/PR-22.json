@@ -4,7 +4,7 @@
   "protocol_id": "PR-22",
   "name": "자연 이미지 보며 주기적 한숨 호흡 (5분)",
   "name_en": "Cyclic sighing with nature images",
-  "summary": "자연 사진 20장을 15초씩 보며 자기 속도로 주기적 한숨 호흡을 한다. 조합 효과 미검증.",
+  "summary": "자연 사진 10장을 30초씩 보며 자기 속도로 주기적 한숨 호흡을 한다. 사진은 2초 교차 페이드로 전환하며 조합 효과는 미검증이다.",
   "goal": "S2",
   "secondary_goals": [],
   "media": [
@@ -86,8 +86,8 @@
           "user_upload": "FORBIDDEN"
         },
         "note": "초안: selection · render · personalization · generation은 담당자가 채운다(PR-01.json 참고)",
-        "count": 20,
-        "seconds_each": 15,
+        "count": 10,
+        "seconds_each": 30,
         "selection": {
           "provider": "PIXABAY",
           "endpoint": "IMAGE_SEARCH",
@@ -109,11 +109,13 @@
         },
         "render": {
           "duration_seconds": 300,
-          "seconds_each": 15,
-          "count": 20,
-          "transition": "FADE",
-          "transition_ms": 800,
-          "note": "20장 × 15초는 LUMI의 5분 조정. 전환은 호흡 박자가 아님."
+          "seconds_each": 30,
+          "count": 10,
+          "transition": "CROSSFADE",
+          "transition_ms": 2000,
+          "note": "10장 × 30초 및 2초 동시 교차 페이드는 LUMI 설계. 두 전환은 겹쳐 진행하며 활동 300초에 추가하지 않는다. 전환은 호흡 박자가 아님.",
+          "fade_out_ms": 2000,
+          "fade_in_ms": 2000
         },
         "personalization": {
           "scenery": "CareRequest.preferred_scenery",
@@ -348,13 +350,14 @@
       "integration_note": "UI 명세를 읽는 실행기·FE 연결 필요. 새로운 SlotType은 추가하지 않았으며 PACER 필수 슬롯은 제거함.",
       "background": {
         "type": "NATURE_PHOTO_SLIDESHOW",
-        "photo_count": 20,
-        "seconds_each": 15,
-        "transition": "FADE",
+        "photo_count": 10,
+        "seconds_each": 30,
+        "transition": "CROSSFADE",
         "starts_at": "AFTER_PRE_START_AUDIO_END",
         "ends_at": "TIMER_ZERO",
         "provider": "PIXABAY",
-        "sync_with_breath": false
+        "sync_with_breath": false,
+        "transition_ms": 2000
       }
     }
   },
