@@ -7,8 +7,9 @@ import asyncio
 
 import pytest
 
-from app.agent.nodes.planner import ActivityChoice
-from app.schemas.care import Place, Setting, environment_for
+from app.agent.nodes.planner import ActivityChoice, PlanRationale
+from app.schemas.care import CareGoal, Place, Setting, environment_for
+from app.schemas.retrieval import GOAL_OUTCOMES
 from scripts import plan_eval
 from scripts.rag_eval import load_scenarios
 from tests.agent import fakes
@@ -27,8 +28,8 @@ class ScriptedPlanner:
             protocol_id=self.protocol_ids.pop(0), search_query="nature images attention", reason="-"
         )
 
-    async def explain(self, state, choice, protocol, evidence):
-        return "추천 이유"
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        return PlanRationale.text("추천 이유")
 
 
 @pytest.fixture
@@ -68,6 +69,18 @@ def test_a_valid_first_choice_passes_every_check(fake_backends):
     assert run.cited and run.borrowed == []  # fixture 근거는 PR-01의 evidence[]다
 
 
+def test_the_rationale_and_what_the_explainer_saw_are_saved(fake_backends):
+    run = plan(ScriptedPlanner("PR-01"), "S3-unknown-a")
+    assert run.rationale == "추천 이유"
+    assert run.explain_input and "## 검증된 근거" in run.explain_input
+    assert {e["key"] for e in run.evidence} == set(run.cited)  # 카드에 실린 근거를 설명했다
+    assert all({"authors", "year", "outcomes", "flags"} <= e.keys() for e in run.evidence)
+    assert run.composition and set(run.grades) == {
+        o.value for o in GOAL_OUTCOMES[CareGoal.S3].primary
+    }
+    assert run.factors is None  # 대역은 Factor를 고르지 않는다
+
+
 def test_a_rejected_first_choice_fails_first_try_only(fake_backends):
     run = plan(ScriptedPlanner("PR-06", "PR-01"), "S3-unknown-a")  # PR-06은 S3 후보가 아니다
     assert run.calls == 2 and run.protocol_id == "PR-01"
@@ -93,3 +106,17 @@ def test_summary_counts_each_check_over_the_runs_it_applies_to(fake_backends):
     assert runs[1].borrowed == ["P01", "P04"]
     assert summary["borrowed"] == ["S3-fatigue-a PR-10"] and summary["empty_cards"] == []
     assert summary["chosen"] == {"S3 PR-01": 1}
+    # 세션 ID가 없으면 등급 순 — S3 · 미상의 맨 앞은 PR-10인데 대본이 PR-01(2번째)을 골랐고,
+    # 변경 라운드(PR-11을 뺐다)의 PR-10은 맨 앞이다
+    assert summary["first_in_order"] == [1, 2]
+    assert "첫 계획에서 고른 활동 1종: S3 PR-01 ×1" in plan_eval.format_summary(summary)
+
+
+def test_a_session_id_orders_the_candidates_like_production(fake_backends):
+    run = asyncio.run(
+        plan_eval.plan_once(
+            ScriptedPlanner("PR-04"), SCENARIOS["S3-unknown-a"], session_id="plan-eval:S3-unknown-a"
+        )
+    )
+    assert run.protocol_id == "PR-04" and run.position is not None
+    assert all(run.checks.values()), run.checks

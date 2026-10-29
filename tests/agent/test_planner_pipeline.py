@@ -11,10 +11,29 @@ from langgraph.runtime import Runtime
 
 from app import protocols
 from app.agent.context import AgentContext
-from app.agent.nodes.planner import ActivityChoice, PlanRejected, make_plan_node
-from app.agent.state import IntakeResult
+from app.agent.nodes.planner import (
+    CHOICE_WINDOW,
+    REPEAT_REASON,
+    ActivityChoice,
+    PlanRationale,
+    PlanRejected,
+    make_plan_node,
+    planner_context,
+    search_candidates,
+)
+from app.agent.state import (
+    CarePlan,
+    IntakeResult,
+    NextStep,
+    OutcomeEvaluation,
+    Round,
+    Selection,
+    SelectionMethod,
+    SessionReport,
+)
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import InterventionOrder, Medium, Outcome
 from tests.agent import fakes
 
@@ -29,23 +48,33 @@ STATE = {"request": REQUEST, "intake": INTAKE}
 
 
 class RecordingPlanner:
-    """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다."""
+    """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다. rationale에 여럿을 주면
+    explain마다 차례로 내고 마지막 것을 되풀이한다."""
 
-    def __init__(self, *choices: ActivityChoice, rationale: str = "추천 이유"):
+    def __init__(
+        self,
+        *choices: ActivityChoice,
+        rationale: str | list[str] = "추천 이유",
+        factors: ContentFactors | None = None,
+    ):
         self.choices = list(choices)
-        self.rationale = rationale
+        self.rationales = [rationale] if isinstance(rationale, str) else list(rationale)
+        self.factors = factors or ContentFactors.none()
         self.chosen: list[tuple[list[str], list[str]]] = []  # (후보 ID, 거부 사유)
         self.explained: list[tuple[str, str, list[int]]] = []  # (프로토콜, 이유, 인용 근거)
+        self.rejections: list[list[str]] = []  # explain마다 받은 직전 추천 이유의 문제
 
     async def choose(self, state, candidates, problems):
         self.chosen.append(([c["protocol_id"] for c in candidates], list(problems)))
         return self.choices.pop(0)
 
-    async def explain(self, state, choice, protocol, evidence):
+    async def explain(self, state, choice, protocol, evidence, problems=()):
         self.explained.append(
             (protocol.protocol_id, choice.reason, [c.evidence_record_id for c in evidence])
         )
-        return self.rationale
+        self.rejections.append(list(problems))
+        text = self.rationales.pop(0) if len(self.rationales) > 1 else self.rationales[0]
+        return PlanRationale(rationale=text, content_factors=self.factors)
 
 
 def choice(protocol_id: str, query: str = "nature images rumination") -> ActivityChoice:
@@ -65,9 +94,10 @@ def fake_backends(monkeypatch):
     return searches
 
 
-def run_plan(planner, state=STATE):
+def run_plan(planner, state=STATE, session_id: str | None = None):
     node = make_plan_node(planner)
-    return asyncio.run(node(state, Runtime(context=AgentContext())))["plan"]
+    context = AgentContext(session_id=session_id)
+    return asyncio.run(node(state, Runtime(context=context)))["plan"]
 
 
 def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
@@ -90,6 +120,30 @@ def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
     assert plan.activity.evidence_record_ids == [102, 101, 112, 111]
     assert plan.rationale == "추천 이유"
     assert planner.explained == [("PR-21", "-", [102, 101, 112, 111])]
+
+
+def test_pipeline_keeps_only_the_content_factors_the_activity_can_use():
+    # PR-21은 이미지 1장 — 풍경은 하나만, 자연음 · 작품 칸은 없다
+    factors = ContentFactors(
+        scenery=[Scenery.SEA, Scenery.FOREST, Scenery.SEA],
+        soundscape=Soundscape.RAIN,
+        art_subject=ArtSubject.LANDSCAPE,
+        music=MusicTrack.MOZART_K448,
+        reason="바다를 보고 싶다고 했다",
+    )
+    plan = run_plan(RecordingPlanner(choice("PR-21"), factors=factors))
+    assert plan.content_factors == ContentFactors(
+        scenery=[Scenery.SEA],
+        soundscape=None,
+        art_subject=None,
+        music=None,
+        reason="바다를 보고 싶다고 했다",
+    )
+
+
+def test_pipeline_leaves_content_factors_empty_when_the_llm_picks_none():
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+    assert plan.content_factors is None
 
 
 def test_pipeline_builds_the_reference_card_from_the_cited_evidence(fake_backends):
@@ -122,11 +176,41 @@ def test_pipeline_recovers_when_the_second_choice_is_valid(fake_backends):
     assert plan.activity.evidence_record_ids == []  # fixture에 MINDFULNESS 근거가 없다
 
 
+NO_EVIDENCE_RATIONALE = (
+    "같은 생각이 계속 돌아 잠시 주의를 옮길 활동을 골랐어요. 다만 이 활동에 맞는 검증된 연구 "
+    "근거는 찾지 못했어요."
+)
+
+
 def test_pipeline_without_db_plans_without_evidence():
-    planner = RecordingPlanner(choice("PR-21"))
+    planner = RecordingPlanner(choice("PR-21"), rationale=NO_EVIDENCE_RATIONALE)
     plan = run_plan(planner)  # 풀이 없으면 검색이 0건이라 검증을 부르지 않는다
     assert plan.activity.evidence_record_ids == []
-    assert planner.explained == [("PR-21", "-", [])]
+    assert planner.explained == [("PR-21", "-", [])]  # 근거 없음을 밝혀 다시 묻지 않는다
+
+
+def test_a_rationale_that_breaks_a_rule_is_asked_once_more_with_the_problems(fake_backends):
+    # 2026-10-29 plan eval에서 실제로 나온 꼴 — 한국어 문장에 다른 문자가 섞였다
+    broken = "같은 생각이 계속 돌아 잠시 فاص하는 활동을 골랐어요. 연구에서 반추가 줄었어요."
+    fixed = "같은 생각이 계속 돌아 잠시 주의를 옮길 활동을 골랐어요. 연구에서 반추가 줄었어요."
+    planner = RecordingPlanner(choice("PR-21"), rationale=[broken, fixed])
+
+    plan = run_plan(planner)
+
+    assert plan.rationale == fixed
+    assert len(planner.explained) == 2
+    assert planner.rejections[0] == []
+    assert any("فاص" in p for p in planner.rejections[1])  # 두 번째 호출이 사유를 받았다
+
+
+def test_a_rationale_that_still_breaks_a_rule_is_kept_after_one_retry(fake_backends):
+    broken = "PR-21을 골랐어요. 연구에서 반추가 줄었어요."  # 활동 ID를 그대로 썼다
+    planner = RecordingPlanner(choice("PR-21"), rationale=broken)
+
+    plan = run_plan(planner)
+
+    assert plan.rationale == broken  # 문장 때문에 계획을 막지 않는다
+    assert len(planner.explained) == 2
 
 
 S3_STATE = {
@@ -191,10 +275,15 @@ def test_pipeline_widens_to_the_same_medium_when_its_evidence_does_not_fit(fake_
     assert plan.activity.evidence_record_ids == [152, 151]
 
 
-def test_pipeline_rejects_when_nothing_fits():
+def test_pipeline_relaxes_time_last_when_nothing_fits_the_minutes():
+    # S1 · 2분 — 2분 안의 S1 활동이 없다. 전에는 실패했고, 이제 시간을 마지막에 풀어 가장 짧은
+    # 활동(PR-09 3분 마음챙김)을 근거 용량 그대로 준다
     state = {**STATE, "intake": INTAKE.model_copy(update={"minutes": 2})}
-    with pytest.raises(PlanRejected, match="맞는 검수 프로토콜이 없다"):
-        run_plan(RecordingPlanner(choice("PR-09")), state)
+    planner = RecordingPlanner(choice("PR-09"))
+    plan = run_plan(planner, state)
+    assert planner.chosen[0][0][0] == "PR-09"  # 가장 짧은 활동이 맨 앞
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-09").duration_minutes.default)
 
 
 def test_pipeline_relaxes_the_user_state_when_no_activity_fits_it():
@@ -220,6 +309,104 @@ def test_pipeline_relaxes_the_environment_last_and_reports_the_gaps():
     assert (plan.relaxed, plan.environment_gaps) == (["environment"], ["SCREEN"])
 
 
+def finished(plan: CarePlan, next_step: NextStep) -> Round:
+    """끝난 라운드 — 사용자가 next_step을 골랐다. 측정값은 비워 둔다."""
+    return Round(
+        plan=plan,
+        report=SessionReport(completed=True),
+        pre=[],
+        post=[],
+        evaluation=OutcomeEvaluation(
+            goal=CareGoal.S1, round=1, deltas={}, improved=True, completed=True
+        ),
+        next_step=next_step,
+    )
+
+
+def test_one_more_round_repeats_the_activity_without_choosing_again(fake_backends):
+    first = run_plan(RecordingPlanner(choice("PR-21")))
+    assert first.search_query == "nature images rumination"
+    fake_backends.clear()
+
+    planner = RecordingPlanner()  # choose를 부르면 꺼낼 선택이 없어 IndexError
+    rounds = [finished(first, NextStep.ADDITIONAL_SESSION)]
+    again = run_plan(planner, {**STATE, "rounds": rounds})
+
+    assert planner.chosen == []
+    assert again.selection == Selection(method=SelectionMethod.REPEAT, order=["PR-21"])
+    assert again.activity.protocol_id == "PR-21"
+    assert again.activity.minutes == first.activity.minutes
+    # 같은 질의로 근거를 다시 찾고, 설명(콘텐츠 Factor)만 새로 쓴다
+    assert fake_backends and all(s["query"] == first.search_query for s in fake_backends)
+    assert again.activity.evidence_record_ids == first.activity.evidence_record_ids
+    assert planner.explained == [("PR-21", REPEAT_REASON, [102, 101, 112, 111])]
+
+
+def test_one_more_round_without_a_saved_query_searches_by_the_activity_name(fake_backends):
+    # 질의를 남기기 전의 체크포인트 — 그 활동의 evidence[]에서 이름으로 찾는다
+    first = run_plan(RecordingPlanner(choice("PR-21"))).model_copy(update={"search_query": None})
+    fake_backends.clear()
+    rounds = [finished(first, NextStep.ADDITIONAL_SESSION)]
+    again = run_plan(RecordingPlanner(), {**STATE, "rounds": rounds})
+    name = protocols.get_protocol("PR-21").name
+    assert again.search_query == name
+    assert fake_backends and all(s["query"] == name for s in fake_backends)
+
+
+def test_a_session_shows_the_candidates_in_its_weighted_order(fake_backends):
+    session = planner_context(AgentContext(session_id="session-1"), STATE)
+    expected = protocols.recommendation_order(
+        search_candidates(session), CareGoal.S1, seed="session-1"
+    )
+    order = [p.protocol_id for p in expected.protocols]
+    assert order != ["PR-09", "PR-15", "PR-21", "PR-14"]  # 등급 순과 다르다(이 시드에서)
+    planner = RecordingPlanner(choice(order[1]))  # 맨 앞을 건너뛰었다
+
+    plan = run_plan(planner, session_id="session-1")
+
+    assert planner.chosen == [(order, [])]
+    assert plan.selection == Selection(
+        method=SelectionMethod.WEIGHTED,
+        order=order,
+        weights=expected.weights,
+        probability=expected.probability(order[1]),
+        position=1,
+    )
+
+
+def test_the_llm_sees_the_first_five_of_the_order_with_ranks(fake_backends):
+    state = {
+        "request": CareRequest(text="발표 앞두고 긴장돼요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+        ),
+    }
+    session = planner_context(AgentContext(session_id="session-1"), state)
+    order = protocols.recommendation_order(search_candidates(session), CareGoal.S2, seed="s1")
+    ids = [p.protocol_id for p in order.protocols]
+    seen: list[dict] = []
+
+    class Seeing(RecordingPlanner):
+        async def choose(self, state, candidates, problems):
+            seen.extend(candidates)
+            return await super().choose(state, candidates, problems)
+
+    plan = run_plan(Seeing(choice(ids[0], "slow breathing stress")), state, session_id="s1")
+
+    assert len(ids) > CHOICE_WINDOW
+    assert [(c["rank"], c["protocol_id"]) for c in seen] == list(
+        enumerate(ids[:CHOICE_WINDOW], start=1)
+    )
+    assert plan.selection.order == ids  # 기록은 순서 전체 — 맨 앞 확률은 후보 전체로 정한다
+
+
+def test_without_a_session_the_candidates_stay_ranked(fake_backends):
+    plan = run_plan(RecordingPlanner(choice("PR-21")))
+    assert plan.selection == Selection(
+        method=SelectionMethod.RANKED, order=["PR-09", "PR-15", "PR-21", "PR-14"], position=2
+    )
+
+
 def test_demo_s2_session_offers_breathing_first():
     """발표 시나리오(TEAM.md): '발표 앞두고 긴장돼요' → S2 · PRE_STRESS · 기본 10분 → PR-06.
 
@@ -230,3 +417,17 @@ def test_demo_s2_session_offers_breathing_first():
     ids = [p.protocol_id for p in found]
     assert ids[0] == "PR-06"
     assert ids.index("PR-03") > ids.index("PR-06")
+
+
+def test_short_time_without_a_fitting_activity_keeps_the_evidence_dose():
+    # S3에서 3분 칩 — 3분 안의 S3 활동이 없어 시간을 풀고, 활동은 줄이지 않고 근거 용량(6분)으로
+    state = {
+        "request": CareRequest(text="하루 종일 집중했더니 머리가 멍해요"),
+        "intake": IntakeResult(
+            goal=CareGoal.S3, order_condition=InterventionOrder.POST_FATIGUE, minutes=3
+        ),
+    }
+    plan = run_plan(RecordingPlanner(choice("PR-01")), state)
+    assert plan.relaxed == ["minutes"]
+    assert plan.activity.protocol_id == "PR-01"
+    assert plan.activity.minutes == round(protocols.get_protocol("PR-01").duration_minutes.default)

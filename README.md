@@ -82,18 +82,18 @@ graph TD;
 | 노드 | 아키텍처 | 하는 일 | 파일 |
 | --- | --- | --- | --- |
 | `intake_read` | intake ① State (LLM) | 문장(과 앞선 질문·답)에서 안전 신호 · 관련성 · 사용자 상태(사건 전·후 · 피로 후 · 계기 없음) · 사건 · 반복 사고 단서 · 문장에 나온 여건을 읽고, 질문 초안을 낸다. 안전 신호면 세션 종료(`ended = SAFETY`). 처음 입력이 관계없으면 사용자 말에 맞춘 입구 되묻기(`restate`)를 낸다. 점수는 추정하지 않는다 | `nodes/intake.py` |
-| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S2(`goal_source = DEFAULT`, 근거 없음) | `nodes/intake.py` |
+| `intake_goal` | intake ③ Goal (LLM) | 개념 정의(`data/goal_definitions.json`, 원문) · 단서표(`data/intake_cues.json`, 팀 요약) · 상황 단서로 개선할 결과 지표 S1·S2·S3와 부목표, 개선할 지표(`target_outcomes`)를 정한다. 추론한 목표 · 부목표의 정의를 `goal_evidence`(paper_id · 원문 문장)로 남긴다(② — 열 개 남짓이라 검색하지 않고 통째로 넣는다). State 두 질문이 모두 '잘 모르겠어요'거나, 되묻기에서 '그냥 시작할게요'를 눌렀거나, 단서가 없으면 S1 · S2 · S3 중 무작위(`goal_source = DEFAULT`, 근거 없음, 10-29 — 전에는 S2 고정) | `nodes/intake.py` |
 | `intake_context` | intake ④ Context (코드) | setting · earphones · minutes 중 비어 있고 1순위 활동을 바꾸는 칸만 칩으로 묻는다 | `nodes/intake.py` |
 | `intake_ask` ⏸ | intake 질문 | 입구 되묻기 · 시점 질문 · 재질문 · 환경 칩. 합계 3회, State는 2회까지(되묻기는 세지 않고 관련 있는 답이 올 때까지 돈다). 시점 질문에 '잘 모르겠어요'면 고정 재질문. 글 답은 `intake_read`로 돌아가 안전까지 다시 읽는다. payload `IntakeQuestion`, resume `IntakeAnswer`(`app/schemas/intake.py`) | `nodes/intake.py` |
 | `intake_finish` | intake (코드) | 빈 칸을 기본값으로(시간 10분 · setting 모르면 조용한 실내 가정), 환경 조건(소리 · 조용함 · 화면 · 야외) · Place · 끝난 이유(`end_reason`)를 정한다 | `nodes/intake.py` |
 | `measure_pre` ⏸ | measure (코드) | SAM(앵커) + 목표 척도(S2 STAI-6 · S1 BSRI · S3 MFVAS 임시 도구)를 FE에 제시하고 응답을 채점한다 | `nodes/measure.py` |
-| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다. 검증한 근거로 Reference 카드를 만든다(코드, 「Reference 카드」) | `nodes/planner.py` |
+| `plan` | ① Adaptive Care Planning | 고정 절차 — 후보(코드, 목표 · 상태 · 시간 · 환경으로 거른다) → 활동 선택(LLM) → 근거 검색·검증(코드 — 서로 다른 레코드 상위 5개) → 추천 이유(LLM) → `CarePlan`. 선택은 `check_plan`이 후검증한다. 검증한 근거로 Reference 카드를 만든다(코드, 「Reference 카드」). 추천 이유가 꼭 밝힐 한계(근거 없음 · 반대 결과 · 자극 변형 · AI 이미지 — 카드 배지와 같은 판정)는 코드가 정해 설명 입력에 싣고, 추천 이유는 글자 규칙(`rationale_rules.py` — 다른 문자 · ID · 통계값 · Factor 이름 · 근거 밖 연도 …)으로 후검증해 어기면 사유를 붙여 한 번 다시 묻는다 | `nodes/planner.py` |
 | `prepare` | ② Care Session Executor | 프로토콜의 단계 · 안내 문구 · 실행 명세(`content_spec`)와 자산(사진 · 영상 · 음원 · 컬러링 도안)으로 `ActivityContent`를 준비한다(음성 합성은 예정) | `nodes/executor.py` |
 | `run_session` ⏸ | ② Care Session Executor | FE 플레이어가 프로토콜 1개를 실행하고 `SessionReport`(완료 여부·중단 사유·NOTICE 감정 단어 1~3개)를 보낼 때까지 기다린다 | `nodes/executor.py` |
 | `measure_post` ⏸ | measure (코드) | 라운드 끝 SAM. S3는 MFVAS(정신 피로 VAS 3문항)도 함께 — 라운드 척도라 종료에 다시 묻지 않는다 | `nodes/measure.py` |
-| `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로↓ | `nodes/evaluator.py` |
-| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션 중 하나를 제안하고 고를 수 있는 선택지를 정한다 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 뺀다 (임시 규칙) | `nodes/replanner.py` |
-| `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값) | `nodes/replanner.py` |
+| `evaluate` | ③ Outcome Evaluator | Δ = 사후 − 사전(SAM 쾌·각성, S3는 MFVAS 피로·집중·기운도). S1 쾌↑ · S2 각성↓ · S3 피로 10점 이상↓ | `nodes/evaluator.py` |
+| `replan` | ④ Replanning | 종료 · 활동 변경 · 추가 세션(같은 활동 한 번 더) 중 고를 수 있는 선택지와 규칙 제안을 코드가 정하고 — 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘 활동이면 추가 세션을 뺀다 (임시 규칙) — LLM(`NextStepChoice`)이 규칙 제안을 기본으로 멈춘 이유 · 감정 단어 · Δ를 보고 선택지 안에서 권할 단계와 이유를 고른다. 실패하면 규칙 제안 | `nodes/replanner.py` |
+| `confirm` ⏸ | ④ Replanning | 사용자 선택·동의(`ReplanDecision`)를 기다린다. 활동 변경·추가 세션이면 `plan`으로 돌아간다(다음 라운드의 사전값 = 이번 사후값). 활동 변경은 바꾸기로 한 활동을 세션 내내 후보에서 빼고, 추가 세션은 활동을 다시 고르지 않고 같은 활동에 콘텐츠만 새로 고른다 | `nodes/replanner.py` |
 | `measure_final` ⏸ | measure (코드) | 종료 경로에서 사전·종료에만 재는 목표 척도(STAI-6 · BSRI) 1회 → 세션 Δ. S3는 라운드마다 재서 건너뛴다 | `nodes/measure.py` |
 
 ⏸는 LangGraph interrupt입니다. 그래프가 멈추고 상태를 체크포인터에 남긴 뒤, 같은 thread_id로
@@ -114,21 +114,56 @@ graph TD;
 
 - 논문 RAG는 근거 검색에 쓰고, 세션 실행은 검수된 프로토콜만 씁니다.
 - AI 생성 이미지는 보조 콘텐츠로 쓰고, 연구 자극과의 차이는 Reference 카드에 `ADAPTED_STIMULUS`로 밝힙니다.
+- 콘텐츠 Factor(풍경 · 자연음 · 작품 주제)는 LLM이 근거 있는 Enum 값만 고르고, 검색어는 코드가 검수 목록에서
+  고릅니다(아래 「콘텐츠 Factor」).
 - 측정은 RAG가 아닙니다. 척도(`data/instruments/`)는 구조화 표에 있고 LLM은 문항을 만들거나 점수를 계산하지 않습니다.
 - 의료적 진단·치료 효능을 주장하지 않습니다.
+
+### 콘텐츠 Factor (`data/content_factors.json` · `app/content/factors.py`)
+
+자연 자극 활동(PR-01 02 03 04 05 20 21, 그리고 Pixabay 풍경을 쓰는 PR-10 · 22)의 콘텐츠를 무엇으로 채울지 plan이
+고릅니다. LLM 호출을 늘리지 않고 plan의 LLM 호출 2(추천 이유)가 같은 구조화 출력에서 `content_factors`를
+냅니다.
+
+| 칸 | Enum(`app/schemas/content.py`) | 근거(값마다 논문 · 쪽은 카탈로그) | 쓰는 활동 |
+| --- | --- | --- | --- |
+| `scenery` 풍경 0~4 | forest · lake river · sea · mountain · meadow | P03 · P24 · P25 · P28 · P33 · N17 | 사진(PR-01 · 03 · 21 · 22), 영상(PR-02 · 10 — 숲 · 호수·강만) |
+| `soundscape` 자연음 1 | birdsong · stream · rain · ocean_waves · forest_wind | N14 · N15 · N16 · N17 · N18 | PR-02 · 04 |
+| `art_subject` 작품 주제 1 | waterscape · landscape | E06 · E07 | PR-20 |
+| `music` 이완 음악 추천 1 | miserere · mozart_k448 · vivaldi_spring | E09 · E08(표 20 · 23쪽) | PR-05 — 추천곡을 맨 앞에 두고 고르는 것은 사용자(E08: 목록에서 사용자가 고른 음악 g = 0.38, 1편) |
+
+- **Enum = 논문 자극으로 쓰인 범주(`basis: STIMULUS`)만.** 근거 없이 선호용으로 둔 꽃 · 하늘(`DESIGN`)은 FE 칩으로만
+  받습니다. 곤충 소리(N16)처럼 근거는 있어도 불편할 수 있는 값은 `excluded`에 이유와 함께 남겼습니다.
+- **LLM은 값만, 검색어는 코드가.** 값마다 검수 검색어가 2~3개이고(include · exclude 태그 안), prepare가 세션마다
+  하나를 무작위로 골라 같은 풍경이라도 매번 다른 사진 · 소리를 받습니다. 자연음은 값별 exclude(거친 새소리 등)를
+  프로토콜 exclude에 더합니다.
+- **우선순위:** 사용자 칩(`profile.preferred_scenery`) > LLM Factor > 프로토콜 기본 검색어. `factors.sanitize`가
+  활동에 없는 칸 · 근거 없는 값 · 개수 초과를 지우고, 영상과 소리를 함께 쓰는 PR-02는 소리를 영상 풍경에
+  맞춥니다(숲 → 새소리 · 숲 바람, 호수·강 → 시냇물).
+- 자산 `metadata.content_factor`에 축 · 값 · 출처(`USER` · `LLM`) · 근거 논문 · 검색어가 남습니다.
+  `preferred_scenery`는 사용자 칩일 때만 남겨 FE가 LLM이 고른 풍경을 "좋아하는 ○○"라고 쓰지 않습니다.
+- Factor는 연구 자극 범위 안의 개인화이지 효과를 키운다는 근거가 아닙니다. 추천 이유(rationale)에도 쓰지 않습니다.
+- **색 선호(profile.preferred_colors · avoided_colors)**: 선호 색은 사진 여러 장일 때 4장에 1장꼴을 Pixabay 색 필터로
+  받고(`preferred_color` 메타데이터), 기피 색은 LLM이 고른 풍경에서 그 색이 주로 차지하는 풍경을 뺍니다(파랑 → 바다 ·
+  호수·강). 사용자 칩 풍경은 그대로 둡니다. 표는 카탈로그의 `colors`이고, 색이 정서에 효과를 낸다는 근거는 없습니다.
+- **이미지 프록시(`/media`, `app/api/media.py`)**: 미술관 IIIF(Cloudflare가 브라우저 직접 호출을 막음)와 Pixabay 사진
+  (영구 핫링크 금지)은 BE가 받아 전달합니다. 자산 주소가 `/media/…`로 바뀌고 원래 주소는 `metadata.origin_url`에
+  남습니다. 상위 주소는 고정 템플릿이라 오픈 프록시가 아닙니다(`app/content/proxy.py`).
 
 ### LangGraph·LangChain을 쓰는 곳
 
 - **LangGraph — 세션 그래프 전체.** Replanning → Planner 순환, 사용자 선택에 따른 분기, 사용자가
   활동을 마치거나 동의할 때까지 멈췄다가 이어 가는 interrupt가 필요합니다. 상태가 체크포인터에 남아
   HTTP 요청이 나뉘어도 세션이 이어집니다.
-- **LangChain — intake와 plan의 구조화 출력.** LLM 호출은 네 곳 모두 `with_structured_output`(json_schema)
-  한 번씩입니다 — intake의 상황 읽기 `StateReading`과 목표 추론 `GoalInference`, plan의 활동 선택
-  `ActivityChoice`, 추천 이유 `PlanRationale`. intake의 질문 여부 · 보기 검증 · 답 병합 · 종료는 코드다
+- **LangChain — intake · plan · replan의 구조화 출력.** LLM 호출은 다섯 곳 모두
+  `with_structured_output`(json_schema) 한 번씩입니다 — intake의 상황 읽기 `StateReading`과 목표 추론
+  `GoalInference`, plan의 활동 선택 `ActivityChoice`, 추천 이유 `PlanRationale`, replan의 다음 단계 추천
+  `NextStepChoice`. intake의 질문 여부 · 보기 검증 · 답 병합 · 종료는 코드다
   (`app/agent/intake_rules.py`) — 질문을 몇 번 해도 LLM은 2회이고, 시점 질문에 글로 답할 때만 한 번 더 읽는다.
   plan은 고정 절차입니다: 코드가 후보를 목표 · 사용자 상태 · 시간 · 환경(소리 · 조용함 · 화면 · 야외)으로
-  거르고 목표 1차 지표 등급 순으로 정렬해 주면 LLM이 하나를 고르고
-  (제약 · 장소 · 자유 텍스트 대조), 코드가 그 활동의 `evidence[]` 안에서(맞는 레코드가 없으면 같은 매체
+  거르고 등급 가중 추첨 순서로 세워 주면(`protocols.recommendation_order` — 세션 ID 시드, 목표 1차 지표
+  최고 등급 A 4 · B 3 · C 2 · 그 밖 1, 최근에 한 활동 × 0.3) LLM이 앞 5개를 rank와 함께 보고 rank 1을
+  고르고(제약 · 장소 · 꺼린 활동 · 직전 거부 사유일 때만 다음 것 — 자유 텍스트 대조), 코드가 그 활동의 `evidence[]` 안에서(맞는 레코드가 없으면 같은 매체
   연구 전체에서) 매체 · 사용자 상태 · 목표 지표로 근거를 검색·검증해 usable만 남기고, LLM이 그 근거로 추천
   이유를 씁니다. 처음에는 `create_agent` Tool
   루프였지만 gpt-4o-mini가 검색을 건너뛰고, 인자를 빠뜨리고, 한 번은 10분 넘게 돌아(2026-10-26 실측)
@@ -203,7 +238,7 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 | --- | --- | --- |
 | `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
 | `CONSENT_REQUIRED` | 403 | 회원이 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
-| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` — 게스트 체험은 기록하지 않는다 |
+| `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` · `GET /me/sessions` — 게스트 체험은 기록하지 않는다 |
 | `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
 | `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
@@ -247,8 +282,8 @@ FE는 Supabase Auth(Google · Kakao)로 로그인하고, 받은 액세스 토큰
   지우는 것은 브라우저가 보장하지 않아, 남은 행과 체크포인트는 매일 도는 정리 작업이 지웁니다. 입력이 OpenAI로
   간다는 것은 회원과 같이 처리방침에 밝힙니다.
 - FE는 게스트 세션을 `sessionStorage`에 둡니다(supabase-js `auth.storage`) — 탭을 닫으면 체험이 끝납니다.
-- 게스트는 `PUT /me/consent`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜 로그인으로 회원이
-  됩니다(게스트 체험은 이어지지 않습니다).
+- 게스트는 `PUT /me/consent` · `GET /me/sessions`가 403(`MEMBERS_ONLY`)입니다. 기록을 남기려면 체험 뒤 소셜
+  로그인으로 회원이 됩니다(게스트 체험은 이어지지 않습니다).
 - 쓰지 않았다는 것은 만든 지, 로그인 세션을 갱신한 지, 세션 행을 쓴 지 모두 그 기간이 지났다는 뜻입니다.
 
 Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은 IP마다 횟수 제한(Rate Limits)이 있으니
@@ -291,6 +326,25 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 - 모든 행이 `auth.users`를 따라 지워집니다(`on delete cascade`). 대시보드에서 사용자를 지워도 기록 · 원문 ·
   동의가 함께 사라지고, 남은 체크포인트는 다음 정리 작업이 지웁니다.
 
+회원은 `GET /me/sessions`로 자기 활동 기록을 봅니다(FE 기록 탭). 활동을 한(라운드 기록이 있는) 세션을 최근
+것부터 `limit`개(기본 20 · 최대 100) 돌려주고, 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠집니다. 분석
+테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다.
+
+```json
+{"sessions": [{"session_id": "…", "started_at": "2026-10-29T05:12:03+00:00",
+  "ended_at": "2026-10-29T05:24:41+00:00", "goal": "S2",
+  "rounds": [{"round": 1, "protocol_id": "PR-06", "name": "주기적 한숨 호흡 5분", "minutes": 5,
+              "completed": true, "deltas": {"valence": 1.0, "arousal": -2.0}, "improved": true,
+              "next_step": "END"}],
+  "goal_scale": {"instrument_id": "INS-STAI6", "pre": {"total": 53.33}, "end": {"total": 43.33},
+                 "delta": {"total": -10.0}}}]}
+```
+
+- `ended_at`이 `null`이면 마치지 않은 세션(진행 중이거나 쉬다가 만료)입니다. `goal_scale`(목표 척도의 세션
+  변화)은 DONE으로 끝난 세션의 END payload에서 옵니다.
+- `rounds`는 END payload의 `rounds`와 같은 칸에 활동 이름(`name` — 활동 노드 JSON의 `name`, 빠진 활동이면
+  `null`)을 붙인 것입니다. END payload는 `protocol_id`만 실어 FE가 지난 활동의 이름을 모릅니다.
+
 ### Reference 카드 (`app/agent/reference_card.py`)
 
 "왜 추천했나요?"에 답하는 카드입니다. plan 노드가 계획마다 만들어 `CarePlan.reference_card`에 싣고, FE는 `RUN`
@@ -304,7 +358,7 @@ payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/c
 | `badges` | 화면 배지(`CardBadge`) — `EXPERIMENTAL` · `LIMITED_EVIDENCE` · `NO_VERIFIED_EVIDENCE` · `CONFLICTING_EVIDENCE` · `ADAPTED_STIMULUS` · `AI_IMAGE_UNVERIFIED` · `RELAXED_ORDER` · `RELAXED_ENVIRONMENT` · `DEFAULT_GOAL` · `PROVISIONAL_MEASURE`. 문구 · 색은 FE가 정하고 설명 문장은 `limits` · `goal.notes`에 있다 |
 | `goal` | 목표와 라벨, 정한 방식(`INFERRED` · `DEFAULT` · `CHIP`)과 판단 이유, **목표 근거**(추론한 목표 · 부목표의 개념 정의 원문 · 개념 · 쪽 · 논문), 근거가 보는 1차 지표, LUMI가 재는 척도(`measured_by`, 임시 도구면 `provisional`), `notes`(기본 목표 · S3 "주의 용량은 재지 않는다" · 임시 척도) |
 | `grades` | 이 활동의 목표 1차 지표별 근거 등급(프로토콜 시트, A–D · — · 미확인) |
-| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문), 검증 6항목(`checks`, 자세히 보기용). 목표를 지지하는 것이 앞 |
+| `evidence[]` | 검증을 통과한 실험 하나씩(같은 실험의 METHODS · RESULTS chunk를 묶고, 실험 ID가 없는 리뷰는 논문 단위) — 이론 → 논문(제목 · 저자 · 연도 · DOI 링크) → 대상 · 표본 · 노출 시간 · 연구 상황 → 목표 지표 결과(척도 · 비교 · 시점 · 통계 원문) → 지지 여부 · 플래그 · 한계 문장, 원문 구간(`excerpts`, 영어 원문). 검증 6항목의 사유(로그 문장)는 싣지 않는다 — 실패한 비차단 검사는 플래그 · 한계 문장으로 밝힌다. 목표를 지지하는 것이 앞 |
 | `limits` | 카드 끝 한계 문장 — 고정 고지, 배지마다 한 문장(프로토콜 작성자의 `reference_card_note`가 있으면 그것으로), 프로토콜의 대상 메모 |
 
 - `EXPERIMENTAL`은 `composition`이 `EXPERIMENTAL`이거나 프로토콜 `user_facing_flags`가 그 목표에서 실험적이라고 할 때,
@@ -337,8 +391,9 @@ make run                # http://127.0.0.1:8000/health
 | `make protocols-scaffold XLSX=<워크북>` | 프로토콜·근거 arm 시트에서 활동 노드 JSON 초안을 만든다(있는 파일은 건너뜀) |
 | `make checkpoint-setup` | `DATABASE_URL`에 세션 체크포인트 테이블을 만든다 (다시 돌려도 된다) |
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
-| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
+| `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · CP@5(RAGAS Context Precision) · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
+| `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `report --md`는 `docs/rag-eval/` 실행 기록을, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -347,14 +402,15 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 ## 데이터베이스 (Supabase)
 
 1. Supabase 프로젝트에 마이그레이션을 이름 순서대로 적용합니다 — `supabase/migrations/20261021000000_init_evidence.sql`,
-   `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`.
+   `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`,
+   `supabase/migrations/20261029000000_care_rounds_selection.sql`.
    대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은
    `papers`·`evidence_records`가 비어 있을 때만 적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다. 세 번째
    파일은 세션 기록 테이블이고 `auth.users`(Supabase Auth)를 참조합니다.
 2. 대시보드의 **Connect** 창에서 연결 문자열을 복사해 `.env`의 `DATABASE_URL`에 넣습니다.
 3. `make checkpoint-setup`으로 세션 체크포인트 테이블을 만듭니다. `langgraph-checkpoint-postgres`를
    올린 뒤에도 다시 실행합니다. 이미 적용한 마이그레이션은 건너뜁니다.
-4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 83편이 `papers`로, 근거 arm 시트
+4. 근거를 적재합니다(`scripts/seed_evidence.py`). `data/manifest.csv` 84편이 `papers`로, 근거 arm 시트
    65행이 레코드 61개 × chunk 2개(METHODS · RESULTS) = 122행으로 `evidence_records`에 들어갑니다. 먼저
    dry-run으로 건수와 검토 목록(`evidence_review.csv`)을 보고 대상 DB를 적어 넣습니다. 임베딩에
    `OPENAI_API_KEY`가 필요합니다.
@@ -368,7 +424,9 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
    대상 DB는 매번 적습니다 — `.env`의 공용 Supabase에 실수로 쓰지 않도록 기본값을 두지 않았습니다.
    다시 돌려도 (`paper_id`, `experiment_id`, `section`, `chunk_idx`)가 같으면 갱신만 해 id가 유지됩니다.
    세션 기록(`care_rounds.evidence_record_ids`)과 계획(`CarePlan`)이 이 id를 가리키므로 행을 지우고 다시 넣지 않습니다. 사람이
-   원문으로 확정한 값은 `data/evidence_overrides.json`에 적고 다시 돌립니다(`data/README.md`).
+   원문으로 확정한 값은 `data/evidence_overrides.json`에 적고 다시 돌립니다(`data/README.md`). 연구 매체는 시트에
+   없어 그 행을 인용한 활동 JSON의 `media`에서 옵니다 — 활동의 제공 방식만 바꾸면(PR-10 영상 모드, #63) 다시 적재할
+   때 연구 매체도 바뀌므로 `evidence_overrides.json`에 연구 매체를 고정합니다.
 
    content는 `data/evidence_excerpts.json`에 발췌가 있는 레코드는 논문 원문 METHODS · RESULTS 구간, 없는
    레코드(미확보 논문 등)는 시트 요약입니다(`--no-excerpts`면 전부 요약). 발췌를 다시 만드는 순서는
@@ -421,14 +479,34 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
   -c 'create table auth.sessions (id uuid primary key, user_id uuid not null references auth.users on delete cascade, created_at timestamptz default now(), updated_at timestamptz default now(), refreshed_at timestamp, not_after timestamptz)' \
   -f supabase/migrations/20261021000000_init_evidence.sql \
   -f supabase/migrations/20261026000000_evidence_contracts.sql \
-  -f supabase/migrations/20261027000000_care_records.sql
+  -f supabase/migrations/20261027000000_care_records.sql \
+  -f supabase/migrations/20261029000000_care_rounds_selection.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
+
+### RAGAS 지표 대응
+
+RAG 평가는 RAGAS의 검색 지표 2개 · 생성 지표 2개에 맞춰 이 저장소의 스크립트로 잽니다(RAGAS 라이브러리는 쓰지
+않습니다). Factual Correctness는 정답 답변(reference)과 대조하는 지표인데, 추천 이유는 정답 문장이 하나로 정해지지
+않아 쓰지 않습니다.
+
+| RAGAS 지표 | 이 저장소의 평가 | 2026-10-29 |
+| --- | --- | --- |
+| Context Recall | 근거 검색 평가 Recall@K — 정답 레코드 중 상위 K에 든 비율(RAGAS ID 기반 Context Recall과 같은 계산) | planner · hybrid Recall@5 0.989 |
+| Context Precision | 근거 검색 평가 CP@5 — RAGAS Context Precision@5 공식, 관련 여부는 정답 레코드로 판정 | planner 1.000(구조적 — 범위 · 필터 뒤 후보가 정답뿐), open hybrid 0.575 · dense 0.772 |
+| Faithfulness | 추천 이유 평가 Judge `faithful` · `outcomes`(+ 규칙 `years` · `stats`) — 추천 이유 단위 PASS · FAIL | faithful 36/36(Judge 35, 사람 조정) · outcomes 35/36 |
+| Response Relevancy | 추천 이유 평가 Judge `personal` — 사용자 상태 → 고른 이유 → 근거 | 36/36 |
+
+- Judge 숫자는 사람 판정(Judge 판정을 가린 18건, 일치 15/18)으로 확인했습니다 — 「추천 이유 평가」.
 
 ### 근거 검색 평가
 
 `data/rag_eval.jsonl`은 근거 검색(`hybrid.search`)의 평가셋입니다(2026-10-28 갱신, 180문항). 운영 plan 노드가
 마주칠 수 있는 검색 상황(활동 × 목표 × 사용자 상태)을 전부 덮습니다.
+
+평가 기록은 추천 이유 평가와 같은 `docs/rag-eval/`에 `YYYY-MM-DD-retrieval-<주제>.md`로 남깁니다 — `run --md`(또는
+저장한 결과로 `record`)가 실행 기록(평가셋 · 근거 DB · 검색 구성 · 코드 커밋 · 지표 표 · 놓친 정답 · 다른 활동 근거 ·
+fallback 상위 5)을 쓰고, 해석과 개선 판단은 판정 메모(`-verdict.md`)에 씁니다.
 
 - **시나리오.** `data/eval_scenarios.jsonl`은 목표 3 × 사용자 상태 5(사건 전 · 사건 후 · 오래 집중한 뒤 ·
   계기 없음 · 잘 모르겠어요) × 문장 2(직접 · 돌려 말하기) = 30개입니다. 칩(`setting` · `earphones` ·
@@ -449,38 +527,48 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - **평균.** 문항마다 같은 무게입니다 — 운영에서 나올 수 있는 검색 상황 전체의 평균입니다. 활동이 S2에 17개
   (S1 · S3는 4개씩)라 planner 163문항 중 119문항이 S2입니다.
 - `make rag-eval ARGS="run --misses"`가 hybrid(운영과 같은 RRF) · dense · keyword 세 방식으로 Hit@K ·
-  Recall@K · MRR(K = 3 · 5 · 10)과 Foreign@5(상위 5 chunk에 든 레코드 중 그 활동 `evidence[]` 밖의 비율 —
-  낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. DB는 lumi-pg로 돌립니다 — 운영
+  Recall@K · MRR(K = 3 · 5 · 10), CP@5(RAGAS Context Precision@5 — 상위 5 안의 정답 자리마다 그 자리까지의
+  정밀도를 평균, 정답이 정답 아닌 레코드보다 모두 위면 1)와 Foreign@5(상위 5 레코드 중 그 활동 `evidence[]` 밖의
+  비율 — 낮을수록 좋다)를 내고, `--out`으로 남긴 결과 둘을 `compare`가 비교합니다. K는 레코드 수입니다 — chunk 순위에서 레코드가
+  처음 나온 순서로 셉니다(운영 plan이 서로 다른 레코드 5개를 싣는 것과 같다, `hybrid.top_records`). 2026-10-28
+  측정까지는 chunk 위치로 셌습니다. DB는 lumi-pg로 돌립니다 — 운영
   Supabase의 session pooler(5432)는 클라이언트 한도가 15라 다른 연결과 겹치면 평가 풀이 연결을 못 엽니다.
 - `tests/retrieval/test_rag_eval.py`가 커밋된 케이스가 `build` 결과와 같은지, 후보가 될 수 있는 상황마다 모은
   질의가 있는지 봅니다. 활동 JSON이 바뀌어 깨지면 `collect` → `build`를 다시 돌립니다.
 
-2026-10-28 측정(180문항, text-embedding-3-small, lumi-pg — 운영 Supabase도 같은 값):
+2026-10-29 측정(180문항, text-embedding-3-small, lumi-pg). 기록은 [판정 메모](docs/rag-eval/2026-10-29-retrieval-verdict.md) ·
+[기준선](docs/rag-eval/2026-10-29-retrieval-baseline.md) · [레코드 상위 5](docs/rag-eval/2026-10-29-retrieval-top-records.md) ·
+[라벨 수정](docs/rag-eval/2026-10-29-retrieval-labels.md) · [Context Precision@5](docs/rag-eval/2026-10-29-retrieval-context-precision.md)이다:
 
-| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | Foreign@5 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| planner · hybrid | 163 | 1.000 | 0.840 | 0.920 | 0.949 | 1.000 | 0 |
-| planner · dense | 163 | 1.000 | 0.820 | 0.901 | 0.947 | 1.000 | 0 |
-| planner · keyword | 163 | 0.951 | 0.783 | 0.829 | 0.849 | 0.951 | 0 |
-| open · hybrid | 163 | 0.675 | 0.426 | 0.515 | 0.685 | 0.606 | 0.604 |
-| open · dense | 163 | 0.877 | 0.540 | 0.676 | 0.819 | 0.805 | 0.435 |
+| view · 방식 | n | Hit@5 | Recall@3 | Recall@5 | Recall@10 | MRR | CP@5 | Foreign@5 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| planner · hybrid | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · dense | 163 | 1.000 | 0.937 | 0.989 | 1.000 | 1.000 | 1.000 | 0 |
+| planner · keyword | 163 | 0.957 | 0.855 | 0.895 | 0.895 | 0.957 | 0.957 | 0 |
+| open · hybrid | 163 | 0.712 | 0.456 | 0.566 | 0.756 | 0.630 | 0.575 | 0.639 |
+| open · dense | 163 | 0.902 | 0.616 | 0.758 | 0.901 | 0.819 | 0.772 | 0.534 |
 
 | view · 방식 | n | found@5 평균 | 근거 0건 |
 | --- | --- | --- | --- |
-| fallback · hybrid | 17 | 2.47 | 2 (12%) |
+| fallback · hybrid | 17 | 2.77 | 2 (12%) |
 
-- 운영 경로(planner · hybrid)는 첫 정답이 늘 1위이고(MRR 1.000) 다른 활동의 근거가 섞이지 않는다(Foreign@5 0).
-  옛 평가셋(planner 9 · template 21)의 Recall@5 0.911 · 0.906과 같은 수준이다.
-- 상위 5에 못 든 정답은 세 갈래다. ① PR-19의 E11-E1 · E12-E1, PR-18의 E15는 활동 JSON에는 AFFECT를 쟀다고
-  돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(데이터 문제, 아래와 같다). ② PR-14는
-  정답이 7개라 상위 5에 다 들 수 없고, 원문이 없는 E02-E1 · P30-E1이 뒤로 밀린다. ③ S3의 PR-11 · PR-01은
-  P07-E1 · P03-E1 · P01 · P04가 6~8위다.
+- 2026-10-28(planner · hybrid Recall@5 0.920 · 정답을 놓친 문항 34개)에서 세 가지를 바꿨다. ① 상위 5를 chunk가
+  아니라 레코드로 센다 — 한 실험의 METHODS · RESULTS가 두 자리를 차지해 S3 PR-11 · PR-01의 정답(P07-E1 · P03-E1 ·
+  P01 · P04)이 6~8위로 밀리던 13문항이 모두 상위 5에 들었다(0.942). ② 활동 JSON과 레코드가 어긋난 정서 라벨을
+  원문대로 맞췄다 — E12-E1(상태 기분 효과 없음) · E15(긍정 정서) · E21(정서 g = 0.51)을
+  `data/evidence_overrides.json`으로 고쳐 PR-18 · PR-19가 제 근거를 찾는다(0.973). ③ E11-E1은 행복 · 우울만 재서
+  PR-19 JSON의 정서 태그를 뺐다 — 검색이 아니라 정답 정의를 고친 것이다(0.989).
+- 남은 6문항은 모두 PR-14다. 정답이 7개라 상위 5에 다 들 수 없고(Recall@10 1.000), 원문이 없는 E02-E1 · P30-E1이
+  6~7위다.
+- planner의 CP@5 1.000은 순위가 아니라 구조에서 나온다 — 163문항 모두 상위 5에 정답 아닌 레코드가 없다(그 활동
+  `evidence[]` 안을 목표 지표 · 연구 조건 필터로 찾아 후보가 정답뿐이다). 순위 자체의 질은 범위 · 필터가 없는
+  open에서 보고, 거기서는 dense(0.772)가 hybrid(0.575)보다 높다(판정 메모 판정 6).
 - 사용자 상태 정책으로 정답 19건을 분모에서 뺐다(예: 사건 전 사용자에게 스트레스 뒤 회복 연구).
 - fallback 2문항(PR-15를 사건 전 · 오래 집중한 뒤에 고른 경우)은 상위 5가 비어 Reference 카드에 근거가 없다 —
   빌려 올 S1 컬러링 연구 P32-E1이 스트레스 뒤(POST_STRESS) 조건이라 그 상태에 인용할 수 없다. PR-21은 PR-09의
   N26-E1 · P13 · P14(와 PR-01의 P24-E1 · P33-E1)를, PR-03은 PR-01의 P24-E1 · P33-E1 · N24를 빌려 온다.
-- 필터 없는 open에서는 여전히 dense(Recall@5 0.676)가 hybrid(0.515)보다 낫다 — RRF 가중치 실험의 근거다.
-  운영은 범위 · 필터 안에서 찾으므로 이 차이가 planner 결과에는 거의 드러나지 않는다.
+- 필터 없는 open에서는 여전히 dense(Recall@5 0.758)가 hybrid(0.566)보다 낫다 — RRF 가중치 실험의 근거다.
+  운영은 범위 · 필터 안에서 찾으므로 이 차이가 planner 결과에는 드러나지 않는다(planner는 hybrid와 dense가 같다).
 
 아래 두 측정은 옛 평가셋(51문항 — `planner` 9 · `template` 21 · `open` 21, 2026-10-26 질의)으로 잰 것이다.
 `template`은 프로토콜 × 목표의 연구 용어 질의, `open`은 같은 질의를 필터 없이 돌린 묶음이었다.
@@ -524,8 +612,8 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - template의 Recall · MRR이 오른 것은 정답이 그 활동의 `evidence[]`라 범위를 좁히면 어느 정도 당연하다. 볼 지표는
   Foreign@5다. `open`은 범위도 필터도 없어 그대로다 — RRF 가중치 실험은 여기서 한다.
 - 범위 안에서도 못 찾는 정답은 검색이 아니라 데이터 문제다. E11-E1 · E12-E1 · E15는 활동 JSON에는 AFFECT를
-  쟀다고 돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(원문 확인 뒤
-  `data/evidence_overrides.json` 또는 JSON을 고친다). E02-E1 · P30-E1은 원문이 없어 시트 요약이라 순위가 낮다.
+  쟀다고 돼 있지만 레코드 metadata에는 OTHER뿐이라 S2 지표 필터에 걸리지 않는다(2026-10-29 원문 대조로
+  고쳤다 — 위 측정). E02-E1 · P30-E1은 원문이 없어 시트 요약이라 순위가 낮다.
 
 ### 계획 평가
 
@@ -553,6 +641,117 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 - 첫 계획에서 고른 활동은 S1 PR-09 8 · PR-15 2, S2 PR-06 7 · PR-01 2 · PR-19 1, S3 PR-01 6 · PR-11 3 · PR-10 1이다.
   빠듯한 칩에서는 남은 후보로 옮겨 간다(예: 발표 앞 · 사무실 · 이어폰 없음 · 5분 → PR-19 글쓰기).
 - 계획 한 번에 평균 3.1초, 토큰 4,091/202(선택 · 설명 두 번 호출)였다.
+
+2026-10-29부터 후보 순서가 등급 가중 추첨이라, 평가도 시나리오마다 세션 ID를 `<--seed>:<시나리오>`(기본
+`plan-eval`)로 두어 운영처럼 돌립니다. 요약에 첫 계획에서 고른 활동의 종 수와 LLM이 추천 순서 맨 앞을 고른
+비율이 함께 나옵니다. 위 측정은 등급 순 시절 결과입니다(`--seed ''`로 재현). 등급 순에서는 입력 조합 420개
+(목표 × 사용자 상태 × 시간 칩 × 장소 · 이어폰) 중 1순위가 될 수 있는 활동이 20개 중 11개였고, 장소를 모르는 기본
+경로에서는 목표마다 PR-09 · PR-06 · PR-01로 고정됐습니다 — 가중 추첨으로는 19개입니다(PR-12는 30분이라 20분
+칩에서도 후보가 아니다).
+
+2026-10-29 측정(gpt-5.4-mini, lumi-pg, `--seed plan-eval`) — 계획 36개:
+
+| | 등급 순(10-28) | 가중 추첨 · 후보 전체 | 가중 추첨 · rank + 앞 5개 |
+| --- | --- | --- | --- |
+| 규칙 6개 | 모두 통과 | 모두 통과 | 모두 통과 |
+| 첫 계획에서 고른 활동 | 7종 | 10종 | 13종 |
+| 추천 순서 맨 앞을 고름 | — | 27/36 | 35/36 |
+| Reference 카드에 근거가 있다 | 35/36 | 34/36 | 34/36 |
+
+- 후보를 모두 보이고 "맨 앞을 고른다"고만 하면 '5분이라 부담이 적다'며 PR-06 · PR-01로 내려가고(9번째까지),
+  6번째를 고르고도 '맨 앞'이라고 적었다. 후보에 rank를 붙이고 건너뛸 사유를 넷(제약 · 장소 · 꺼린 활동 · 직전
+  거부 사유)으로 못 박고 앞 5개만 보이자 35/36이 맨 앞을 골랐다(남은 하나는 야외 · 자연음 활동을 건너뛴
+  S3-daily-b).
+- 첫 계획에서 고른 활동은 S1 PR-09 5 · PR-15 4 · PR-21 1, S2 PR-01 3 · PR-19 2 · PR-06 · PR-07 · PR-08 ·
+  PR-14 · PR-18 각 1, S3 PR-01 6 · PR-11 2 · PR-04 · PR-10 각 1이다. S1 · S3는 후보가 적어(10분이면 2개) 여전히
+  두세 활동에 모인다 — 공급 문제다.
+- 근거 없는 카드가 하나 늘었다(S1-fatigue-b PR-15) — 근거가 약한 활동도 앞에 서기 때문이다. 카드는 근거를
+  찾지 못했다고 밝힌다.
+
+### 추천 이유 평가
+
+`make plan-eval ARGS="… --out r1.json"`은 계획마다 추천 이유와, 그 설명 호출이 본 입력(사용자 메시지 그대로 · 근거 ·
+구성 · 목표 지표 등급 · 카드 배지)을 남깁니다. `make rationale-eval`이 이것을 두 층으로 채점합니다. 같은 입력에도
+모델 출력이 흔들려서(10-28 S1 6회 중 4회만 플래그 이름이 샜다) plan-eval을 여러 번 돌린 결과를 함께 넣고, 계획마다
+한 건으로 셉니다.
+
+평가 기록은 `docs/rag-eval/`에 날짜별로 남깁니다 — `rationale_eval.py report <judged.json> --md
+docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 · Judge 분포 · 어긴 것)과, 사람이 쓰는 판정
+메모(`-verdict.md` — 측정 배경 · 읽는 법 · 판정 · 한계). 2026-10-29: [판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
+· [기준선](docs/rag-eval/2026-10-29-rationale-baseline.md) · [수정 후](docs/rag-eval/2026-10-29-rationale-must-disclose.md)
+· [검색 개선 후](docs/rag-eval/2026-10-29-rationale-after-retrieval.md).
+
+| 층 | 항목 | 판정 |
+| --- | --- | --- |
+| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장(한계를 밝히는 '다만' 문장이 있으면 4문장), 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
+| Judge(LLM, `judge`) | faithful · outcomes · hedged · disclosure · personal | 뜻을 읽어야 하는 것 — 근거 · 발췌에 없는 연구 · 결과를 말하지 않음, 개선 지표에 있는 것만 개선으로 말함(정서 결과를 스트레스 감소로 바꾸지 않음), 효과를 단정하거나 임상으로 넓히지 않음, 플래그 · 근거 없음을 뜻으로 밝힘, 사용자 상태 → 고른 이유 → 근거 |
+
+- 규칙은 `app/agent/rationale_rules.py`에 있고 운영 plan 노드도 같은 규칙으로 추천 이유를 후검증합니다 — 어기면
+  사유를 붙여 설명을 한 번 다시 묻고(문장 수는 보기 문제라 다시 묻지 않습니다), 그래도 어기면 두 번째 것을 씁니다.
+  plan-eval 요약의 「추천 이유를 다시 씀」이 그 횟수입니다.
+- Judge는 생성 모델(`LLM_MODEL`, gpt-5.4-mini)과 다른 모델(기본 gpt-5.5, 추론 medium)입니다 — 같은 모델은 자기
+  글에 후합니다. 입력은 설명 호출이 본 사용자 메시지 그대로이고(콘텐츠 Factor 칸만 뺍니다), 항목마다 PASS · FAIL
+  (disclosure만 NA)과 문제 구절 · 이유를 냅니다. 규칙을 분명히 어겼을 때만 FAIL입니다.
+- Judge 숫자는 사람이 확인한 뒤에 인용합니다. `sheet`가 Judge FAIL 전부와 항목마다 PASS 표본을 CSV로 뽑고,
+  사람이 human 칸(PASS · FAIL · NA 또는 O · X · -)을 채우면 `agree`가 일치를 냅니다. 일치를 확인한 항목만 숫자로
+  씁니다.
+
+2026-10-29 기준선(생성 gpt-5.4-mini · Judge gpt-5.5 medium · lumi-pg · 후보 순서는 운영과 같은 가중 추첨
+`--seed plan-eval`) — 계획 36개(첫 계획에서 고른 활동 14종):
+
+| 층 | 결과 |
+| --- | --- |
+| 규칙 | sentences · script · codes · stats · experimental · years 36/36, no_evidence 2/2, **factors 34/36** |
+| Judge | personal · hedged 36/36, faithful 34/36, outcomes 31/36, **disclosure 3/16** |
+
+- disclosure — 반대 결과(CONFLICTING_EVIDENCE) · 자극 변형(ADAPTED_STIMULUS) 플래그가 붙은 근거가 있는 16건 중
+  3건만 문장에서 밝혔다. Judge는 7/22로 셌다 — 지지하지 않는 근거(NOT_SUPPORTING)만 있는 4건을 NA가 아닌 PASS ·
+  FAIL로 봤다. 근거 플래그와 문장을 대조해 바로잡았다.
+- outcomes · faithful — 개선 지표 밖의 결과를 효과로 말하기(전기피부활동 · 상태 반추), 목표를 지지하지 않는 근거를
+  효과처럼(PR-19 · PR-20), 정서 결과를 스트레스 · 불안 개선으로(Chen 2025).
+- factors — 고른 풍경 · 작품 주제를 문장에 적었다("숲·호수·바다·산을 섞어", "물 풍경 작품을 고른 것은").
+- 카드와 어긋남 — PR-06 · PR-07 카드(4/36)에 '연구 자극을 바꾼 콘텐츠' 배지(프로토콜
+  `user_facing_flags.when_adapted_script`)가 붙지만, 설명 입력에는 이 정보가 없어 추천 이유가 밝힐 수 없다.
+- 같은 날 등급 순(가중 추첨 이전 — `--seed ''`와 같다)으로도 쟀다(규칙 108개 · Judge 72개). 한국어 문장 중간에
+  다른 문자가 섞인 출력이 3/108(데바나가리 'अभ्यास' · 아랍 'فاص' · 저자 Mohd → 'محمد' — 계획을 5번 만들면 한 번은
+  나올 확률이 약 13%), ID 노출 1/108(PR-06), factors 106/108, disclosure 3/30, faithful 66/72, outcomes 63/72였다.
+  outcomes는 개선 지표 밖의 '이완'(Toussaint 2021) ×6, 목표를 지지하지 않는 Hicks 2020을 "오류가 줄었다"로(발췌는
+  노출 뒤 누락 오류가 늘었다) 말한 것이 컸다.
+- Judge 기준은 첫 채점(36개)을 읽고 두 곳을 고쳤다 — '개선 지표' 칸도 뒷받침으로 본다(발췌가 방법 부분인
+  근거가 있다), 사용자 상태의 '이미지 제공' 줄만으로 공개를 요구하지 않는다(호흡 · 이완처럼 이미지를 쓰지 않는
+  활동). Judge 비용은 36개에 토큰 87k/25k였다.
+
+2026-10-29 수정 후(같은 조건 — 가중 추첨 `--seed plan-eval` · 계획 36개 · Judge gpt-5.5). plan 노드가 추천 이유를
+글자 규칙으로 후검증하고(어기면 사유를 붙여 1회 재질의), 꼭 밝힐 한계를 코드가 정해 설명 입력에 싣고
+(`prompts.must_disclose` — 카드 배지와 같은 판정), 지지 근거가 있으면 지지하지 않는 근거를 설명 입력에서 뺍니다:
+
+| | 기준선 | 수정 후 | 검색 개선 후 |
+| --- | --- | --- | --- |
+| 규칙 — factors | 34/36 | 36/36 | 36/36 |
+| 규칙 — 나머지(문장 수 · 다른 문자 · ID · 통계값 · 연도 · '실험적') | 36/36 | 36/36 | 36/36 |
+| Judge — faithful · outcomes | 34 · 31 | 34 · 34 | 35 · 35 |
+| disclosure(근거 플래그와 문장 대조) | 3/16 | 15/16 | 18/18 |
+| 카드 자극 변형 배지와 일치(PR-06 · PR-07) | 0/4 | 4/4 | 5/5 |
+| 전부 통과 | 19/36 | 33/36 | 33/36 |
+| 추천 이유를 다시 씀(후검증 재질의) | — | 0/36 | 0/36 |
+
+- 문장 수는 2~3문장, 한계를 밝히는 '다만 …' 문장이 있으면 4문장까지로 했다 — 꼭 밝힐 것을 넣으면 36개 중 7개가
+  4문장(상태 → 이유 → 근거 → 한계)이 됐다.
+- 첫 수정은 꼭 밝힐 것을 평서체 · 괄호 문구로 실어 "…좋아졌습니다. 제공 콘텐츠가 연구에서 쓴 자극과 다르다(LUMI에
+  맞게 바꿨다)"처럼 그대로 붙은 문장이 나왔다(Judge 항목에 문체가 없어 숫자로는 잡히지 않았다). 합니다체 문장으로
+  바꾸고 '다만 …' 한 문장에 모으게 했다.
+- 남은 실패 — 정서 결과만 있는 Chen 2025를 불안 · 스트레스 개선의 근거로 인용(2), 자극 변형을 밝히지 않음(1).
+  후검증 재질의는 이번 36개에서 일어나지 않았다(다른 문자 섞임은 108개 중 3개꼴이라 드물다 — 동작은 테스트로 본다).
+- 검색 개선 후(레코드 상위 5 · 정서 라벨 · PR-10 연구 매체 고정 — 「근거 검색 평가」) — 인용 근거가 늘어 계획 한
+  번의 입력 토큰이 7,043 → 7,541(+7%)이 됐고, 반대 결과 플래그가 새로 붙은 PR-18 · PR-19 계획까지 모두 밝혔다.
+  남은 실패는 근거에 없는 '건강한 성인'(설명 프롬프트의 문구를 대상 설명으로 옮겨 씀) · 개선 지표 밖의 '마음챙김
+  점수' · 즉시 효과 단정이 1건씩이다.
+- 사람 라벨(검색 개선 후 측정에서 `sheet`가 뽑은 18건, Judge 판정을 가리고 판정) — Judge와 15/18 일치. 어긋난 3건은
+  바로 위 '남은 실패' 3건이었고, 조정해 보니 '마음챙김 점수'(outcomes) · 즉시 효과 단정(hedged)은 Judge가 맞고
+  '건강한 성인'(faithful)은 통과로 정했다 — 임상 표본 플래그가 없는 근거를 일반 성인 표본으로 부르는 것은 지어낸
+  조건이 아니다(Judge 기준에 넣었다). 조정한 라벨로 faithful 36/36 · 전부 통과 34/36이다. blind 판정이 모두
+  통과라 κ는 0이다 — 둘이 같은 곳에서 위반을 찾는지는 이 표본으로 알 수 없다([판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
+  판정 5).
 
 ## 배포 (Vercel)
 
@@ -604,12 +803,18 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
 ## 정하지 않은 것
 
 - 이미지 생성 공급자와 키. 채팅·추출 모델은 gpt-5.4-mini 하나(폴백 claude-haiku-5-5), 임베딩은 text-embedding-3-small입니다.
+- 후보 추천 순서의 가중치. 목표 1차 지표 최고 등급으로 A 4 · B 3 · C 2 · 그 밖 1, 이 사용자가 최근 5라운드에
+  한 활동 × 0.3입니다(`protocols.GRADE_WEIGHT` · `RECENT_FACTOR` · `RECENT_ROUNDS`). 라운드 기록의
+  `selection`(순서 · 가중치 · 맨 앞 확률 · 고른 위치)으로 무작위성을 보정해 분석하고, 활동별 Δ가 쌓이면
+  가중치를 다시 정합니다.
 - Replanning 기준. 지금은 임시 규칙(끝까지 못 함 → 활동 변경, 개선 → 종료, 판정 기준 없음 → 종료, 그 밖 →
-  활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을 빼고, 권할
-  단계가 선택지에 없으면 종료를 권합니다(`replanner.next_step_options`).
+  활동 변경, 라운드 3회 상한)입니다. 선택지는 라운드 3회면 종료만, 바꿀 활동이 없으면 활동 변경을, 중간에 멈춘
+  활동이면 추가 세션(같은 활동 한 번 더)을 빼고, 권할 단계가 선택지에 없으면 종료를 권합니다
+  (`replanner.next_step_options`). LLM은 이 규칙 제안을 기본으로 받아 멈춘 이유 · 감정 단어 · 처음 입력에
+  다른 신호가 있을 때만 바꿉니다 — 라운드 기록의 `rule_recommended` · `recommended_by_llm`으로 비교합니다.
 - S3의 순간 피로 자가보고 척도. 13편 안에 검증된 도구가 없어 임시 도구 `INS-MFVAS`(정신 피로 VAS 3문항, 팀 작성·미검증)로
-  사전·라운드마다 재고 피로↓로 판정합니다. 주의 용량은 재지 않습니다(근거의 S3 1차 지표 ATTENTION은 과제) — 사용자
-  데이터로 문항 신뢰도를 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
+  사전·라운드마다 재고, 피로가 10점 이상 줄었는지로 판정합니다(문턱도 임시). 주의 용량은 재지 않습니다(근거의 S3 1차
+  지표 ATTENTION은 과제) — 사용자 데이터로 문항 신뢰도와 문턱을 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
 - STAI-6·BSRI는 한국어 번역 초안을 `PROVISIONAL`로 두고 내부 시험에 사용합니다. 두 척도는 PRE/FINAL에만 측정하며, 검증된 한국어판으로 해석하지 않습니다.
 - intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
@@ -646,7 +851,7 @@ app/
 ├─ records.py           세션 기록 — 동의 · 세션 · 라운드 · 원문 행과 저장소(Postgres · 메모리) · 정리 작업
 ├─ api/routes.py        HTTP 엔드포인트 (/health, /health/db)
 ├─ api/sessions.py      세션 API — 인증 · 소유자 확인 · interrupt 재개 · step · SSE/JSON 응답 · 기록
-├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 탈퇴 (DELETE /me)
+├─ api/me.py            기록 동의 (GET · PUT /me/consent) · 활동 기록 (GET /me/sessions) · 탈퇴 (DELETE /me)
 ├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval · card(Reference 카드)
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더
@@ -663,8 +868,9 @@ app/
 │  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
+│  ├─ rationale_rules.py 추천 이유 글자 규칙 — plan 후검증(어기면 1회 재질의)과 추천 이유 평가가 같이 쓴다
 │  └─ reference_card.py Reference 카드 — 검증한 근거 · 프로토콜 · intake로 만든다(LLM 없음)
-├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 (Executor가 쓴다)
+├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 · 콘텐츠 Factor 카탈로그 (Executor가 쓴다)
 ├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공
 ├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
@@ -673,7 +879,7 @@ data/
 ├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS)
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
-├─ manifest.csv         논문 83편 매니페스트
+├─ manifest.csv         논문 84편 매니페스트
 ├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 ├─ goal_definitions.json intake 개념 정의 S1·S2·S3 — R1 논문 원문 문장(paper_id · 쪽)
 ├─ eval_scenarios.jsonl 평가 시나리오 30개 — 목표 × 사용자 상태 × 문장 · 칩 (검색 질의 수집 · 계획 평가)
@@ -684,6 +890,8 @@ scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 질의 수집 · 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 scripts/plan_eval.py            계획 평가 — 시나리오마다 실제 모델로 plan 노드 실행 · 규칙 판정(make plan-eval)
+scripts/rationale_eval.py       추천 이유 평가 — 규칙(코드) · LLM Judge 채점 · 실행 기록 · 사람 라벨 일치(make rationale-eval)
+docs/rag-eval/                  평가 기록 — 날짜별 실행 기록(스크립트 출력)과 판정 메모(-verdict.md)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)

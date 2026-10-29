@@ -28,6 +28,7 @@ from app.agent.state import (
 )
 from app.agent.validation import judge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
+from app.schemas.content import ContentFactors, Scenery
 from app.schemas.evidence import InterventionOrder, Medium
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 from tests.agent import fakes
@@ -81,7 +82,7 @@ def test_chooser_sends_state_candidates_and_problems():
     assert "- 목표: S1 — 반복되는 생각에서 벗어나기(반추 완화)" in text
     assert "- 사용자 상태: 스트레스를 겪은 뒤(POST_STRESS)" in text
     assert "AI 생성 이미지" in text
-    assert "## 후보 프로토콜 (등급 순)" in text
+    assert "## 후보 프로토콜 (추천 순 — rank 1이 맨 앞)" in text
     assert text.index('"PR-09"') < text.index('"PR-21"')  # 코드가 정렬한 순서 그대로
     assert "## 직전 계획의 거부 사유\n- PR-99는 검수된 프로토콜이 아니다" in text
 
@@ -91,19 +92,23 @@ def test_choice_input_tells_which_activity_was_removed():
     model = fakes.FakeStructuredModel(CHOICE)
     asyncio.run(make_chooser(model)(state, candidates_for(state), []))
     text = model.inputs[0][1].content
-    assert "## 지난 라운드" in text and "PR-09는 후보에서 뺐다" in text
+    assert "## 지난 라운드" in text and "바꾸기로 한 PR-09는 후보에서 뺐다" in text
+    # 두 번 바꿨으면 둘 다 알린다
+    twice = {**S1_STATE, "rounds": [changed_round("PR-09"), changed_round("PR-15")]}
+    asyncio.run(make_chooser(model := fakes.FakeStructuredModel(CHOICE))(twice, [], []))
+    assert "바꾸기로 한 PR-09, PR-15는 후보에서 뺐다" in model.inputs[0][1].content
     assert "거부 사유" not in text
 
 
 def test_explainer_lists_only_verified_evidence():
-    model = fakes.FakeStructuredModel(PlanRationale(rationale="자연 이미지를 보며 … 다릅니다."))
+    model = fakes.FakeStructuredModel(PlanRationale.text("자연 이미지를 보며 … 다릅니다."))
     explain = make_explainer(model)
     protocol = protocols.get_protocol("PR-21")
     evidence = [cited(102, [Medium.AI_IMAGE, Medium.MINDFULNESS])]
 
     rationale = asyncio.run(explain(S1_STATE, CHOICE, protocol, evidence))
 
-    assert rationale == "자연 이미지를 보며 … 다릅니다."
+    assert rationale.rationale == "자연 이미지를 보며 … 다릅니다."
     assert model.schemas == [(PlanRationale, "json_schema")]
     system, human = model.inputs[0]
     assert system.content == EXPLAIN_SYSTEM_PROMPT
@@ -117,9 +122,122 @@ def test_explainer_lists_only_verified_evidence():
 
 
 def test_explainer_says_when_nothing_was_verified():
-    model = fakes.FakeStructuredModel(PlanRationale(rationale="근거를 찾지 못했습니다."))
+    model = fakes.FakeStructuredModel(PlanRationale.text("근거를 찾지 못했습니다."))
     asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
     assert "검증을 통과한 근거가 없다" in model.inputs[0][1].content
+
+
+S2_STATE = {
+    "request": CareRequest(text="발표 앞두고 긴장돼요"),
+    "intake": IntakeResult(
+        goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=10
+    ),
+}
+
+
+def test_explainer_lists_what_the_rationale_must_disclose():
+    # 반대 결과가 있는 근거 + AI 이미지 — 카드의 CONFLICTING_EVIDENCE · AI_IMAGE_UNVERIFIED와 같다
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    evidence = [cited(102, [Medium.AI_IMAGE, Medium.MINDFULNESS])]
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocol, evidence))
+    text = model.inputs[0][1].content
+    assert (
+        "## 꼭 밝힐 것\n"
+        "- 같은 방식의 연구 중에는 효과가 없거나 반대인 결과도 있습니다.\n"
+        "- AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다."
+    ) in text
+    assert "- 이미지 제공: AI 생성 이미지" in text  # 이미지를 쓰는 활동
+
+
+def test_explainer_discloses_a_script_the_activity_adapted_without_an_image_line():
+    # PR-06은 대본을 LUMI에 맞게 바꿨다(user_facing_flags) — 근거 플래그가 없어도 카드에 배지가 있다
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    choice = ActivityChoice(protocol_id="PR-06", search_query="breathing stress", reason="-")
+    asyncio.run(make_explainer(model)(S2_STATE, choice, protocols.get_protocol("PR-06"), []))
+    text = model.inputs[0][1].content
+    assert (
+        "## 꼭 밝힐 것\n"
+        "- 이 활동에 맞는 검증된 연구 근거는 아직 찾지 못했습니다.\n"
+        "- 연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다."
+    ) in text
+    assert "이미지 제공" not in text  # 호흡은 이미지를 쓰지 않는다
+
+
+def test_explainer_leaves_out_unsupported_evidence_when_supported_exists():
+    media = [Medium.AI_IMAGE, Medium.MINDFULNESS]
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"), PlanRationale.text("-"))
+    explain = make_explainer(model)
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(explain(S1_STATE, CHOICE, protocol, [cited(102, media), cited(112, media)]))
+    text = model.inputs[0][1].content
+    assert "## 검증된 근거 (1건)" in text and "[102]" in text and "[112]" not in text
+    # 지지하는 근거가 없으면 있는 것을 다 싣고, 좋아진 결과가 없다는 것을 밝힐 것에 넣는다
+    asyncio.run(explain(S1_STATE, CHOICE, protocol, [cited(112, media)]))
+    text = model.inputs[1][1].content
+    assert "[112]" in text and "목표 지지: 아니오" in text
+    assert "- 검증된 연구는 있지만 이 목표가 좋아졌다는 결과는 없습니다." in text
+
+
+def test_explainer_adds_the_problems_of_the_previous_rationale():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    problems = ["코드 · ID(PR-21)를 그대로 썼다 — 뜻으로 풀어 쓴다"]
+    protocol = protocols.get_protocol("PR-21")
+    asyncio.run(make_explainer(model)(S1_STATE, CHOICE, protocol, [], problems))
+    text = model.inputs[0][1].content
+    section = "## 직전 추천 이유의 문제\n- 코드 · ID(PR-21)를 그대로 썼다 — 뜻으로 풀어 쓴다"
+    assert section in text and text.index(section) < text.index("## 콘텐츠 Factor")
+
+
+def test_explainer_offers_only_the_factor_slots_of_the_chosen_activity():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"), PlanRationale.text("-"))
+    explain = make_explainer(model)
+
+    # PR-21은 자연 이미지 1장 — 풍경 칸만, 근거 있는(STIMULUS) 값만, 1개
+    asyncio.run(explain(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
+    text = model.inputs[0][1].content
+    assert "## 콘텐츠 Factor (고를 칸)" in text
+    assert '"field": "scenery"' in text and '"max": 1' in text
+    assert '"value": "forest"' in text and '"evidence": ["P28", "P24", "P33", "P25"]' in text
+    assert '"flowers"' not in text and '"sky"' not in text  # 근거 없는 선호용 값은 칩으로만
+    assert '"soundscape"' not in text and '"art_subject"' not in text
+
+    # 호흡(PR-06)은 고를 칸이 없다
+    asyncio.run(explain(S1_STATE, CHOICE, protocols.get_protocol("PR-06"), []))
+    assert "이 활동은 고를 칸이 없다" in model.inputs[1][1].content
+
+
+def test_explainer_shows_chips_and_factors_used_in_earlier_rounds():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    earlier = changed_round("PR-01")
+    earlier.plan.content_factors = ContentFactors(
+        scenery=[Scenery.SEA, Scenery.FOREST],
+        soundscape=None,
+        art_subject=None,
+        music=None,
+        reason="-",
+    )
+    state = {
+        "request": CareRequest(text="-", profile=UserProfile(preferred_scenery=["숲"])),
+        "intake": S1_STATE["intake"],
+        "rounds": [earlier],
+    }
+    asyncio.run(make_explainer(model)(state, CHOICE, protocols.get_protocol("PR-01"), []))
+    text = model.inputs[0][1].content
+    assert '"max": 4' in text  # 사진 25장 — 풍경을 최대 4종 섞는다
+    assert "- 사용자가 고른 좋아하는 풍경: 숲" in text
+    assert '- 지난 라운드에 쓴 Factor: PR-01 {"scenery": ["sea", "forest"]' in text
+
+
+def test_explainer_tells_which_sceneries_the_avoided_colors_rule_out():
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    state = {
+        "request": CareRequest(text="-", profile=UserProfile(avoided_colors=["blue"])),
+        "intake": S1_STATE["intake"],
+    }
+    asyncio.run(make_explainer(model)(state, CHOICE, protocols.get_protocol("PR-01"), []))
+    text = model.inputs[0][1].content
+    assert "- 사용자가 피하는 색: blue → 고르지 않을 풍경: lake river, sea, sky" in text
 
 
 class ClientError(Exception):
@@ -129,13 +247,13 @@ class ClientError(Exception):
 def test_llm_planner_falls_back_to_the_next_provider(monkeypatch):
     monkeypatch.setattr(llm, "BACKOFF_SECONDS", 0)
     broken = fakes.FakeStructuredModel(ClientError(), ClientError())
-    working = fakes.FakeStructuredModel(CHOICE, PlanRationale(rationale="…"))
+    working = fakes.FakeStructuredModel(CHOICE, PlanRationale.text("…"))
     planner = LlmPlanner([("openai", broken), ("anthropic", working)])
 
     choice = asyncio.run(planner.choose(S1_STATE, [], []))
     rationale = asyncio.run(planner.explain(S1_STATE, CHOICE, protocols.get_protocol("PR-21"), []))
 
-    assert choice is CHOICE and rationale == "…"
+    assert choice is CHOICE and rationale.rationale == "…"
     assert len(working.inputs) == 2
 
 
@@ -151,10 +269,19 @@ def test_planner_context_carries_the_session():
     )
 
 
+def test_planner_context_carries_the_seed_and_the_recent_activities():
+    state = {**S1_STATE, "recent_protocol_ids": ["PR-09", "PR-15"]}
+    context = planner_context(AgentContext(session_id="session-1"), state)
+    assert (context.session_id, context.recent_protocol_ids) == ("session-1", ("PR-09", "PR-15"))
+
+
 def test_planner_context_excludes_the_activity_the_user_changed_away_from():
     state = {**S1_STATE, "rounds": [changed_round("PR-09")]}
     assert planner_context(AgentContext(), state).excluded_protocol_ids == ("PR-09",)
-    # 추가 세션은 같은 활동을 다시 할 수 있다
+    # 두 번 바꿨으면 둘 다 뺀다 — 3라운드에 1라운드 활동이 돌아오지 않는다
+    twice = {**S1_STATE, "rounds": [changed_round("PR-09"), changed_round("PR-15")]}
+    assert planner_context(AgentContext(), twice).excluded_protocol_ids == ("PR-09", "PR-15")
+    # 추가 세션(한 번 더)은 같은 활동을 다시 한다
     kept = changed_round("PR-09").model_copy(update={"next_step": NextStep.ADDITIONAL_SESSION})
     again = planner_context(AgentContext(), {**S1_STATE, "rounds": [kept]})
     assert again.excluded_protocol_ids == ()

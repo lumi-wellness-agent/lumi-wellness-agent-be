@@ -5,6 +5,9 @@
     .venv/bin/python scripts/plan_trial.py S1 --minutes 20 --change-from PR-09
     .venv/bin/python scripts/plan_trial.py --text "하루 종일 집중했더니 머리가 멍해요"
     .venv/bin/python scripts/plan_trial.py S1 S2 --queries queries.jsonl
+    .venv/bin/python scripts/plan_trial.py S3 --no-db --content --repeat 2
+    .venv/bin/python scripts/plan_trial.py --text "긴장이 안 풀려요" --protocol PR-05 --content
+    .venv/bin/python scripts/plan_trial.py S2 --seed session-7   # 운영처럼 등급 가중 추첨 순서
 
 - 발표 리허설과 RAG 평가셋 질의 수집용이다. intake는 질문 없이 한 번에 돈다(nodes/intake.intake_once
   — 상황 읽기 → 목표 추론(단서표) → 끝). 세션이었다면 물었을 질문을 함께 출력한다.
@@ -12,6 +15,11 @@
   공급자 폴백까지 운영과 같다. 측정·실행 interrupt는 거치지 않는다.
 - LLM(.env의 OPENAI_API_KEY · ANTHROPIC_API_KEY)을 실제로 불러 비용이 든다. 근거 DB는 읽기만 한다.
   DB는 --database-url, 없으면 .env의 DATABASE_URL.
+- --no-db는 근거 DB 없이 돈다(검색 0건 — 근거 없이 계획하고 활동 · 콘텐츠 Factor만 본다).
+- --content는 계획 뒤 prepare처럼 콘텐츠를 실제로 받는다(.env의 PIXABAY · FREESOUND 키, 비면 경고).
+  자산마다 고른 Factor · 출처 · 검색어 · 주소를 출력한다 — 같은 Factor라도 검색어가 바뀌는지 본다.
+- --protocol은 LLM의 활동 선택을 그 활동으로 바꾼다(후보에 없으면 check_plan이 거부). 근거 검색
+  질의와 추천 이유 · 콘텐츠 Factor는 그대로 LLM이 쓴다 — 특정 활동의 Factor를 볼 때.
 - --queries는 검색 호출(질의 · 필터 · 결과 ID)과 최종 계획의 프로토콜을 JSONL로 덧붙인다.
 """
 
@@ -21,6 +29,7 @@ import argparse
 import asyncio
 import json
 import logging
+import random
 import sys
 import time
 from pathlib import Path
@@ -36,7 +45,12 @@ from app.agent import validation  # noqa: E402
 from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.nodes.intake import LlmIntaker, intake_once  # noqa: E402
-from app.agent.nodes.planner import LlmPlanner, PlanRejected, make_plan_node  # noqa: E402
+from app.agent.nodes.planner import (  # noqa: E402
+    ActivityChoice,
+    LlmPlanner,
+    PlanRejected,
+    make_plan_node,
+)
 from app.agent.state import (  # noqa: E402
     CarePlan,
     NextStep,
@@ -46,7 +60,9 @@ from app.agent.state import (  # noqa: E402
     SessionReport,
 )
 from app.config import get_settings  # noqa: E402
+from app.content import resolve_activity_assets  # noqa: E402
 from app.db import create_pool  # noqa: E402
+from app.protocols import get_protocol  # noqa: E402
 from app.retrieval import hybrid  # noqa: E402
 from app.schemas.care import CareGoal, CareRequest, ContentType, UserProfile  # noqa: E402
 from app.schemas.measure import InstrumentId, Measurement, Timepoint  # noqa: E402
@@ -117,6 +133,43 @@ class Recorder:
         return verdicts
 
 
+class ForcedPlanner:
+    """LLM이 고른 활동을 정한 활동으로 바꾼다. 질의 · 설명 · Factor는 LLM 그대로."""
+
+    def __init__(self, inner: LlmPlanner, protocol_id: str):
+        self.inner = inner
+        self.protocol_id = protocol_id
+
+    async def choose(self, state, candidates, problems) -> ActivityChoice:
+        choice = await self.inner.choose(state, candidates, problems)
+        return choice.model_copy(
+            update={"protocol_id": self.protocol_id, "reason": f"--protocol {self.protocol_id}"}
+        )
+
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        return await self.inner.explain(state, choice, protocol, evidence, problems)
+
+
+def show_content(plan: CarePlan, request: CareRequest) -> None:
+    """prepare처럼 콘텐츠를 받아 자산마다 Factor · 검색어를 보인다(공급자 API 호출)."""
+    resolution = resolve_activity_assets(
+        get_protocol(plan.activity.protocol_id),
+        request,
+        factors=plan.content_factors,
+        rng=random.Random(),
+    )
+    for asset in resolution.assets[:6]:
+        factor = asset.metadata.get("content_factor") or {}
+        picked = f"{factor.get('value')}({factor.get('source')})" if factor else "기본값"
+        query = factor.get("query") or asset.metadata.get("query")
+        what = f"검색어 {query!r}" if query else asset.title or "-"
+        print(f"content {asset.slot} {asset.provider} · {picked} · {what} · {asset.url}")
+    if len(resolution.assets) > 6:
+        print(f"        … 자산 {len(resolution.assets)}개")
+    for warning in resolution.warnings:
+        print(f"        ! {warning}")
+
+
 def _value(enum: Any) -> str | None:
     return enum.value if enum is not None else None
 
@@ -131,9 +184,7 @@ def previous_round(protocol_id: str, goal: CareGoal) -> Round:
         report=SessionReport(completed=True),
         pre=[Measurement(timepoint=Timepoint.PRE, round=0, **sam)],
         post=[Measurement(timepoint=Timepoint.POST, round=1, **sam)],
-        evaluation=OutcomeEvaluation(
-            goal=goal, round=1, deltas={}, improved=False, completed=True
-        ),
+        evaluation=OutcomeEvaluation(goal=goal, round=1, deltas={}, improved=False, completed=True),
         next_step=NextStep.CHANGE_ACTIVITY,
     )
 
@@ -144,6 +195,8 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     for _, model in models:
         model.callbacks = [usage]
     planner = LlmPlanner(models)
+    if args.protocol:
+        planner = ForcedPlanner(planner, args.protocol)
     intaker = LlmIntaker(models)
     intake, would_ask = await intake_once(intaker, request)
     state: dict = {"request": request, "intake": intake}
@@ -166,7 +219,8 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     started = time.perf_counter()
     plan_node = make_plan_node(planner)
     try:
-        out = await plan_node(state, Runtime(context=AgentContext(db_pool=pool)))
+        context = AgentContext(db_pool=pool, session_id=args.seed)
+        out = await plan_node(state, Runtime(context=context))
     except PlanRejected as exc:
         print(f"계획 실패: {exc}")
         return {"scenario": name, "rejected": str(exc)}
@@ -181,9 +235,16 @@ async def trial(name: str, request: CareRequest, args, pool, recorder: Recorder)
     activity = plan.activity
     cited = activity.evidence_record_ids
     print(f"plan    {activity.protocol_id} {activity.minutes}분 · 근거 {cited}")
+    if selection := plan.selection:
+        print(f"order   {selection.method.value} {selection.order} → {selection.position + 1}번째")
     print(f"        {plan.rationale}")
+    if factors := plan.content_factors:
+        picked = factors.model_dump(mode="json", exclude={"reason"})
+        print(f"factors {picked} — {factors.reason}")
     tokens = f"{usage.input:,}/{usage.output:,}"
     print(f"        {elapsed:.1f}s · 모델 호출 {usage.calls}회 · 토큰 {tokens}")
+    if args.content:
+        show_content(plan, request)
     if card := plan.reference_card:
         arms = [
             f"{e.experiment_id or e.paper.paper_id}({'지지' if e.supports_goal else '참고'})"
@@ -214,6 +275,10 @@ async def main() -> None:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--database-url", help="근거 DB. 없으면 .env의 DATABASE_URL")
     parser.add_argument("--queries", type=Path, help="검색 기록을 덧붙일 JSONL")
+    parser.add_argument("--no-db", action="store_true", help="근거 DB 없이(검색 0건)")
+    parser.add_argument("--content", action="store_true", help="콘텐츠를 실제로 받아 본다")
+    parser.add_argument("--protocol", help="활동을 이 프로토콜로 정한다(예: PR-05)")
+    parser.add_argument("--seed", help="후보 추천 순서의 시드(운영은 세션 ID). 없으면 등급 순")
     args = parser.parse_args()
 
     # 선택 이유·질의(plan 노드 INFO 로그)를 같이 보여 준다
@@ -232,11 +297,15 @@ async def main() -> None:
     if args.ai_image:
         chips["profile"] = UserProfile(content_type=ContentType.AI_IMAGE)
 
-    database_url = args.database_url or get_settings().database_url
-    if not database_url:
-        raise SystemExit("근거 DB가 없습니다. --database-url이나 .env의 DATABASE_URL을 채우세요.")
-    pool = create_pool(database_url)
-    await pool.open()
+    database_url = None if args.no_db else args.database_url or get_settings().database_url
+    if not database_url and not args.no_db:
+        raise SystemExit(
+            "근거 DB가 없습니다. --database-url이나 .env의 DATABASE_URL을 채우거나 "
+            "--no-db로 돌리세요."
+        )
+    pool = create_pool(database_url) if database_url else None
+    if pool is not None:
+        await pool.open()
     recorder = Recorder()
     try:
         for _ in range(args.repeat):
@@ -246,7 +315,8 @@ async def main() -> None:
                     with args.queries.open("a", encoding="utf-8") as f:
                         f.write(json.dumps(result, ensure_ascii=False) + "\n")
     finally:
-        await pool.close()
+        if pool is not None:
+            await pool.close()
 
 
 if __name__ == "__main__":

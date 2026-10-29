@@ -8,21 +8,44 @@
 from app.schemas.care import UserProfile
 
 
-def nature_prompt(profile: UserProfile, *, meditation: bool = False) -> str:
-    """AI Horde에 보낼 자연 이미지 프롬프트. 자유 사용자 문장은 넣지 않는다."""
-    scenery = ", ".join(profile.preferred_scenery) or "calm forest and gentle water"
+def nature_prompt(
+    profile: UserProfile, *, meditation: bool = False, scenery: list[str] | None = None
+) -> str:
+    """AI Horde에 보낼 자연 이미지 프롬프트. 자유 사용자 문장은 넣지 않는다.
+
+    scenery는 plan이 고른 풍경의 검수된 영어 묘사(data/content_factors.json ai_prompt)다. 사용자
+    칩(profile.preferred_scenery)이 있으면 resolver가 넘기지 않아 칩이 우선한다.
+    """
+    scenery_text = (
+        ", ".join(scenery or profile.preferred_scenery) or "calm forest and gentle water"
+    )
     colors = ", ".join(profile.preferred_colors)
     parts = [
         "realistic restorative nature photograph",
-        scenery,
+        scenery_text,
         "soft natural light",
         "stable horizon",
-        "no people, no text, no logo, no buildings, no threatening animals",
     ]
     if colors:
         parts.append(f"subtle palette of {colors}")
-    if profile.avoided_colors:
-        parts.append(f"avoid these colors: {', '.join(profile.avoided_colors)}")
     if meditation:
         parts.append("simple quiet composition suitable for a fifteen minute meditation")
-    return ", ".join(parts)
+    # 빼고 싶은 것은 Horde 부정 프롬프트(" ### " 뒤)로 보낸다. 긍정 문장에 "no people"을 쓰면 오히려
+    # 사람 · 글자가 그려지고 NSFW 검열 오탐이 잦아진다
+    negative = [*NEGATIVE_TERMS, *profile.avoided_colors]
+    return ", ".join(parts) + " ### " + ", ".join(negative)
+
+
+NEGATIVE_TERMS = [
+    "people",
+    "person",
+    "face",
+    "body",
+    "nude",
+    "nsfw",
+    "text",
+    "watermark",
+    "logo",
+    "buildings",
+    "threatening animals",
+]

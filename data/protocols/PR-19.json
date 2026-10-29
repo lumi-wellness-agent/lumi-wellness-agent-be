@@ -139,13 +139,12 @@
     "AFFECT": {
       "grade": "B",
       "support": [
-        "E11-E1",
         "E21"
       ],
       "conflicts": [
         "E12-E1"
       ],
-      "note": "상충 E12: 효과 없음; E11 6개월 지속, E21 g=0.51"
+      "note": "상충 E12: 효과 없음(상태 기분 STCI-S 포함); E21 g=0.51. E11-E1은 행복 · 우울(SHI · CES-D)만 재 OTHER라 2026-10-29 원문 대조로 지지에서 뺐다 — 등급 재검토 필요"
     },
     "SUBJECTIVE_STRESS": {
       "grade": "—",
@@ -184,8 +183,7 @@
       "population": "온라인 성인",
       "stimulus": "1주 과제, 6개월 추적",
       "outcomes": [
-        "OTHER",
-        "AFFECT"
+        "OTHER"
       ],
       "result": "세 가지 좋은 일 포함 3개 개입이 행복↑·우울↓ 지속",
       "verification": "본문",
@@ -248,13 +246,12 @@
     "status": "DRAFT",
     "open_items": [
       "실행 계약: content_spec.session_ui(와 scripts · 도안 자산)는 scratch/pr19의 제안(PROPOSED, #51)을 옮겼다(2026-10-27 통합). 이후 수정은 이 파일에서 한다 — scratch는 프로토타입",
-      "grades.AFFECT: 등급 셀이 E12-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
-      "grades.AFFECT: 등급 셀이 E11-E1를 들지만 측정 지표 열에서 AFFECT를 못 찾아 outcomes에 더했다. 원문 확인",
+      "grades.AFFECT 등급 B 재검토: 2026-10-29 원문 대조로 E11-E1(행복 SHI · 우울 CES-D — OTHER)을 AFFECT 지지에서 뺐다. 남은 지지는 E21(음미 개입 메타분석, 정서 결과 g = 0.51)이고 상충은 E12-E1(세 가지 좋은 일, 상태 기분 STCI-S 효과 없음 — AFFECT 확인, data/evidence_overrides.json). 지지하는 무작위 실험(PRIMARY)이 없어졌다 — 등급은 담당이 정한다",
       "시트의 측정 도구 ['INS-PANAS']는 3도구 묶음(SAM·STAI-6·BSRI) 밖이라 넣지 않았다",
       "시트 비고: 세션 내 프로토콜이 아니라 일간 과제"
     ],
     "source": "LUMI_측정도구_프로토콜_2026-10-23.xlsx › 프로토콜 PR-19, 근거 arm 3행",
     "reviewed_by": null,
-    "updated_at": "2026-10-27"
+    "updated_at": "2026-10-29"
   }
 }

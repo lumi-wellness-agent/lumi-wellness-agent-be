@@ -119,7 +119,7 @@ class Flag(StrEnum):
 class CheckResult(BaseModel):
     check: Check
     passed: bool | None  # None = 평가 불가(레코드 없음 · 순서 미지정)
-    reason: str  # 한 문장. Reference 카드와 로그에 그대로 쓴다
+    reason: str  # 한 문장. 로그에 그대로 쓴다(Reference 카드에는 싣지 않는다)
     related_record_ids: list[int] = []
 
 

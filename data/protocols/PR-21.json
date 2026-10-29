@@ -138,7 +138,7 @@
         },
         "generation": {
           "provider": "AI_HORDE",
-          "when": "큐레이션 풀에 선호·제약 조건을 충족하는 이미지가 없을 때",
+          "when": "기본(10-29) — 사진 한 장 모드라 AI 그림을 먼저 만든다(app/protocols.is_ai_image_slot)",
           "prompt_template_ref": "prompts/indoor_nature_meditation_v1",
           "style": "사실적 자연 사진",
           "negative": [
@@ -148,8 +148,8 @@
             "초현실 색",
             "복잡한 건축물"
           ],
-          "timing": "세션 시작 전 비동기 생성·검수 완료. 세션 중 생성 금지",
-          "fallback": "생성 실패·대기 초과·검수 실패 시 검수된 기본 이미지 사용",
+          "timing": "활동 준비(prepare) 때 생성한다. 대기 상한은 AI_HORDE_POLL_TIMEOUT_SECONDS(기본 60초). 세션 전 미리 생성·검수는 아직 없다",
+          "fallback": "키 없음·생성 실패·대기 초과 시 같은 슬롯의 Pixabay 검색(selection)으로 사진을 받는다",
           "verification": "UNVERIFIED"
         }
       },

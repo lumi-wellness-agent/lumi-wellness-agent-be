@@ -30,7 +30,7 @@ from typing import Annotated, Self
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 
 PaperId = Annotated[str, StringConstraints(pattern=r"^[PEN][0-9]{2}$")]
-"""R/C 마스터 ID(83편). P01…P39 · E01…E21 · N01…N27. 36편 시트 ID는 쓰지 않는다.
+"""R/C 마스터 ID(84편). P01…P39 · E01…E21 · N01…N28. 36편 시트 ID는 쓰지 않는다.
 형식만 본다 — 실재하는 83개인지는 data/manifest.csv 대조 테스트가 본다."""
 
 ExperimentId = Annotated[str, StringConstraints(pattern=r"^[PEN][0-9]{2}-E[1-9][0-9]*$")]
@@ -68,7 +68,7 @@ class Medium(StrEnum):
     """
 
     STATIC_IMAGE = "STATIC_IMAGE"
-    AI_IMAGE = "AI_IMAGE"  # 제공 전용. 83편에 AI 생성 이미지 실험은 없다 → STUDY_MEDIUM_FOR
+    AI_IMAGE = "AI_IMAGE"  # 제공 전용. 84편에 AI 생성 이미지 실험은 없다 → STUDY_MEDIUM_FOR
     VIDEO = "VIDEO"
     VR = "VR"
     NATURE_SOUND = "NATURE_SOUND"

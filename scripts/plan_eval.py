@@ -13,6 +13,11 @@
   계획의 활동을 바꾸기로 한 다음 라운드를 한 번 더 돈다.
 - Reference 카드에 검증을 통과한 근거 수와, 그중 그 활동 evidence[] 밖에서 빌려 온 것을 센다.
   근거가 없는 카드는 규칙 위반이 아니라 근거 부족이라 따로 보인다.
+- 후보 순서는 운영처럼 등급 가중 추첨이다 — 시나리오마다 세션 ID를 '<--seed>:<시나리오>'로 둔다
+  (같은 시드면 같은 순서). 첫 계획에서 고른 활동이 몇 종인지와 LLM이 순서 맨 앞을 고른 비율을
+  함께 본다. --seed ''이면 등급 순(2026-10-29 이전 동작)이다.
+- 추천 이유와 그 설명 호출이 본 입력(사용자 메시지 · 근거 · 구성 · 등급 · 카드 배지)을 결과 JSON에
+  남긴다. 채점은 scripts/rationale_eval.py가 한다.
 - 근거 DB는 lumi-pg로 돌린다(운영 Supabase의 session pooler는 클라이언트 한도가 15).
 """
 
@@ -35,16 +40,19 @@ sys.path.insert(0, str(ROOT))
 from langgraph.runtime import Runtime  # noqa: E402
 
 from app import protocols  # noqa: E402
+from app.agent import rationale_rules  # noqa: E402
 from app.agent.assembly import chat_models  # noqa: E402
 from app.agent.context import AgentContext  # noqa: E402
 from app.agent.nodes.planner import (  # noqa: E402
     ActivityChoice,
+    CitedEvidence,
     LlmPlanner,
     Planner,
     PlanRejected,
     check_plan,
     make_plan_node,
 )
+from app.agent.prompts import build_rationale_input  # noqa: E402
 from app.agent.state import IntakeResult  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db import create_pool  # noqa: E402
@@ -58,20 +66,28 @@ CHECKS = ("planned", "first_try", "in_candidates", "relaxed", "constraints", "ch
 
 
 class CountingPlanner:
-    """Planner를 감싸 choose 호출 수와 마지막 선택을 남긴다. 2회면 첫 선택이 거부됐다."""
+    """Planner를 감싸 choose 호출 수와 마지막 선택을 남긴다. 2회면 첫 선택이 거부됐다.
+    explain도 호출 수(2회면 추천 이유가 글자 규칙을 어겨 다시 물었다)와 마지막 사용자 메시지 ·
+    근거를 남긴다 — 추천 이유 채점의 입력이다."""
 
     def __init__(self, inner: Planner):
         self.inner = inner
         self.calls = 0
         self.last: ActivityChoice | None = None
+        self.explains = 0
+        self.explain_input: str | None = None
+        self.evidence: list[CitedEvidence] = []
 
     async def choose(self, state, candidates, problems):
         self.calls += 1
         self.last = await self.inner.choose(state, candidates, problems)
         return self.last
 
-    async def explain(self, state, choice, protocol, evidence):
-        return await self.inner.explain(state, choice, protocol, evidence)
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        self.explains += 1
+        self.explain_input = build_rationale_input(state, choice, protocol, evidence, problems)
+        self.evidence = list(evidence)
+        return await self.inner.explain(state, choice, protocol, evidence, problems)
 
 
 def scenario_state(scenario: Scenario) -> dict:
@@ -119,16 +135,26 @@ class PlanRun:
     expected_relaxed: list[str]
     previous: str | None = None
     protocol_id: str | None = None
+    position: int | None = None  # 고른 활동이 추천 순서에서 몇 번째였나(0 = 맨 앞)
     minutes: int | None = None
     relaxed: list[str] = field(default_factory=list)
     query: str | None = None
     calls: int = 0  # choose 호출 수
+    explains: int = 0  # explain 호출 수 — 2면 추천 이유가 글자 규칙을 어겨 다시 물었다
     rejected: str | None = None  # PlanRejected 사유
     problems: list[str] = field(default_factory=list)  # 최종 계획을 check_plan에 다시 넣은 결과
     cited: list[str] = field(default_factory=list)  # Reference 카드 근거(experiment_id · paper_id)
     borrowed: list[str] = field(default_factory=list)  # 그중 그 활동 evidence[] 밖
     seconds: float = 0.0
     tokens: tuple[int, int] = (0, 0)  # 입력 · 출력
+    # 추천 이유 채점(scripts/rationale_eval.py)용 — 설명 호출(LLM 호출 2)의 출력과 입력
+    rationale: str | None = None
+    factors: dict[str, Any] | None = None  # 같은 호출이 고른 콘텐츠 Factor(sanitize 뒤)
+    explain_input: str | None = None  # 설명 호출이 본 사용자 메시지 그대로
+    evidence: list[dict[str, Any]] = field(default_factory=list)  # 설명 호출이 받은 근거
+    composition: str | None = None
+    grades: dict[str, str] = field(default_factory=dict)  # 목표 1차 지표 등급
+    badges: list[str] = field(default_factory=list)  # Reference 카드 배지
 
     @property
     def checks(self) -> dict[str, bool]:
@@ -152,9 +178,10 @@ async def plan_once(
     pool: Any = None,
     usage: Usage | None = None,
     previous: str | None = None,
+    session_id: str | None = None,
 ) -> PlanRun:
     """plan 노드를 한 번 돌려 판정에 쓸 것을 모은다. previous가 있으면 그 활동을 바꾸기로 한
-    다음 라운드다."""
+    다음 라운드다. session_id는 후보 추천 순서의 시드다(없으면 등급 순)."""
     state = scenario_state(scenario)
     if previous:
         state["rounds"] = [previous_round(previous, scenario.goal)]
@@ -171,7 +198,8 @@ async def plan_once(
     before = (usage.input, usage.output) if usage else (0, 0)
     started = time.perf_counter()
     try:
-        out = await make_plan_node(counting)(state, Runtime(context=AgentContext(db_pool=pool)))
+        context = AgentContext(db_pool=pool, session_id=session_id)
+        out = await make_plan_node(counting)(state, Runtime(context=context))
     except PlanRejected as exc:
         run.rejected = str(exc)
     else:
@@ -181,12 +209,25 @@ async def plan_once(
         card = plan.reference_card.evidence if plan.reference_card else []
         run.protocol_id = plan.activity.protocol_id
         run.minutes = plan.activity.minutes
+        run.position = plan.selection.position if plan.selection else None
         run.relaxed = list(plan.relaxed)
         run.problems = check_plan(plan.activity, state, plan.relaxed)
         run.cited = [e.experiment_id or e.paper.paper_id for e in card]
         run.borrowed = [key for key in run.cited if key not in own]
+        run.rationale = plan.rationale
+        if plan.content_factors:
+            run.factors = plan.content_factors.model_dump(mode="json")
+        if protocol:
+            run.composition = protocol.composition.value
+            primary = GOAL_OUTCOMES[scenario.goal].primary
+            run.grades = {o.value: protocol.grades[o].grade.value for o in primary}
+        if plan.reference_card:
+            run.badges = [b.value for b in plan.reference_card.badges]
     run.calls = counting.calls
+    run.explains = counting.explains
     run.query = counting.last.search_query if counting.last else None
+    run.explain_input = counting.explain_input
+    run.evidence = [rationale_rules.evidence_row(c.hit, c.verdict) for c in counting.evidence]
     run.seconds = time.perf_counter() - started
     if usage:
         run.tokens = (usage.input - before[0], usage.output - before[1])
@@ -213,6 +254,10 @@ def summarize(runs: Sequence[PlanRun]) -> dict[str, Any]:
         "chosen": dict(
             Counter(f"{r.goal} {r.protocol_id}" for r in runs if r.round == 0 and r.protocol_id)
         ),
+        # LLM이 추천 순서 맨 앞을 골랐다 — 건너뛰기는 제약 · 장소 · 꺼린 활동일 때만이다
+        "first_in_order": [sum(r.position == 0 for r in planned), len(planned)],
+        # 추천 이유가 글자 규칙(app/agent/rationale_rules.py)을 어겨 설명을 다시 물었다
+        "rewritten": [sum(r.explains > 1 for r in planned), len(planned)],
     }
 
 
@@ -224,9 +269,11 @@ def format_run(run: PlanRun) -> str:
     relaxed = f" · 풀림 {','.join(run.relaxed)}" if run.relaxed else ""
     borrowed = f" (빌림 {', '.join(run.borrowed)})" if run.borrowed else ""
     flags = f"  ✗ {' · '.join(failed)}" if failed else ""
+    rewritten = f" · 설명 {run.explains}회" if run.explains > 1 else ""
     return (
         f"{head:18s} {run.protocol_id} {run.minutes}분 · 후보 {len(run.candidates)}{relaxed}"
-        f" · 선택 {run.calls}회 · 근거 {', '.join(run.cited) or '없음'}{borrowed}"
+        f" · 순서 {'-' if run.position is None else run.position + 1}번째"
+        f" · 선택 {run.calls}회{rewritten} · 근거 {', '.join(run.cited) or '없음'}{borrowed}"
         f" · {run.seconds:.1f}s{flags}"
     )
 
@@ -235,6 +282,8 @@ def format_summary(summary: dict[str, Any]) -> str:
     checks = " · ".join(f"{name} {ok}/{n}" for name, (ok, n) in summary["checks"].items())
     ok, n = summary["with_evidence"]
     chosen = " · ".join(f"{k} ×{v}" for k, v in sorted(summary["chosen"].items()))
+    kinds = len({key.split()[1] for key in summary["chosen"]})
+    first, planned = summary["first_in_order"]
     lines = [
         f"계획 {summary['runs']}개(시나리오 {summary['scenarios']} + 활동 변경 "
         f"{summary['change_rounds']})",
@@ -243,7 +292,9 @@ def format_summary(summary: dict[str, Any]) -> str:
         f"      근거 없는 카드: {', '.join(summary['empty_cards']) or '없음'}",
         f"비용  계획 한 번 평균 {summary['seconds']:.1f}s · 토큰 "
         f"{summary['tokens'][0]:,.0f}/{summary['tokens'][1]:,.0f}",
-        f"첫 계획에서 고른 활동: {chosen}",
+        f"첫 계획에서 고른 활동 {kinds}종: {chosen}",
+        f"추천 순서 맨 앞을 고름 {first}/{planned}",
+        f"추천 이유를 다시 씀 {summary['rewritten'][0]}/{summary['rewritten'][1]}",
     ]
     return "\n".join(lines)
 
@@ -268,11 +319,14 @@ async def run(args: argparse.Namespace) -> int:
     runs: list[PlanRun] = []
     try:
         for scenario in scenarios:
-            first = await plan_once(planner, scenario, pool, usage)
+            session_id = f"{args.seed}:{scenario.id}" if args.seed else None
+            first = await plan_once(planner, scenario, pool, usage, session_id=session_id)
             runs.append(first)
             print(format_run(first), flush=True)
             if scenario.change_activity and first.protocol_id:
-                second = await plan_once(planner, scenario, pool, usage, first.protocol_id)
+                second = await plan_once(
+                    planner, scenario, pool, usage, first.protocol_id, session_id
+                )
                 runs.append(second)
                 print(format_run(second), flush=True)
     finally:
@@ -287,6 +341,7 @@ async def run(args: argparse.Namespace) -> int:
                 "db": db_label(url),
                 "model": settings.llm_model,
                 "scenarios": str(args.scenarios),
+                "seed": args.seed,
             },
             "summary": summary,
             "runs": [asdict(r) | {"checks": r.checks} for r in runs],
@@ -304,6 +359,11 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", help="이 시나리오 ID만")
     parser.add_argument("--database-url", help="근거 DB. 없으면 .env의 DATABASE_URL")
     parser.add_argument("--out", type=Path, help="결과 JSON")
+    parser.add_argument(
+        "--seed",
+        default="plan-eval",
+        help="후보 추천 순서의 시드 접두사(세션 ID = <seed>:<시나리오>). ''이면 등급 순",
+    )
     return asyncio.run(run(parser.parse_args()))
 
 

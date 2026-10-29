@@ -22,6 +22,9 @@
   BM25가 아니다.
 - RRF: 레코드마다 Σ 1 / (k + 순위)로 합친다. 필터는 자동으로 완화하지 않고 로그에 남긴다.
 - Top-K는 5로 시작해 3·10과 비교하고, Dense 단독 결과를 기준선으로 함께 기록한다(기획서 8.1).
+  K는 chunk가 아니라 레코드(실험 — experiment_id, 리뷰는 paper_id) 수다. plan은 chunk를
+  CHUNK_LIMIT개 받아 서로 다른 레코드 상위 K개를 고르고 그 chunk(METHODS · RESULTS)를 모두
+  싣는다(top_records).
 - 질의 임베딩(retrieval/embedding.py)을 못 만들면(키 없음 · API 오류) 경고를 남기고 키워드로만
   찾는다. OpenAI 장애로 플래너가 Anthropic으로 넘어가도 근거 검색은 돈다. 풀이 없으면 빈 목록이다.
 
@@ -47,7 +50,8 @@ from app.schemas.retrieval import ORDER_COMPATIBILITY, EvidenceHit, PaperRef
 
 log = logging.getLogger(__name__)
 
-TOP_K = 5
+TOP_K = 5  # plan이 인용하는 레코드 수 — 그 레코드의 chunk는 모두 싣는다(top_records)
+CHUNK_LIMIT = 4 * TOP_K  # 레코드 TOP_K개를 고를 만큼 받는 chunk 수 — 레코드마다 chunk가 둘이다
 CANDIDATES = 50  # 벡터·키워드 검색이 각각 RRF에 넘기는 후보 수
 RRF_K = 60  # RRF 상수(Cormack et al. 2009). 클수록 한쪽 검색의 상위 순위가 덜 독주한다
 KEYWORD_MIN_SIMILARITY = 0.5  # pg_trgm strict_word_similarity_threshold의 기본값
@@ -194,6 +198,26 @@ def to_hit(row: dict[str, Any], score: float = 0.0) -> EvidenceHit:
         dense_rank=row.get("dense_rank"),
         keyword_rank=row.get("keyword_rank"),
     )
+
+
+def record_key(hit: EvidenceHit) -> tuple[str, str | None]:
+    """레코드(실험) — 같은 실험의 METHODS · RESULTS chunk는 같은 키다."""
+    return hit.paper.paper_id, hit.experiment_id
+
+
+def top_records(hits: Sequence[EvidenceHit], k: int = TOP_K) -> list[EvidenceHit]:
+    """점수 순 chunk에서 서로 다른 레코드 k개를 고르고 그 레코드의 chunk를 모두 남긴다(순서 유지).
+
+    chunk로 상위 k를 자르면 한 실험의 METHODS · RESULTS가 두 자리를 차지해 다섯째 레코드가 6~8위로
+    밀렸다(2026-10-29 근거 검색 평가 19건 — docs/rag-eval/2026-10-29-retrieval-baseline.md).
+    """
+    chosen: list[tuple[str, str | None]] = []
+    for hit in hits:
+        key = record_key(hit)
+        if key not in chosen and len(chosen) < k:
+            chosen.append(key)
+    keep = set(chosen)
+    return [hit for hit in hits if record_key(hit) in keep]
 
 
 def fuse(rows: Sequence[dict[str, Any]], limit: int) -> list[EvidenceHit]:

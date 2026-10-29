@@ -462,6 +462,10 @@
  "N19-E1": {
   "_source": "docling N19_2020_Hicks_Restoration_of_sustained_attention_following_virtual_nature_exposure_U.pdf · gpt-4o-mini · 2026-10-27",
   "_confidence": "HIGH",
+  "_verified": "2026-10-29 원문 PDF 4쪽(3.2.3절) 대조 — 상호작용 비유의 문장을 더함",
+  "_corrections": [
+   "모델 초안이 주효과 두 문장에서 끊겨 자연 조건이 나았던 것처럼 읽혀, 바로 다음 문장(SART 블록 × 이미지 종류 상호작용 비유의, F(1, 169) = 2.88, p = .092)을 원문대로 더함 — 회복 효과는 상호작용으로 보고 메타데이터 판정도 NOT_SIGNIFICANT"
+  ],
   "METHODS": {
    "text": "Two hundred students (mean age = 19.74, SD = 1.87) from the University of Waterloo participated in this study in exchange for partial course credit. Participants were randomly assigned to either the nature or the urban condition and were run in group sizes ranging from 1 to 4 participants. The SART (Robertson, Manly, Andrade, Baddeley, & Yiend, 1997) is a computer task in which participants are presented a series of digits (1-9) one at a time and must actively monitor for infrequent targets. Participants completed the 630 trials in the pre-exposure SART, then they viewed 25 images in their respective condition (i.e., either nature or urban), and finally they completed 630 trials in the post-exposure SART. The experiment was approximately 50 min in length.",
    "page": 2,
@@ -471,7 +475,7 @@
    "repaired": 0
   },
   "RESULTS": {
-   "text": "When examining the omission errors, there was a significant main effect of SART Block, F(1, 169) = 25.53, p < .001, η 2 = 0.13, such that participants made more omission errors in the post-exposure SART than pre-exposure SART. In addition, there was a significant main effect of Image Type, F(1, 169) =5.99, p = .015, η 2 =0.03, whereby participants in the Urban condition made more omission errors than those in the Nature condition.",
+   "text": "When examining the omission errors, there was a significant main effect of SART Block, F(1, 169) = 25.53, p < .001, η 2 = 0.13, such that participants made more omission errors in the post-exposure SART than pre-exposure SART. In addition, there was a significant main effect of Image Type, F(1, 169) =5.99, p = .015, η 2 =0.03, whereby participants in the Urban condition made more omission errors than those in the Nature condition. However, the interaction between SART Block and Image Type did not reach significance, F(1, 169) = 2.88, p = .092, η 2 = 0.02.",
    "page": 4,
    "coverage": 1.0,
    "snapped": 0,

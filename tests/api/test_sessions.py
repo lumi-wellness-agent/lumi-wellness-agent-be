@@ -13,8 +13,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app import protocols
 from app.agent.checkpoint import memory_checkpointer
+from app.agent.context import AgentContext
 from app.agent.graph import build_graph
+from app.agent.nodes.planner import CHOICE_WINDOW, planner_context, search_candidates
+from app.agent.state import SelectionMethod
 from app.api import internal, me, sessions
 from app.auth import User, current_user
 from app.config import Settings
@@ -389,8 +393,9 @@ def test_off_topic_input_is_restated_and_can_be_skipped():
 
     body = client.post(f"/sessions/{sid}/answer", json={"question_id": "r1", "skip": True}).json()
     assert (body["step"], body["payload"]["measure"]) == ("MEASURE", "PRE")
-    # 건너뛰면 추론 없이 S2(기본값)로 시작한다 — 목표 척도가 STAI-6다
-    assert [i["instrument_id"] for i in body["payload"]["instruments"]] == ["INS-SAM", "INS-STAI6"]
+    # 건너뛰면 추론 없이 세 목표 중 무작위로 시작한다(10-29) — SAM + 그 목표의 척도
+    ids = [i["instrument_id"] for i in body["payload"]["instruments"]]
+    assert ids[0] == "INS-SAM" and ids[1:] in (["INS-BSRI"], ["INS-STAI6"], ["INS-MFVAS"])
 
 
 def test_session_api_is_unavailable_without_a_graph():
@@ -454,6 +459,47 @@ def run_s2_to_end(client: TestClient, **report) -> str:
     final = {"INS-STAI6": {**STAI6, "tense": 1, "worried": 1}}
     assert client.post(f"/sessions/{sid}/measure", json=final).json()["step"] == "END"
     return sid
+
+
+class OrderPlanner(FakePlanner):
+    """FakePlanner + choose가 받은 후보 순서를 남긴다."""
+
+    def __init__(self, *plans):
+        super().__init__(*plans)
+        self.orders: list[list[str]] = []
+
+    async def choose(self, state, candidates, problems):
+        self.orders.append([c["protocol_id"] for c in candidates])
+        return await super().choose(state, candidates, problems)
+
+
+def state_of(client: TestClient, sid: str) -> dict:
+    graph = client.app.state.session_graph
+    return asyncio.run(graph.aget_state({"configurable": {"thread_id": sid}})).values
+
+
+def test_a_session_orders_candidates_by_its_id_and_the_users_recent_activities():
+    planner = OrderPlanner(BREATHING, BREATHING)
+    client = client_for(planner)
+    run_s2_to_end(client)  # 1라운드 PR-06
+    sid = start(client)
+    assert client.post(f"/sessions/{sid}/measure", json=PRE_S2).json()["step"] == "RUN"
+
+    values = state_of(client, sid)
+    assert values["recent_protocol_ids"] == ["PR-06"]  # 지난 세션에서 한 활동
+    session = planner_context(AgentContext(session_id=sid), values)
+    expected = protocols.recommendation_order(
+        search_candidates(session), CareGoal.S2, seed=sid, recent=["PR-06"]
+    )
+    assert expected.weights["PR-06"] == pytest.approx(4.0 * protocols.RECENT_FACTOR)
+    order = [p.protocol_id for p in expected.protocols]
+    assert planner.orders[1] == order[:CHOICE_WINDOW]  # 세션 ID가 시드, LLM에는 앞 5개
+    selection = values["plan"].selection
+    assert (selection.method, selection.order) == (SelectionMethod.WEIGHTED, order)
+
+    # 게스트는 기록이 없어 최근 활동도 없다
+    login(client.app, GUEST)
+    assert state_of(client, start(client))["recent_protocol_ids"] == []
 
 
 def test_records_follow_the_session_and_the_checkpoint_goes_at_the_end():
@@ -620,6 +666,29 @@ def test_account_deletion_removes_the_user_their_records_and_checkpoints():
         assert client.get(f"/sessions/{sid}").status_code == 404
     # 운영에서는 로그인 세션도 지워져 같은 토큰이 401(SESSION_REVOKED)이다 — tests/test_auth.py
     assert client.get("/me/consent").json()["agreed"] is False
+
+
+def test_members_see_their_activity_records_and_guests_have_none():
+    client = client_for()
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    start(client)  # 활동 전에 멈춘 세션은 기록에 없다
+    sid = run_s2_to_end(client)
+
+    (session,) = client.get("/me/sessions").json()["sessions"]
+    end = client.get(f"/sessions/{sid}").json()["payload"]
+    assert (session["session_id"], session["goal"]) == (sid, "S2")
+    assert session["started_at"] < session["ended_at"]
+    assert session["goal_scale"] == end["goal_scale"]
+    # 라운드는 END payload의 rounds에 활동 이름을 붙인 것이다
+    name = protocols.get_protocol("PR-06").name
+    assert session["rounds"] == [{**r, "name": name} for r in end["rounds"]]
+    assert client.get("/me/sessions", params={"limit": 0}).status_code == 422
+
+    login(client.app, BOB)  # 남의 기록은 보이지 않는다
+    assert client.get("/me/sessions").json() == {"sessions": []}
+    login(client.app, GUEST)
+    res = client.get("/me/sessions")
+    assert (res.status_code, res.json()["detail"]["code"]) == (403, "MEMBERS_ONLY")
 
 
 def test_a_guest_tries_a_session_without_consent_and_leaves_no_content():

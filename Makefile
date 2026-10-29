@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval plan-eval parse-papers extract-excerpts
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval plan-eval intake-eval rationale-eval parse-papers extract-excerpts
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -53,6 +53,8 @@ plan-trial:
 #     make rag-eval ARGS="build"
 #     make rag-eval ARGS="run --misses --out before.json --database-url postgresql://postgres:postgres@localhost:54329/postgres"
 #     make rag-eval ARGS="compare before.json after.json"
+#     make rag-eval ARGS="run --open --out before.json --md docs/rag-eval/2026-10-30-retrieval-baseline.md --title 기준선 --database-url …"
+#     make rag-eval ARGS="record before.json --md docs/rag-eval/2026-10-30-retrieval-baseline.md"
 rag-eval:
 	$(PY) scripts/rag_eval.py $(ARGS)
 
@@ -61,6 +63,21 @@ rag-eval:
 # 예: make plan-eval ARGS="--database-url postgresql://postgres:postgres@localhost:54329/postgres --out plan_eval.json"
 plan-eval:
 	$(PY) scripts/plan_eval.py $(ARGS)
+
+# intake 평가 — 안전 신호 · 목표 추론 · 상태 읽기를 정답(data/eval_scenarios.jsonl · data/intake_eval_cases.jsonl)과
+# 비교한다. 실제 모델로 intake_once를 돌린다(LLM 비용, DB 없음)
+# 예: make intake-eval ARGS="--repeat 3 --out intake_eval.json --md docs/intake-eval/2026-10-29-baseline.md"
+intake-eval:
+	$(PY) scripts/intake_eval.py $(ARGS)
+
+# 추천 이유 평가(README 「추천 이유 평가」). plan-eval --out 결과의 추천 이유를 규칙(코드)과 LLM Judge로
+# 채점한다. check는 LLM 없이 규칙만, judge는 생성 모델과 다른 모델(기본 gpt-5.5)로 채점한다(LLM 비용)
+# 예: make rationale-eval ARGS="check r1.json r2.json r3.json"
+#     make rationale-eval ARGS="judge r1.json r2.json r3.json --out judged.json"
+#     make rationale-eval ARGS="report judged.json --md docs/rag-eval/2026-10-29-rationale-baseline.md --title 기준선"
+#     make rationale-eval ARGS="agree judged.json labels.csv"
+rationale-eval:
+	$(PY) scripts/rationale_eval.py $(ARGS)
 
 # 논문 PDF → 섹션 텍스트 캐시(Docling, `.[ingestion]` extras). 캐시는 Research_paper(비공개)/…/01_fulltext
 # 예: make parse-papers ARGS="--with-records"

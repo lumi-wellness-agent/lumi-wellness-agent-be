@@ -14,10 +14,10 @@ from langgraph.types import Command
 from app.agent.checkpoint import memory_checkpointer
 from app.agent.context import AgentContext
 from app.agent.graph import build_graph
-from app.agent.intake_rules import FOLLOWUP_TEXT, GoalInference, StateReading
+from app.agent.intake_rules import DEFAULT_CHOICES, FOLLOWUP_TEXT, GoalInference, StateReading
 from app.agent.nodes.intake import route_after_ask, route_after_context, route_after_read
-from app.agent.nodes.planner import ActivityChoice, PlanRejected, check_plan
-from app.agent.nodes.replanner import route_after_confirm
+from app.agent.nodes.planner import ActivityChoice, PlanRationale, PlanRejected, check_plan
+from app.agent.nodes.replanner import NextStepChoice, next_step_options, route_after_confirm
 from app.agent.state import (
     ActivityContent,
     CarePlan,
@@ -53,7 +53,6 @@ def plan(protocol_id: str, minutes: int = 5) -> CarePlan:
 
 
 BREATHING = plan("PR-06", 5)  # S2 · NO_INDUCTION · 5–20분
-GROUNDING = plan("PR-17", 10)  # S2 · 허용 상태 제한 없음 · 10분
 PHOTO = plan("PR-01", 6)  # S2 · POST_STRESS/POST_FATIGUE · 5–10분
 S2_INTAKE = IntakeResult(
     goal=CareGoal.S2, order_condition=InterventionOrder.PRE_STRESS, minutes=15, place=Place.INDOOR
@@ -163,8 +162,23 @@ class FakePlanner:
         protocol_id = self.plans.pop(0).activity.protocol_id
         return ActivityChoice(protocol_id=protocol_id, search_query="-", reason="-")
 
-    async def explain(self, state, choice, protocol, evidence):
-        return "-"
+    async def explain(self, state, choice, protocol, evidence, problems=()):
+        return PlanRationale.text("-")
+
+
+class FakeReplanner:
+    """다음 단계 추천을 차례로 낸다(예외면 던진다). recommend 호출마다 받은 규칙 제안을 남긴다."""
+
+    def __init__(self, *outputs: NextStepChoice | BaseException):
+        self.outputs = list(outputs)
+        self.rules: list[ReplanProposal] = []
+
+    async def recommend(self, state, rule):
+        self.rules.append(rule)
+        output = self.outputs.pop(0)
+        if isinstance(output, BaseException):
+            raise output
+        return output
 
 
 def run(graph, value):
@@ -188,7 +202,7 @@ STAI6 = {"calm": 2, "tense": 3, "upset": 2, "relaxed": 2, "content": 2, "worried
 
 
 def test_session_loops_until_user_ends(caplog):
-    planner = FakePlanner(BREATHING, GROUNDING)
+    planner = FakePlanner(BREATHING)
     graph = graph_with(planner, FakeIntaker(S2_READING, goal=inference(CareGoal.S2)))
 
     # intake → measure_pre에서 멈춘다. S2라 SAM + STAI-6를 묻는다
@@ -218,15 +232,19 @@ def test_session_loops_until_user_ends(caplog):
     assert out["evaluation"].improved is True
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "END"
 
-    # 추가 세션에 동의 → Planner로 돌아간다. 다음 라운드의 사전값은 이번 사후값이다
+    # 추가 세션(한 번 더)에 동의 → Planner로 돌아가 활동을 다시 고르지 않고 같은 활동을 한다.
+    # 다음 라운드의 사전값은 이번 사후값이다
     out = run(graph, Command(resume={"next_step": "ADDITIONAL_SESSION"}))
-    assert out["__interrupt__"][0].value["plan"]["activity"]["protocol_id"] == "PR-17"
+    again = out["__interrupt__"][0].value["plan"]
+    assert again["activity"]["protocol_id"] == "PR-06"
+    assert again["activity"]["minutes"] == 5
     assert [m.scores for m in out["round_pre"]] == [{"valence": 5.0, "arousal": 4.0}]
 
-    # 2라운드: 중간에 멈춤 → 활동 변경 제안
+    # 2라운드: 중간에 멈춤 → 활동 변경 제안. 멈춘 활동은 한 번 더를 내놓지 않는다
     out = run(graph, Command(resume={"completed": False, "stopped_reason": "어지러움"}))
     out = run(graph, Command(resume=sam(4, 6)))
     assert out["__interrupt__"][0].value["proposal"]["recommended"] == "CHANGE_ACTIVITY"
+    assert out["__interrupt__"][0].value["options"] == ["END", "CHANGE_ACTIVITY"]
 
     # 종료 → S2라 목표 척도(STAI-6)를 한 번 더 묻고 끝난다
     out = run(graph, Command(resume={"next_step": "END"}))
@@ -238,7 +256,7 @@ def test_session_loops_until_user_ends(caplog):
     assert out["final"].scores == {"total": 43.33}  # 합 13 × 20/6
     assert [r.next_step for r in out["rounds"]] == [NextStep.ADDITIONAL_SESSION, NextStep.END]
     assert [r.evaluation.improved for r in out["rounds"]] == [True, False]
-    assert planner.calls == [(0, []), (1, [])]
+    assert planner.calls == [(0, [])]  # 한 번 더는 LLM 선택(호출 1)을 건너뛴다
 
     # 체크포인트에서 복원한 값이 원래 타입이다. checkpoint.STATE_TYPES에 빠진 타입이 있으면
     # 역직렬화가 막히고(로그) dict나 원시 값으로 돌아온다
@@ -319,8 +337,8 @@ def test_intake_asks_timing_then_environment_then_measures(caplog):
     out = run(graph, answer("q1", order_condition="POST_STRESS"))
     q2 = out["__interrupt__"][0].value
     assert q2["slot"] == "context" and q2["question_id"] == "q2" and not q2["allow_free_text"]
-    # S1은 시간이 1순위를 안 바꾼다. 이어폰은 있어요/없어요 single
-    assert [g["key"] for g in q2["groups"]] == ["setting", "earphones"]
+    # S1 · 스트레스 뒤는 20분이면 PR-21 · PR-14도 후보라 시간도 묻는다. 이어폰은 single
+    assert [g["key"] for g in q2["groups"]] == ["setting", "earphones", "minutes"]
     assert [o["set"] for o in q2["groups"][1]["options"]] == [
         {"earphones": True},
         {"earphones": False},
@@ -399,7 +417,7 @@ def test_two_unknown_answers_start_with_default_goal_without_inference():
     out = run(graph, answer("q2"))  # 또 잘 모르겠어요
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0  # 추론을 부르지 않는다
 
 
@@ -454,7 +472,7 @@ def test_restate_skip_starts_with_default_goal_without_inference():
     out = run(graph, Command(resume={"question_id": "r1", "skip": True}))
     assert out["__interrupt__"][0].value["measure"] == "PRE"
     intake = out["intake"]
-    assert intake.goal is CareGoal.S2 and intake.goal_source is GoalSource.DEFAULT
+    assert intake.goal in DEFAULT_CHOICES and intake.goal_source is GoalSource.DEFAULT
     assert intaker.goal_calls == 0 and intaker.read_turns == [0]
     assert out["intake_turns"][0].skipped
 
@@ -466,7 +484,8 @@ def test_no_cues_starts_with_default_goal_and_bad_answers_are_rejected():
     graph = graph_with(FakePlanner(), intaker)
     out = run(graph, {"request": CareRequest(text="그냥 그래요")})
     assert out["__interrupt__"][0].value["measure"] == "PRE"
-    assert out["intake"].goal is CareGoal.S2 and out["intake"].goal_source is GoalSource.DEFAULT
+    assert out["intake"].goal in DEFAULT_CHOICES
+    assert out["intake"].goal_source is GoalSource.DEFAULT
 
     graph = graph_with(
         FakePlanner(), FakeIntaker(reading(question=ASK_TIMING), goal=inference(CareGoal.S2))
@@ -514,7 +533,7 @@ def test_check_plan_rules():
         "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS})
     }
     assert check_plan(PHOTO.activity, post_stress) == []
-    # 활동 변경을 골랐으면 같은 프로토콜을 다시 넣을 수 없다
+    # 활동 변경을 골랐으면 바꾸기로 한 프로토콜을 다시 넣을 수 없다
     changed = Round(
         plan=BREATHING,
         report=SessionReport(completed=False),
@@ -526,8 +545,15 @@ def test_check_plan_rules():
         next_step=NextStep.CHANGE_ACTIVITY,
     )
     with_round = {**state, "rounds": [changed]}
-    assert any("같은 프로토콜" in p for p in check_plan(BREATHING.activity, with_round))
+    assert check_plan(BREATHING.activity, with_round) == [
+        "PR-06는 이번 세션에서 바꾸기로 한 활동이다"
+    ]
     assert check_plan(activity("PR-07", 9), with_round) == []
+    # 두 번 바꿨으면 둘 다 — 3라운드에 1라운드 활동이 돌아오지 않는다
+    changed_again = changed.model_copy(update={"plan": plan("PR-07", 9)})
+    twice = {**state, "rounds": [changed, changed_again]}
+    assert check_plan(BREATHING.activity, twice) == ["PR-06는 이번 세션에서 바꾸기로 한 활동이다"]
+    assert check_plan(activity("PR-19", 5), twice) == []
 
 
 def test_check_plan_follows_the_environment_and_what_the_search_relaxed():
@@ -572,6 +598,37 @@ def test_change_is_not_offered_when_no_other_activity_fits():
     )
 
 
+def test_options_leave_out_every_changed_activity_and_a_repeat_after_a_stop():
+    # S1 · 집 · 10분 후보는 PR-09 · PR-15뿐 — PR-09를 바꾸고 PR-15를 하는 중이면 바꿀 활동이 없다
+    s1 = IntakeResult(
+        goal=CareGoal.S1,
+        order_condition=InterventionOrder.POST_STRESS,
+        minutes=10,
+        environment=environment_for(Setting.HOME, None),
+    )
+    first = Round(
+        plan=plan("PR-09", 3),
+        report=SessionReport(completed=True),
+        pre=anchor(Timepoint.PRE, 0),
+        post=anchor(Timepoint.POST, 1),
+        evaluation=OutcomeEvaluation(
+            goal=CareGoal.S1, round=1, deltas={}, improved=False, completed=True
+        ),
+        next_step=NextStep.CHANGE_ACTIVITY,
+    )
+    state = {
+        "request": CareRequest(text="-"),
+        "intake": s1,
+        "plan": plan("PR-15", 3),
+        "report": SessionReport(completed=True),
+        "rounds": [first],
+    }
+    assert next_step_options(state, 2) == [NextStep.END, NextStep.ADDITIONAL_SESSION]
+    # 첫 라운드라면 PR-09로 바꿀 수 있다. 중간에 멈췄으면 같은 활동을 한 번 더 내놓지 않는다
+    stopped = {**state, "rounds": [], "report": SessionReport(completed=False)}
+    assert next_step_options(stopped, 1) == [NextStep.END, NextStep.CHANGE_ACTIVITY]
+
+
 def test_third_round_offers_only_to_end():
     graph = graph_with(
         FakePlanner(BREATHING, BREATHING, BREATHING),
@@ -590,7 +647,30 @@ def test_third_round_offers_only_to_end():
         "recommended": "END",
         "reason": "라운드 3회를 채웠다",
         "options": ["END"],
+        "rule_recommended": "END",
+        "by_llm": False,
     }
+
+
+def test_the_replanner_recommends_on_the_confirm_screen():
+    choice = NextStepChoice(
+        recommended=NextStep.ADDITIONAL_SESSION, reason="긴장이 내려갔어요. 한 번 더 해 볼까요?"
+    )
+    replanner = FakeReplanner(choice)
+    intaker = FakeIntaker(S2_READING, goal=inference(CareGoal.S2))
+    graph = build_graph(FakePlanner(BREATHING), intaker, memory_checkpointer(), replanner)
+    run(graph, {"request": CareRequest(text="발표 앞두고 긴장돼요")})
+    run(graph, Command(resume={**sam(3, 7), "INS-STAI6": STAI6}))
+    run(graph, Command(resume={"completed": True}))
+    confirm = run(graph, Command(resume=sam(5, 4)))["__interrupt__"][0].value
+    assert confirm["proposal"] == {
+        "recommended": "ADDITIONAL_SESSION",
+        "reason": choice.reason,
+        "options": ["END", "CHANGE_ACTIVITY", "ADDITIONAL_SESSION"],
+        "rule_recommended": "END",  # 규칙은 나아졌으면 종료
+        "by_llm": True,
+    }
+    assert [r.recommended for r in replanner.rules] == [NextStep.END]
 
 
 def test_routes():
@@ -635,3 +715,28 @@ def test_routes():
     # S3의 MFVAS는 라운드마다 재므로 종료에 다시 묻지 않는다
     s3 = {"intake": IntakeResult(goal=CareGoal.S3), "next_step": NextStep.END}
     assert route_after_confirm(s3) == END
+
+
+def test_goal_mismatch_after_inference_asks_current_state_then_reinfers():
+    # "곧 시험인데 머리가 안 돌아가요" — ①은 엇갈림을 못 잡았고 추론은 S3, 상황(시험 전)은 S2 쪽
+    intaker = FakeIntaker(
+        reading(
+            order_condition=InterventionOrder.PRE_STRESS,
+            setting=Setting.HOME,
+            earphones=True,
+            minutes=10,
+        ),
+        goal=inference(CareGoal.S3),
+    )
+    graph = graph_with(FakePlanner(), intaker)
+    out = run(graph, {"request": CareRequest(text="곧 시험인데 머리가 안 돌아가요")})
+    q = out["__interrupt__"][0].value
+    assert q["slot"] == "state_followup" and q["text"] == "지금은 어느 쪽에 더 가까워요?"
+    assert intaker.goal_calls == 1
+
+    out = run(graph, answer(q["question_id"], goal_hint=["S2"]))  # 긴장되거나 예민해요
+    while "measure" not in out["__interrupt__"][0].value:  # 남은 환경 질문은 건너뛴다
+        out = run(graph, answer(out["__interrupt__"][0].value["question_id"]))
+    intake = out["intake"]
+    assert intake.goal is CareGoal.S2 and intake.secondary_goal is CareGoal.S3
+    assert intaker.goal_calls == 2  # 답을 받아 다시 정했다 — 다시 묻지는 않는다

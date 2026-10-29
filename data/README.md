@@ -33,6 +33,10 @@ SAM은 READY. STAI-6와 BSRI는 원척도 문항의 한국어 번역 초안, MFV
 원문이 다른 값이 생긴다 — 검토 목록(`evidence_review.csv`)에서 골라 원문으로 확정한 값을 여기에 적고 적재를
 다시 돌린다. 시트에 없는 키나 `EvidenceMetadata`에 없는 필드가 있으면 적재가 멈춘다.
 
+연구 매체(`media`)는 시트에 열이 없어 그 행을 인용한 활동 JSON의 `media`에서 온다. 활동의 제공 방식만 바뀌어도
+(PR-10이 #63에서 영상 모드가 됐다) 연구 매체가 따라 바뀌므로, 그런 연구는 여기에 연구 매체를 고정한다 — 실제
+자연환경 명상 연구가 영상 연구로 적재되면 영상 제공의 자극 변형(ADAPTED_STIMULUS)이 사라진다.
+
 ## evidence_excerpts.json — 레코드별 원문 발췌
 
 `scripts/extract_excerpts.py`(`make extract-excerpts`)가 만든다. 키는 `evidence_overrides.json`과 같고
@@ -72,7 +76,15 @@ S2 스트레스 · 상태 불안 · 정서의 쾌·각성 원형 모델(N04 · N
 텍스트 층이 OCR인 스캔본은 쪽 이미지와 대조했다 — N01(1980)은 OCR 오류(`dis.tress` · `U25°`)를 이미지대로
 바로잡았고, P06(1995) · N07(1992)은 이미지와 같았다. 문장을 바꾸면 같은 방식으로 대조한다.
 
-## manifest.csv — 논문 83편 매니페스트
+## content_factors.json — 콘텐츠 Factor 카탈로그
+
+plan LLM이 고르는 콘텐츠 Factor(풍경 · 자연음 · 작품 주제)의 값마다 근거(논문 · 쪽 · 한 줄 요약)와 검수 검색어를
+둔다. `basis`가 `STIMULUS`인 값만 LLM Enum(`app/schemas/content.py`)에 열리고, `DESIGN`(꽃 · 하늘)은 FE 칩으로만
+받는다. 검색어는 프로토콜 selection의 include · exclude 태그를 벗어나지 않게 고르고, 값마다 2~3개를 두어 세션마다
+하나를 쓴다. 값 · 검색어를 바꾸면 `tests/content/test_factors.py`(Enum 일치 · 근거 실재 · Pixabay 태그 필터)를
+돌린다. 읽는 곳은 `app/content/factors.py`.
+
+## manifest.csv — 논문 84편 매니페스트
 
 `papers` 테이블과 ingestion의 원천이고, 계약 테스트(`tests/schemas/test_manifest.py`)가 활동 노드 JSON ·
 측정 도구 JSON · fixture의 논문 ID가 실재하는지 여기에 대조한다. 행 하나 = 논문 하나, `rc_id`가 기본 키다.

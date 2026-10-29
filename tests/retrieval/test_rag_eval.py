@@ -18,9 +18,11 @@ from scripts import rag_eval
 A, B, C = ("P16", "P16-E1"), ("P15", "P15-E1"), ("E08", None)
 
 
-def test_record_ranks_take_the_best_chunk_of_each_record():
+def test_record_ranks_count_records_in_the_order_they_first_appear():
+    # chunk 순서 A, C, A, B → 레코드 차례 A 1 · C 2 · B 3. A의 둘째 chunk가 자리를 차지하지 않는다 —
+    # plan이 서로 다른 레코드 상위 5개를 인용하는 것과 같다(hybrid.top_records)
     key_of = {1: A, 2: A, 3: C, 4: B}
-    assert rag_eval.record_ranks([2, 3, 1, 4], key_of) == {A: 1, C: 2, B: 4}
+    assert rag_eval.record_ranks([2, 3, 1, 4], key_of) == {A: 1, C: 2, B: 3}
 
 
 def test_metrics_count_records_not_chunks():
@@ -29,9 +31,19 @@ def test_metrics_count_records_not_chunks():
     assert m["hit@3"] == 1.0 and m["hit@5"] == 1.0
     assert m["recall@3"] == 1 / 3 and m["recall@5"] == 2 / 3 and m["recall@10"] == 2 / 3
     assert m["mrr"] == 1.0
+    assert m["cp@5"] == (1 / 1 + 2 / 4) / 2  # 정답 자리 1 · 4
     none = rag_eval.metrics(ranks, [C])
     assert none["hit@10"] == 0.0 and none["recall@10"] == 0.0 and none["mrr"] == 0.0
+    assert none["cp@5"] == 0.0
     assert math.isnan(rag_eval.recall_at(ranks, [], 5))
+
+
+def test_context_precision_averages_precision_at_each_gold_rank():
+    # RAGAS Context Precision@5 — 정답 자리 1 · 3에서 Precision@k는 1/1 · 2/3
+    assert rag_eval.context_precision_at({A: 1, C: 2, B: 3}, [A, B]) == (1 + 2 / 3) / 2
+    assert rag_eval.context_precision_at({A: 1, B: 2, C: 3}, [A, B]) == 1.0  # 정답이 모두 위
+    assert rag_eval.context_precision_at({C: 1, B: 2, A: 6}, [A, B]) == 1 / 2  # 6위는 셈 밖
+    assert rag_eval.context_precision_at({C: 1, A: 6}, [A]) == 0.0  # 상위 5에 정답이 없다
 
 
 def test_foreign_counts_top_records_outside_the_activity_evidence():
@@ -103,6 +115,61 @@ def test_compare_shows_a_dash_for_metrics_older_results_lack(tmp_path):
     assert lines[2].startswith("planner/hybrid") and lines[2].split()[-1] == "—"
     assert lines[3].startswith("template/hybrid")  # 모르는 묶음은 뒤로 보낸다
     assert lines[-1] == "hybrid recall@5 · foreign@5가 바뀐 케이스 없음"
+
+
+def test_record_markdown_lists_setup_metrics_misses_and_borrowed_records():
+    planner_metrics = {m: 1.0 for m in rag_eval.METRICS} | {"recall@5": 0.5, "foreign@5": 0.25}
+    payload = {
+        "meta": {
+            "at": "2026-10-30T10:00:00",
+            "db": "localhost:54329/postgres",
+            "cases": "data/rag_eval.jsonl",
+            "n_cases": 2,
+            "groups": {"planner": 1, "fallback": 1},
+            "setup": rag_eval.retrieval_setup("text-embedding-3-small"),
+            "commit": "8849fbc",
+        },
+        "summary": {
+            "planner/hybrid": {"n": 1, **planner_metrics},
+            "fallback/hybrid": {"n": 1, "found@5": 0.0, "empty@5": 1.0},
+        },
+        "results": [
+            {
+                "case": "S2-pre-a-PR-06",
+                "view": "planner",
+                "mode": "hybrid",
+                "ranks": {"P16/P16-E1": 1, "P18/P18-E2": 7, "P17/-": 3},
+                "gold": ["P16/P16-E1", "P18/P18-E2"],
+                "unresolved": [],
+                "excluded": ["P32/P32-E1"],
+                "foreign": ["P17/-"],
+                "metrics": planner_metrics,
+            },
+            {
+                "case": "S1-pre-b-PR-15",
+                "view": "fallback",
+                "mode": "hybrid",
+                "ranks": {},
+                "gold": [],
+                "unresolved": [],
+                "excluded": [],
+                "foreign": [],
+                "metrics": {"found@5": 0.0, "empty@5": 1.0},
+            },
+        ],
+    }
+    queries = {"S2-pre-a-PR-06": "slow breathing anxiety stress"}
+    text = rag_eval.record_markdown("기준선", payload, queries)
+    assert text.startswith("# 근거 검색 평가 — 기준선\n")
+    assert "케이스 2개(planner 1 · fallback 1)" in text and "코드 `8849fbc`" in text
+    assert f"RRF k={rag_eval.hybrid.RRF_K}" in text
+    assert "| planner/hybrid | 1 | " in text and "| 0.500 |" in text
+    assert "| fallback/hybrid | 1 | 0.000 | 1.000 |" in text
+    assert "## 상위 5 안에 못 든 정답 (planner · hybrid) — 1건" in text
+    assert "| S2-pre-a-PR-06 | slow breathing anxiety stress | P18/P18-E2@7 |" in text
+    assert "- 사용자 상태로 일부러 거른 정답 1건(분모에서 뺌)" in text
+    assert "| S2-pre-a-PR-06 | slow breathing anxiety stress | P17/- |" in text
+    assert "| S1-pre-b-PR-15 | — | 없음 — 카드에 근거가 없다 |" in text
 
 
 def test_merge_rankings_keeps_best_score_and_breaks_ties_by_id():

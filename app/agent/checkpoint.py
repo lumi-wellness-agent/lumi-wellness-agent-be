@@ -40,6 +40,8 @@ from app.agent.state import (
     PlannedActivity,
     ReplanProposal,
     Round,
+    Selection,
+    SelectionMethod,
     SessionEnd,
     SessionReport,
 )
@@ -63,6 +65,7 @@ from app.schemas.care import (
     Setting,
     UserProfile,
 )
+from app.schemas.content import ArtSubject, ContentFactors, MusicTrack, Scenery, Soundscape
 from app.schemas.evidence import (
     Effect,
     InterventionOrder,
@@ -123,6 +126,15 @@ STATE_TYPES = (
     NextStep,
     ReplanProposal,
     Round,
+    # 후보 순서와 고른 위치(CarePlan.selection)
+    Selection,
+    SelectionMethod,
+    # 콘텐츠 Factor(CarePlan.content_factors)
+    ContentFactors,
+    Scenery,
+    Soundscape,
+    ArtSubject,
+    MusicTrack,
     # Reference 카드(CarePlan.reference_card)
     ReferenceCard,
     CardBadge,

@@ -23,7 +23,7 @@ from app.schemas.evidence import InterventionOrder, Outcome, OutcomeResult, Sect
 from app.schemas.intake import GoalSource
 from app.schemas.measure import InstrumentId
 from app.schemas.protocol import Composition, Grade
-from app.schemas.retrieval import CheckResult, Flag
+from app.schemas.retrieval import Flag
 
 
 class CardBadge(StrEnum):
@@ -89,7 +89,11 @@ class Excerpt(BaseModel):
 
 
 class CardEvidence(BaseModel):
-    """실험(arm) 하나 — 같은 실험의 METHODS · RESULTS chunk를 묶는다."""
+    """실험(arm) 하나 — 같은 실험의 METHODS · RESULTS chunk를 묶는다.
+
+    검증 6항목(EvidenceVerdict.checks)은 싣지 않는다. 카드에 오르는 근거는 차단 검사를
+    모두 통과했고, 통과하지 못한 비차단 검사는 flags · limits 문장으로 밝힌다 — 검사 사유는
+    로그 문장이다."""
 
     paper: PaperCitation
     experiment_id: str | None = None
@@ -108,7 +112,6 @@ class CardEvidence(BaseModel):
     flags: list[Flag] = []
     limits: list[str] = []  # 이 근거의 한계 문장(플래그마다)
     excerpts: list[Excerpt]
-    checks: list[CheckResult] = []  # 검증 6항목과 사유(자세히 보기용, 로그 문장)
     evidence_record_ids: list[int]
 
 

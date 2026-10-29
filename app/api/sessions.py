@@ -14,7 +14,8 @@ interrupt(또는 끝)까지 돌리고, 멈춘 자리를 돌려준다. 응답의 
 
 POST는 Accept: text/event-stream이면 SSE(session → progress … → result, 실패하면 error)로,
 아니면 JSON(result와 같은 본문)으로 답한다. 둘 다 run_events 하나에서 나온다. FE는 응답 전에 LLM이
-도는 호출 — POST /sessions · answer · 사전 measure · decision · retry — 만 SSE로 받는다.
+도는 호출 — POST /sessions · answer · 사전 measure · decision · retry — 만 SSE로 받는다. 사후
+measure도 replan의 다음 단계 추천(LLM 1회, 실패하면 규칙 제안)이 돌지만 짧아 JSON으로 받아도 된다.
 
 모든 요청에 Supabase 로그인 토큰이 필요하다(app/auth.py). 세션은 만든 사용자만 본다 — 남의 세션은
 없는 세션과 같은 404다. 회원의 새 세션은 지금 버전의 기록 동의(PUT /me/consent)가 있어야 연다.
@@ -50,6 +51,7 @@ from app.agent.nodes.evaluator import deltas_between
 from app.agent.nodes.planner import PlanRejected
 from app.agent.state import ReplanDecision, SessionReport
 from app.auth import CurrentUser, User
+from app.protocols import RECENT_ROUNDS
 from app.records import SessionRecord, SessionStore
 from app.schemas.care import CareRequest
 from app.schemas.intake import IntakeAnswer, IntakeQuestion
@@ -105,8 +107,9 @@ def _store(request: Request) -> SessionStore:
     return store
 
 
-def _context(request: Request) -> AgentContext:
-    return AgentContext(db_pool=getattr(request.app.state, "db_pool", None))
+def _context(request: Request, session_id: str) -> AgentContext:
+    """그래프 실행 컨텍스트 — DB 풀과 세션 ID(plan의 후보 추천 순서 시드)."""
+    return AgentContext(db_pool=getattr(request.app.state, "db_pool", None), session_id=session_id)
 
 
 def _config(session_id: str) -> dict:
@@ -311,7 +314,7 @@ async def with_heartbeat(events: AsyncIterator[Any], interval: float) -> AsyncIt
 async def _respond(request: Request, record: SessionRecord, value: Any, status_code: int = 200):
     graph = _graph(request)
     finish = recorder(graph, _store(request), record)
-    events = run_events(graph, record.id, value, _context(request), finish)
+    events = run_events(graph, record.id, value, _context(request, record.id), finish)
     if "text/event-stream" in request.headers.get("accept", ""):
         return StreamingResponse(
             _sse_stream(record.id, events),
@@ -405,8 +408,11 @@ async def start_session(body: CareRequest, request: Request, user: CurrentUser):
             message = "세션 기록 동의가 필요합니다."
             raise _error(403, "CONSENT_REQUIRED", message, version=records.CONSENT_VERSION)
     record = SessionRecord(id=str(uuid.uuid4()), user_id=user.id, guest=user.anonymous)
+    # 지난 세션에서 최근에 한 활동 — plan이 추천 순서에서 가중치를 낮춘다. 게스트는 기록이 없다
+    recent = [] if user.anonymous else await store.recent_protocols(user.id, RECENT_ROUNDS)
     await store.create(record.id, user.id, body, guest=user.anonymous)
-    return await _respond(request, record, {"request": body}, status_code=201)
+    start = {"request": body, "recent_protocol_ids": recent}
+    return await _respond(request, record, start, status_code=201)
 
 
 @router.get("/{session_id}")

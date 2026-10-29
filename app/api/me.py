@@ -1,7 +1,8 @@
-"""로그인한 사용자 자신 — 기록 동의와 탈퇴.
+"""로그인한 사용자 자신 — 기록 동의 · 활동 기록 · 탈퇴.
 
     GET    /me/consent   지금 동의 상태. agreed가 false면 FE가 동의 화면을 띄운다
     PUT    /me/consent   {"records": true, "raw_text": bool} — 필수 동의와 원문 동의(선택)
+    GET    /me/sessions  활동 기록 — 활동을 한 세션을 최근 것부터(?limit=, 기본 20 · 최대 100)
     DELETE /me           탈퇴 — 계정과 기록 · 원문 · 동의 · 체크포인트를 지운다(되돌릴 수 없다)
 
 records(필수)는 세션 기록 — 상황 분류 · 질문 답 · 측정값 · 활동 · 결과. 심리 상태 측정값이 들어 있어
@@ -13,23 +14,30 @@ records(필수)는 세션 기록 — 상황 분류 · 질문 답 · 측정값 ·
 (MEMBERS_ONLY)이다. FE는 게스트 시작 화면에 동의 대신 고지 한 줄을 띄운다(README 「인증 · 세션
 기록」).
 
+활동 기록은 세션 기록(분석 테이블)만 읽는다 — 시작 · 끝 시각, 목표, 라운드(활동 · 시간 ·
+끝까지 했는지 · 변화 · 나아졌는지 · 고른 다음 단계)와 목표 척도의 세션 변화. 원문은 싣지 않는다.
+END payload처럼 protocol_id만 보내면 FE가 지난 활동의 이름을 모르므로 라운드마다 활동 이름(name)을
+붙인다. 게스트는 기록이 없어 403(MEMBERS_ONLY)이다.
+
 탈퇴는 Supabase Auth의 사용자 행(auth.users)을 지운다. 로그인 세션도 함께 지워져 같은 토큰은 바로
 401(SESSION_REVOKED)이 된다. FE는 204를 받으면 브라우저에 남은 세션을 지우고 첫 화면으로 간다.
 """
 
 import logging
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
-from app import records
+from app import protocols, records
 from app.auth import CurrentUser
 from app.records import Consent, SessionStore
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/me", tags=["me"])
+
+HISTORY_LIMIT = 20  # 활동 기록이 한 번에 돌려주는 세션 수(기본값)
 
 
 class ConsentBody(BaseModel):
@@ -68,6 +76,30 @@ async def put_consent(body: ConsentBody, request: Request, user: CurrentUser) ->
         raise HTTPException(403, {"code": "MEMBERS_ONLY", "message": message})
     store = _store(request)
     return consent_view(await store.save_consent(user.id, body.raw_text), store)
+
+
+@router.get("/sessions")
+async def get_sessions(
+    request: Request,
+    user: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=100)] = HISTORY_LIMIT,
+) -> dict:
+    """활동 기록 {"sessions": [...]} — 최근 세션부터. 라운드마다 활동 이름을 붙인다."""
+    if user.anonymous:
+        message = "게스트 체험은 기록을 남기지 않습니다. 로그인하면 활동 기록을 볼 수 있습니다."
+        raise HTTPException(403, {"code": "MEMBERS_ONLY", "message": message})
+    sessions = await _store(request).history(user.id, limit)
+    return {
+        "sessions": [
+            {**session, "rounds": [_named(r) for r in session["rounds"]]} for session in sessions
+        ]
+    }
+
+
+def _named(round_row: dict) -> dict:
+    """활동 이름. 활동 노드 JSON에서 빠진 활동이면 None — FE는 protocol_id를 보인다."""
+    protocol = protocols.get_protocol(round_row["protocol_id"])
+    return {**round_row, "name": protocol.name if protocol else None}
 
 
 @router.delete("", status_code=204)
