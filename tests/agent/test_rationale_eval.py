@@ -150,6 +150,46 @@ def test_review_sheet_takes_every_judge_fail_and_a_pass_sample():
     assert all(r["human"] == "" for r in review)
 
 
+def test_record_markdown_lists_the_setup_tables_and_what_broke():
+    passing = {name: {"ok": True, "detail": ""} for name in rationale_eval.CHECKS}
+    rows = [
+        {
+            "case": "w1/S2-post-b",
+            "protocol_id": "PR-01",
+            "rationale": GOOD,
+            "checks": passing | {"factors": {"ok": False, "detail": "숲, 바다"}},
+            "judgment": judgment(faithful="발췌에 | 없는 결과").model_dump(),
+            "error": None,
+        },
+        {
+            "case": "w1/S1-pre-a",
+            "protocol_id": "PR-09",
+            "rationale": GOOD,
+            "checks": passing,
+            "judgment": None,
+            "error": "RuntimeError: boom",
+        },
+    ]
+    judges = [{"judge": "gpt-5.5", "effort": "medium", "tokens": [87089, 25406], "at": "T1"}]
+    runs = [
+        {
+            "meta": {"model": "gpt-5.4-mini", "seed": "plan-eval", "db": "lumi-pg", "at": "T0"},
+            "summary": {"runs": 36, "scenarios": 30, "change_rounds": 6},
+        }
+    ]
+    summary = rationale_eval.summarize(rows)
+    text = rationale_eval.record_markdown("기준선", rows, summary, judges, runs, rechecked=True)
+    assert text.startswith("# 추천 이유 평가 — 기준선\n")
+    assert "`gpt-5.4-mini` · 후보 순서 시드 `plan-eval`" in text
+    assert "계획 36개(시나리오 30 + 활동 변경 6)" in text
+    assert "`gpt-5.5`(추론 medium) · 토큰 87,089/25,406" in text
+    assert "| factors | 1 | 2 |" in text and "| faithful | 0 | 1 | 0 |" in text
+    assert "## 어긴 것 — 2건" in text
+    assert "| w1/S2-post-b | PR-01 | factors | 숲, 바다 | 규칙 |" in text
+    assert "| faithful | 반드시 좋아져요 | 발췌에 \\| 없는 결과 |" in text  # 세로줄을 막는다
+    assert "## Judge 실패 — 1건" in text and "- w1/S1-pre-a: RuntimeError: boom" in text
+
+
 def test_agreement_reads_o_x_labels_and_skips_blank_ones(tmp_path):
     rows = [{"case": "r1/S1-a", "judgment": judgment(hedged="단정").model_dump()}]
     labels = tmp_path / "labels.csv"

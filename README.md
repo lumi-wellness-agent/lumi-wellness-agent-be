@@ -374,7 +374,7 @@ make run                # http://127.0.0.1:8000/health
 | `make plan-trial ARGS="S2 --repeat 3"` | 실제 모델로 intake → plan을 돌려 고른 활동 · 검색 질의 · 근거 · Reference 카드(배지 · 근거 실험 · 한계)를 본다 (LLM 비용, 근거 DB 읽기 전용). `--queries <jsonl>`이 검색 질의를 모은다 |
 | `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
-| `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
+| `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `report --md`는 `docs/rag-eval/` 실행 기록을, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -625,6 +625,11 @@ TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make t
 모델 출력이 흔들려서(10-28 S1 6회 중 4회만 플래그 이름이 샜다) plan-eval을 여러 번 돌린 결과를 함께 넣고, 계획마다
 한 건으로 셉니다.
 
+평가 기록은 `docs/rag-eval/`에 날짜별로 남깁니다 — `rationale_eval.py report <judged.json> --md
+docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 · Judge 분포 · 어긴 것)과, 사람이 쓰는 판정
+메모(`-verdict.md` — 측정 배경 · 읽는 법 · 판정 · 한계). 2026-10-29: [판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
+· [기준선](docs/rag-eval/2026-10-29-rationale-baseline.md) · [수정 후](docs/rag-eval/2026-10-29-rationale-must-disclose.md).
+
 | 층 | 항목 | 판정 |
 | --- | --- | --- |
 | 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장(한계를 밝히는 '다만' 문장이 있으면 4문장), 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
@@ -824,7 +829,8 @@ scripts/seed_evidence.py        근거 arm 시트 → papers · evidence_records
 scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 실행 · 검색 질의 수집(make plan-trial)
 scripts/rag_eval.py             근거 검색 평가 — 질의 수집 · 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 scripts/plan_eval.py            계획 평가 — 시나리오마다 실제 모델로 plan 노드 실행 · 규칙 판정(make plan-eval)
-scripts/rationale_eval.py       추천 이유 평가 — 규칙(코드) · LLM Judge 채점 · 사람 라벨 일치(make rationale-eval)
+scripts/rationale_eval.py       추천 이유 평가 — 규칙(코드) · LLM Judge 채점 · 실행 기록 · 사람 라벨 일치(make rationale-eval)
+docs/rag-eval/                  평가 기록 — 날짜별 실행 기록(스크립트 출력)과 판정 메모(-verdict.md)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
 supabase/migrations/    DB 마이그레이션 (Supabase CLI 파일명 규칙)
