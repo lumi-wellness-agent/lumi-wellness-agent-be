@@ -24,7 +24,7 @@ def test_missing_key_becomes_safe_warning_without_network_call():
     assert result.warnings == ["SOUNDSCAPE: FREESOUND_API_KEY가 설정되지 않음"]
 
 
-def test_ai_image_profile_uses_horde_for_pr21(monkeypatch):
+def test_pr21_uses_ai_horde_by_default(monkeypatch):
     protocol = get_protocol("PR-21")
     assert protocol is not None
     captured = {}
@@ -45,10 +45,8 @@ def test_ai_image_profile_uses_horde_for_pr21(monkeypatch):
         ]
 
     monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", fake_generate)
-    request = CareRequest(
-        text="사진을 보고 싶어요",
-        profile=UserProfile(content_type=ContentType.AI_IMAGE, preferred_scenery=["숲"]),
-    )
+    # 사용자가 그림 종류를 고르지 않아도(기본 CURATED_PHOTO) PR-21은 AI 그림이 기본이다
+    request = CareRequest(text="사진을 보고 싶어요", profile=UserProfile(preferred_scenery=["숲"]))
     result = resolve_activity_assets(
         protocol,
         request,
@@ -130,6 +128,38 @@ def test_default_photo_profile_uses_pixabay_for_pr01(monkeypatch):
     assert captured == {"query": "calm forest water", "count": 25}
     assert len(result.assets) == 25
     assert all(asset.provider == "PIXABAY" for asset in result.assets)
+
+
+def test_pr21_without_horde_key_uses_pixabay(monkeypatch):
+    def no_generation(self, prompt, *, count=1):
+        raise AssertionError("키가 없으면 AI Horde를 부르지 않는다")
+
+    def fake_search(self, query, *, count=1, **kwargs):
+        from app.agent.state import ActivityAsset
+
+        return [
+            ActivityAsset(
+                slot="VISUAL_STILL",
+                url="https://cdn/photo.jpg",
+                provider="PIXABAY",
+                verification="PENDING_CONTENT_REVIEW",
+            )
+        ]
+
+    monkeypatch.setattr("app.content.resolver.AIHordeProvider.generate_images", no_generation)
+    monkeypatch.setattr("app.content.resolver.PixabayProvider.search_images", fake_search)
+    result = resolve_activity_assets(
+        get_protocol("PR-21"),
+        CareRequest(text="-"),
+        settings=Settings(ai_horde_api_key="", pixabay_api_key="secret"),
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: (_ for _ in ()).throw(AssertionError())
+            )
+        ),
+    )
+    assert [a.provider for a in result.assets if a.slot == "VISUAL_STILL"] == ["PIXABAY"]
+    assert any("AI_HORDE_API_KEY가 없어 Pixabay" in w for w in result.warnings)
 
 
 def test_ai_generation_failure_falls_back_to_pixabay(monkeypatch):
@@ -728,8 +758,9 @@ def test_delivered_media_marks_ai_image_only_where_it_is_generated():
     from app.protocols import delivered_media
     from app.schemas.evidence import Medium
 
-    # PR-21만 AI 그림을 만든다 — 카드의 AI_IMAGE_UNVERIFIED와 근거 검증이 실제 콘텐츠와 같다
-    assert Medium.AI_IMAGE in delivered_media(get_protocol("PR-21"), ContentType.AI_IMAGE)
+    # PR-21만 AI 그림이 기본이다(선택 없음) — 카드의 AI_IMAGE_UNVERIFIED와 근거 검증이 같다
+    for chosen in (ContentType.CURATED_PHOTO, ContentType.AI_IMAGE):
+        assert Medium.AI_IMAGE in delivered_media(get_protocol("PR-21"), chosen)
     for pid in ("PR-01", "PR-03"):
         media = delivered_media(get_protocol(pid), ContentType.AI_IMAGE)
         assert Medium.AI_IMAGE not in media and Medium.STATIC_IMAGE in media, pid
