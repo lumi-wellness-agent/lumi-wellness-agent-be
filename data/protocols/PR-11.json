@@ -31,7 +31,18 @@
     ],
     "place": "OUTDOOR",
     "quiet_required": false,
-    "not_recommended_if": []
+    "not_recommended_if": [
+      "AVAILABLE_TIME_NOT_SELECTED",
+      "AVAILABLE_TIME_5_MINUTES",
+      "AVAILABLE_TIME_10_MINUTES",
+      "AVAILABLE_TIME_LESS_THAN_20_MINUTES"
+    ],
+    "availability_input": {
+      "required": true,
+      "minimum_minutes_for_recommendation": 20,
+      "excluded_values_minutes": [5, 10],
+      "when_missing": "DO_NOT_RECOMMEND"
+    }
   },
   "guide": {
     "intro_text": "지금부터 야외 자연 보행을 약 50분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",

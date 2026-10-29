@@ -1,1 +1,1 @@
-{"protocol_id":"PR-14","name":"만다라 컬러링","summary":"독립된 만다라 영역을 색칠하며 자연스럽게 몰입하는 활동","completion_rule":{"required_completed_designs":1,"minimum_elapsed_seconds":960},"verification":{"automatic_activity":"not_performed","self_report":"not_required"}}
+{"protocol_id":"PR-14","name":"만다라 컬러링","summary":"독립된 만다라 영역을 색칠하며 자연스럽게 몰입하는 활동","completion_rule":{"required_completed_designs":1,"required_design_position":"FIRST_DESIGN","minimum_completion_percent":80,"minimum_elapsed_seconds":960},"verification":{"automatic_activity":"not_performed","self_report":"not_required"}}

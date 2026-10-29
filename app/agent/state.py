@@ -11,7 +11,7 @@ import operator
 from enum import StrEnum
 from typing import Annotated, Any, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.schemas.card import ReferenceCard
 from app.schemas.care import CareGoal, CareRequest, Environment, Place, Setting
@@ -161,6 +161,14 @@ class SessionReport(BaseModel):
     # NOTICE 단계(PR-16 팝업)에 적은 감정 단어 1~3개 — 칸 수 · 글자 수는 PR-16 session_ui.input을
     # 따른다. 점수화하지 않고 실사용 데이터로 남긴다
     notice_words: list[NoticeWord] = Field(default=[], max_length=3)
+
+    @field_validator("notice_words", mode="before")
+    @classmethod
+    def normalize_notice_words(cls, value: Any) -> Any:
+        """알아차림 기록의 연속 공백을 한 칸으로 정규화한다."""
+        if not isinstance(value, list):
+            return value
+        return [" ".join(item.strip().split()) if isinstance(item, str) else item for item in value]
 
 
 class OutcomeEvaluation(BaseModel):

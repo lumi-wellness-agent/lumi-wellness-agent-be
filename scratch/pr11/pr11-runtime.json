@@ -7,6 +7,12 @@
     "show_safety_check": true,
     "show_self_report": false
   },
+  "availability_input": {
+    "required_for_recommendation": true,
+    "minimum_minutes_for_recommendation": 20,
+    "excluded_values_minutes": [5, 10],
+    "when_missing": "DO_NOT_RECOMMEND"
+  },
   "timer": {
     "recommended_duration_seconds": 3000,
     "user_duration_options_minutes": [
