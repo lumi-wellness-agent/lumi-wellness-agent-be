@@ -118,11 +118,12 @@
     ]
   },
   "N24": {
-    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다",
+    "_why": "손으로 확정한 값 — tests/fixtures/evidence_hits.json과 같다. 2026-10-30 measure를 적었다: 초록은 '자기보고(PSS) 또는 생리 스트레스 지표'를 통합한 스트레스 회복이고 불안 척도는 없다 — measure가 비면 설명 입력의 개선 지표가 범주 이름 '불안·주관적 스트레스'로 나가 RAG 비교(판정 6)에서 비지지 3건이 났다",
     "results": [
       {
         "outcome": "SUBJECTIVE_STRESS",
         "effect": "POSITIVE",
+        "measure": "스트레스(자기보고 PSS · 생리 지표 통합)",
         "comparison": "디지털 자연 노출(통합)",
         "stat": "디지털 = 실제 자연, SMD −0.01"
       },
