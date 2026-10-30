@@ -198,8 +198,13 @@ hedged · personal은 A · B · C 모두 36/36이다. 세 비교군이 같은 �
 2. 사람 라벨 — `review_compare.csv`(152줄)에서 Judge FAIL 전부와 PASS 표본을 가리고 판정해 `agree`로 일치를 낸다.
 3. 네이버 검색(D) — Chrome 확장에서 search.naver.com을 허용하거나 네이버 검색 API로 30개 시나리오를 자동 집계한다.
 4. "더 큰 모델이면?" — gpt-5.5 단독 비교군 36건(≈ $4).
-5. N24(Fan & Baharum 2024) 레코드의 `SUBJECTIVE_STRESS` 결과에 measure가 비어 있다 — 메타분석의 통합 지표는
+5. ~~N24(Fan & Baharum 2024) 레코드의 `SUBJECTIVE_STRESS` 결과에 measure가 비어 있다 — 메타분석의 통합 지표는
    스트레스라 '스트레스'로 적으면 범주 이름("불안·주관적 스트레스") 대신 '주관적 스트레스'가 나간다(판정 6의 비지지
-   3건). measure가 빈 다른 결과도 같이 본다.
+   3건).~~ — 같은 날 적었다(`data/evidence_overrides.json` N24 measure "스트레스(자기보고 PSS · 생리 지표 통합)" —
+   초록의 'subjective or physiological stress measures' 통합, 불안 척도 없음). 적재 전 대조에서 바뀌는 행은 두 DB 모두
+   N24 2행(metadata.results)뿐이었고, OpenAI 프로젝트 지출 한도로 seed의 임베딩 호출이 막혀 그 2행의 metadata만 seed가
+   만드는 값으로 갱신했다 — 임베딩 텍스트(`embedding_text`)에 measure가 들어가지 않아 벡터는 재적재해도 같다. 재측정은
+   하지 않았다 — 설명 입력의 개선 지표가 '주관적 스트레스'로 나가는 것은 단위 테스트로 본다. measure가 빈 다른
+   결과(E06 · E07 · P22 등 UNCLEAR)는 범주 이름이 나가지 않는다(POSITIVE 결과만 가른다).
 6. Balban 2023의 상태 불안(STAI)은 본문 결과라 초록 기준 Judge에서는 확인 불가로 남는다 — 비교군 셋에 같은 자를
    대려고 초록만 썼기 때문이고, A에만 본문 발췌를 대면 사라진다. 발표에서는 "초록 기준"이라고 말한다.
