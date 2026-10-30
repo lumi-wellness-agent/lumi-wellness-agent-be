@@ -3,7 +3,7 @@
 
 PY ?= $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) python3)
 
-.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval plan-eval intake-eval rationale-eval parse-papers extract-excerpts
+.PHONY: run lint test test-intake test-measure test-planner test-protocols graph checkpoint-setup protocols-scaffold seed-evidence plan-trial rag-eval plan-eval intake-eval rationale-eval rag-compare parse-papers extract-excerpts
 
 run:
 	$(PY) -m uvicorn app.main:app --reload
@@ -78,6 +78,18 @@ intake-eval:
 #     make rationale-eval ARGS="agree judged.json labels.csv"
 rationale-eval:
 	$(PY) scripts/rationale_eval.py $(ARGS)
+
+# RAG 사용 vs LLM 단독 vs LLM + 웹 검색 비교(README 「RAG 사용 vs LLM 단독 vs 웹 검색」). plan-eval --out 결과의
+# 계획마다 활동은 그대로 두고 근거 제시만 세 방식으로 만들어 인용 실존(OpenAlex) · 주장 지지(Judge)를 비교한다.
+# import-rag · verify · report는 LLM 없음, generate · judge는 LLM 비용
+# 예: make rag-compare ARGS="import-rag a.json --out rag.json --database-url postgresql://postgres:postgres@localhost:54329/postgres"
+#     make rag-compare ARGS="generate a.json --mode llm --repeat 3 --out llm.json"
+#     make rag-compare ARGS="generate a.json --mode web --out web.json"
+#     make rag-compare ARGS="verify rag.json llm.json web.json"
+#     make rag-compare ARGS="judge llm.json --out judged_llm.json"
+#     make rag-compare ARGS="report judged_rag.json judged_llm.json judged_web.json --md docs/rag-eval/2026-10-30-rag-compare.md"
+rag-compare:
+	$(PY) scripts/rag_compare.py $(ARGS)
 
 # 논문 PDF → 섹션 텍스트 캐시(Docling, `.[ingestion]` extras). 캐시는 Research_paper(비공개)/…/01_fulltext
 # 예: make parse-papers ARGS="--with-records"
