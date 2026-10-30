@@ -394,6 +394,7 @@ make run                # http://127.0.0.1:8000/health
 | `make rag-eval ARGS="run --misses"` | 근거 검색 평가 — `data/rag_eval.jsonl` 180문항으로 Hit@K · Recall@K · MRR · CP@5(RAGAS Context Precision) · Foreign@5를 낸다 (근거 DB 읽기 전용, 질의 임베딩 비용). `collect`가 시나리오로 질의를 모으고(LLM 비용) `build`가 케이스를 만들고 `compare`가 결과 둘을 비교한다 (「근거 검색 평가」) |
 | `make plan-eval ARGS="--database-url …"` | 계획 평가 — 시나리오 30개마다 실제 모델로 plan 노드를 돌려 규칙(계획 · 첫 선택 · 후보 · 풀린 조건 · check_plan · 활동 변경)으로 판정하고 Reference 카드 근거를 센다 (LLM 비용, 근거 DB 읽기 전용) (「계획 평가」) |
 | `make rationale-eval ARGS="judge r1.json …"` | 추천 이유 평가 — plan-eval 결과의 추천 이유를 규칙(코드)과 LLM Judge(생성과 다른 모델)로 채점한다 (Judge LLM 비용). `check`는 규칙만, `report --md`는 `docs/rag-eval/` 실행 기록을, `agree`는 사람 라벨과 Judge의 일치를 낸다 (「추천 이유 평가」) |
+| `make rag-compare ARGS="generate a.json --mode llm …"` | RAG 사용 vs LLM 단독 vs LLM + 웹 검색 — plan-eval 결과의 계획마다 활동은 그대로 두고 근거 제시만 세 방식으로 만들어 인용 실존(OpenAlex) · 출처 유형 · 주장 지지(Judge)를 비교한다. `import-rag` · `verify` · `report`는 LLM 없음, `generate` · `judge`는 LLM 비용 (「RAG 사용 vs LLM 단독 vs 웹 검색」) |
 
 Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Scripts\pip install -e ".[dev]"`로
 설치합니다. `make`가 없으면 Makefile의 명령을 `.venv\Scripts\python`으로 직접 실행합니다
@@ -753,6 +754,42 @@ docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 �
   통과라 κ는 0이다 — 둘이 같은 곳에서 위반을 찾는지는 이 표본으로 알 수 없다([판정 메모](docs/rag-eval/2026-10-29-rationale-judge-verdict.md)
   판정 5).
 
+### RAG 사용 vs LLM 단독 vs 웹 검색
+
+"근거는 그냥 ChatGPT에 물어보거나 검색하면 되지 않나"에 답하는 비교입니다. LUMI에서 RAG가 맡는 일은 추천 이유의
+근거 제시라, 계획 평가의 계획 36개에서 활동은 LUMI가 고른 것으로 고정하고 근거 부분만 세 방식으로 만들어 같은 자로
+잽니다(`make rag-compare`, `scripts/rag_compare.py`). 생성 모델은 셋 다 운영과 같은 gpt-5.4-mini입니다.
+
+- **A. LUMI RAG** — plan eval의 추천 이유 그대로(근거는 검증된 레코드). **B. LLM 단독** — 같은 입력에서 근거 ·
+  꼭 밝힐 것 · 콘텐츠 Factor 칸을 빼고 모델이 아는 연구를 인용(같은 입력 3회). **C. LLM + 웹 검색** — 같은 입력에
+  OpenAI `web_search` 도구. **D. 일반 검색** — 시나리오 문장 6개를 구글에 넣어 첫 페이지 출처 유형을 손으로 셉니다.
+- **인용**은 추천 이유의 '저자(연도)'를 코드가 찾고, **실존**은 OpenAlex(DOI → 제목) → Crossref → 저자 · 연도 조회로
+  FOUND · MISMATCH(서지 오류) · NOT_FOUND를 가릅니다. **Judge**(gpt-5.5)는 인용마다 주장이 초록으로 뒷받침되는지와
+  연구 조건(사건 전 · 후 · 대상 · 매체)이 사용자 상태에 맞는지를, 추천 이유마다 hedged · personal을 판정합니다 —
+  A도 운영이 보는 발췌가 아니라 같은 초록 기준입니다. Judge 숫자는 `sheet` · `agree`로 사람 라벨과 맞춘 뒤 씁니다.
+
+2026-10-30 측정 — 기록은 [판정 메모](docs/rag-eval/2026-10-30-rag-compare-verdict.md) · [실행 기록](docs/rag-eval/2026-10-30-rag-compare.md)
+· [구글 결과](docs/rag-eval/2026-10-30-rag-compare-google.md):
+
+| | A. LUMI RAG | B. LLM 단독 | C. LLM + 웹 검색 |
+| --- | ---: | ---: | ---: |
+| 인용 실존 — 일치 · 서지 오류 · 없음 | **70 · 0 · 0** (100%) | 36 · 9 · **10** (65 · 16 · 18%) | 53 · 9 · 0 (85 · 15 · 0%) |
+| 같은 입력 3회의 인용 집합 Jaccard | — | **0.10** | — |
+| 출처 텍스트 있는 인용 중 주장 지지 | 52/63 (83%) | 13/28 (46%) | 55/61 (90%) |
+| 연구 조건이 사용자 상태와 어긋남 | **1/70** | 7/55 (13%) | **14/62 (23%)** |
+| 출처 없는 연구 주장 문장 / 추천 이유 36개 | 1 | 3 | 11 |
+| hedged · personal | 36/36 | 36/36 | 36/36 |
+| 비용 · 시간 / 건 | $0.0068(선택 + 설명) · 3.6초 | $0.0015 · 3.7초 | $0.0153 · 5.5초 |
+
+- B는 인용의 1/3이 틀리고(없는 논문 18% — "Kang et al. (2014) … A meta-analysis"처럼 그럴듯하다) 같은 입력에 매번
+  다른 논문을 댄다. C는 인용이 실존하지만(PubMed 59/62) 스트레스 과제 **전** 노출 연구를 스트레스를 **겪은 뒤** 사용자에게,
+  임상 환자 표본 · 2~4주 개입 · 영상 연구를 5분 사진 활동의 근거로 댄다 — A가 코드로 거르는 것(`ORDER_COMPATIBILITY` ·
+  `POPULATION_MISMATCH` · 매체)이 정확히 여기다. A의 주장 불일치 5건은 모두 Toussaint 2021(초록은 '이완 상태'만
+  말한다)이라 설명이 아니라 레코드의 지표 라벨 문제다(후속).
+- D(구글 57개 결과): 학술 0 · 공공 · 의료기관 3 · 언론 9 · 블로그 · 커뮤니티 29 · 상업 16 — 몸 증상 질의는 부정맥 ·
+  뇌졸중 쪽으로 흐른다. 네이버는 Chrome 확장이 막아 돌리지 못했다. 검색 품질 자체는 「근거 검색 평가」의 키워드 vs
+  벡터(Recall@5 0.895 vs 0.989)에 있다.
+
 ## 배포 (Vercel)
 
 FastAPI 앱(`app/main.py`의 `app`)을 Vercel Python 런타임에 함수 하나로 올립니다. 저장소를 Vercel 프로젝트에
@@ -892,6 +929,7 @@ scripts/plan_trial.py           실제 모델로 intake → plan 시나리오 �
 scripts/rag_eval.py             근거 검색 평가 — 질의 수집 · 케이스 생성 · Hit@K · Recall@K · MRR · 전후 비교(make rag-eval)
 scripts/plan_eval.py            계획 평가 — 시나리오마다 실제 모델로 plan 노드 실행 · 규칙 판정(make plan-eval)
 scripts/rationale_eval.py       추천 이유 평가 — 규칙(코드) · LLM Judge 채점 · 실행 기록 · 사람 라벨 일치(make rationale-eval)
+scripts/rag_compare.py          RAG 사용 vs LLM 단독 vs LLM + 웹 검색 — 인용 실존(OpenAlex) · 출처 유형 · 주장 지지 Judge · 비교표(make rag-compare)
 docs/rag-eval/                  평가 기록 — 날짜별 실행 기록(스크립트 출력)과 판정 메모(-verdict.md)
 scripts/parse_papers.py         논문 PDF → 섹션 텍스트 캐시, Docling · 스캔은 RapidOCR(make parse-papers)
 scripts/extract_excerpts.py     레코드별 원문 METHODS · RESULTS 발췌 → data/evidence_excerpts.json(make extract-excerpts)
