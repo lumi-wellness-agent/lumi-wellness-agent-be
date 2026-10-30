@@ -424,12 +424,10 @@
   },
   "grades": {
     "AFFECT": {
-      "grade": "B",
-      "support": [
-        "P18-E1"
-      ],
+      "grade": "—",
+      "support": [],
       "conflicts": [],
-      "note": "P18 이완 상태↑"
+      "note": "P18은 SRSI-3 이완 총점만 보고 — 정서 · 기분 척도 없음(2026-10-30 원문 대조, data/evidence_overrides.json)"
     },
     "SUBJECTIVE_STRESS": {
       "grade": "A",
@@ -473,7 +471,6 @@
       "population": "대학생(미국)",
       "stimulus": "녹음 안내 20분 단회",
       "outcomes": [
-        "AFFECT",
         "SUBJECTIVE_STRESS",
         "PHYSIO"
       ],

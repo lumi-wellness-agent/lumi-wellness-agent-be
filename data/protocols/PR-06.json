@@ -372,7 +372,6 @@
       "population": "대학생(미국)",
       "stimulus": "녹음 안내 20분 단회",
       "outcomes": [
-        "AFFECT",
         "SUBJECTIVE_STRESS",
         "PHYSIO"
       ],
