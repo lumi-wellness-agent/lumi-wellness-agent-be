@@ -16,7 +16,7 @@ from app.agent.nodes.planner import (
     make_explainer,
     planner_context,
 )
-from app.agent.prompts import CHOOSE_SYSTEM_PROMPT, EXPLAIN_SYSTEM_PROMPT
+from app.agent.prompts import CHOOSE_SYSTEM_PROMPT, EXPLAIN_SYSTEM_PROMPT, outcome_display
 from app.agent.state import (
     CarePlan,
     IntakeResult,
@@ -29,7 +29,7 @@ from app.agent.state import (
 from app.agent.validation import judge
 from app.schemas.care import CareGoal, CareRequest, ContentType, Environment, UserProfile
 from app.schemas.content import ContentFactors, Scenery
-from app.schemas.evidence import InterventionOrder, Medium
+from app.schemas.evidence import Effect, InterventionOrder, Medium, Outcome, OutcomeResult
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 from tests.agent import fakes
 
@@ -119,6 +119,66 @@ def test_explainer_lists_only_verified_evidence():
     assert "[102]" in text and "P24-E1 RESULTS" in text and "목표 지지: 예" in text
     assert "개선 지표: 반추" in text and "ADAPTED_STIMULUS" in text
     assert "발췌: " in text
+
+
+def measured(
+    outcome: Outcome, measure: str | None, effect: Effect = Effect.POSITIVE
+) -> OutcomeResult:
+    return OutcomeResult(outcome=outcome, effect=effect, measure=measure)
+
+
+@pytest.mark.parametrize(
+    ("measures", "expected"),
+    [
+        (["SRSI-3 이완 총점(이완 상태 18 + 스트레스 상태 3)"], "이완 상태"),  # Toussaint 2021(P18)
+        (["STAI"], "불안"),  # Balban 2023(P16)
+        (["TAQ"], "불안"),  # E20
+        (["스트레스"], "주관적 스트레스"),  # E08
+        (["불안·스트레스"], "불안·주관적 스트레스"),  # E13 — 둘 다 쟀으면 범주 이름과 같다
+        (["불안", "스트레스"], "불안·주관적 스트레스"),
+        ([None], "불안·주관적 스트레스"),  # N24 — 잰 것을 모르면 범주 이름
+        ([], "불안·주관적 스트레스"),
+    ],
+)
+def test_outcome_display_names_what_the_evidence_measured(measures, expected):
+    # 범주 이름('불안·주관적 스트레스')을 그대로 적으면 불안을 재지 않은 연구에도 '불안'이 붙었다
+    # (2026-10-30 RAG 비교, Toussaint 2021 불일치 5/5)
+    results = [measured(Outcome.SUBJECTIVE_STRESS, m) for m in measures]
+    assert outcome_display(Outcome.SUBJECTIVE_STRESS, results) == expected
+
+
+def test_outcome_display_reads_only_positive_results_of_that_outcome():
+    results = [
+        measured(Outcome.SUBJECTIVE_STRESS, "불안", Effect.NOT_SIGNIFICANT),
+        measured(Outcome.SUBJECTIVE_STRESS, "스트레스"),
+        measured(Outcome.AFFECT, "PA"),
+    ]
+    assert outcome_display(Outcome.SUBJECTIVE_STRESS, results) == "주관적 스트레스"
+    assert outcome_display(Outcome.AFFECT, results) == "정서·기분"  # 가르는 규칙이 없는 지표
+    assert outcome_display(Outcome.RUMINATION, []) == "반추"
+
+
+def test_explainer_writes_the_measured_construct_as_the_outcome():
+    # 이완 척도만 잰 근거(Toussaint 2021처럼) — 근거 줄의 개선 지표가 '이완 상태'다
+    base = next(h for h in fakes.load_hits() if h.evidence_record_id == 152)  # N24 RESULTS
+    results = [
+        r.model_copy(update={"measure": "SRSI-3 이완 총점(이완 상태 18 + 스트레스 상태 3)"})
+        if r.outcome is Outcome.SUBJECTIVE_STRESS
+        else r
+        for r in base.metadata.results
+    ]
+    hit = base.model_copy(
+        update={"metadata": base.metadata.model_copy(update={"results": results})}
+    )
+    verdict = judge(hit, goal=CareGoal.S2, media=[Medium.STATIC_IMAGE])
+    assert verdict.supports_goal
+    model = fakes.FakeStructuredModel(PlanRationale.text("-"))
+    choice = ActivityChoice(protocol_id="PR-01", search_query="nature images stress", reason="-")
+    protocol = protocols.get_protocol("PR-01")
+    asyncio.run(make_explainer(model)(S2_STATE, choice, protocol, [CitedEvidence(hit, verdict)]))
+    text = model.inputs[0][1].content
+    assert "개선 지표: 이완 상태 ·" in text and "불안·주관적 스트레스 ·" not in text
+    assert "목표 지표 등급: 불안·주관적 스트레스" in text  # 활동의 등급은 범주 이름 그대로
 
 
 def test_explainer_says_when_nothing_was_verified():

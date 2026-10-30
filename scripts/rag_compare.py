@@ -388,7 +388,9 @@ _AUTHORS_TAIL = re.compile(
 _AUTHOR_STOP = {"et", "al", "and", "etal"}
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[가-힣A-Za-zÀ-ɏ\"'‘“])")
 _STUDY_WORDS = re.compile(r"연구|메타분석|메타 분석|실험|리뷰|논문|체계적 고찰|보고(?:됐|되었|했)")
-_DISCLOSURE = re.compile(r"^다만|찾지 못했|확인되지 않았")  # 근거 없음 · 한계 고지 — 주장이 아니다
+# 근거 없음 · 한계 고지 — 주장이 아니다. '다만' 없이 쓴 자극 · AI 이미지 고지("AI 생성 이미지는
+# 연구에서 사용한 사진과는 다릅니다")도 뺀다(2026-10-30 재측정 S1-daily-b)
+_DISCLOSURE = re.compile(r"^다만|찾지 못했|확인되지 않았|연구에서 (?:쓴|사용한) (?:사진|자극)")
 
 
 def fold(text: str) -> str:

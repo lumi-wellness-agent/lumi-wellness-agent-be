@@ -48,6 +48,7 @@ def test_find_mentions_reads_both_citation_styles():
         " 줄었다고 했고, Macrynikola et al. (2024)도 같은 결과입니다. 앱 연구에서도 반추 개선이"
         " 확인됐습니다(Curry & Kasser, 2005; Holt, Furbert & Sweetingham, 2019; 개선 지표 없음)."
         " 여러 연구에서 비슷한 결과가 보고됐습니다. 다만 연구에서 쓴 자극과 다릅니다."
+        " AI 생성 이미지는 연구에서 사용한 사진과는 다릅니다."
     )
     mentions, unattributed = rag_compare.find_mentions(text)
     assert [(m["surnames"][0], m["year"]) for m in mentions] == [
@@ -56,7 +57,8 @@ def test_find_mentions_reads_both_citation_styles():
     assert mentions[0]["surnames"] == ["Bolzenkötter", "Neubauer", "Koval"]
     assert mentions[1]["sentence"].startswith("Bolzenkötter")
     assert mentions[3]["sentence"].startswith("앱 연구에서도")
-    # '(저자, 연도)' 괄호 안의 연도 아닌 조각은 인용이 아니고, '다만 …' 한계 고지는 주장이 아니다
+    # '(저자, 연도)' 괄호 안의 연도 아닌 조각은 인용이 아니고, '다만 …' 한계 고지와 '다만' 없이 쓴
+    # AI 이미지 고지는 주장이 아니다
     assert unattributed == ["여러 연구에서 비슷한 결과가 보고됐습니다."]
 
 

@@ -7,6 +7,7 @@ ActivityChoice · PlanRationale, app/agent/nodes/replanner.py의 NextStepChoice)
 """
 
 import json
+import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -16,10 +17,17 @@ from app.agent.state import CareState, IntakeResult, NextStep, ReplanProposal, c
 from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
 from app.schemas.care import CareGoal, CareRequest, ContentType
-from app.schemas.evidence import OUTCOME_LABELS, InterventionOrder, Medium, Outcome
+from app.schemas.evidence import (
+    OUTCOME_LABELS,
+    Effect,
+    InterventionOrder,
+    Medium,
+    Outcome,
+    OutcomeResult,
+)
 from app.schemas.intake import IntakeTurn, QuestionSlot
 from app.schemas.protocol import CareProtocol
-from app.schemas.retrieval import GOAL_OUTCOMES, Flag
+from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceVerdict, Flag
 
 if TYPE_CHECKING:
     from app.agent.nodes.planner import ActivityChoice, CitedEvidence
@@ -177,9 +185,10 @@ EXPLAIN_SYSTEM_PROMPT = """\
 한국어 2~3문장으로 쓴다. 순서는 사용자 상태 → 이 활동을 고른 이유 → 근거(저자(연도)와 개선이
 확인된 지표). 꼭 밝힐 것이 있으면 마지막에 '다만 …' 한 문장을 더한다(최대 4문장).
 
-- 근거 목록에 있는 연구만 언급한다. 그 근거의 '개선 지표'에 있는 지표만 좋아졌다고 말한다 —
-  정서 결과를 스트레스 · 불안 감소로 바꿔 말하지 않고, 개선 지표에 없는 결과(이완 점수 · 생리
-  반응 …)는 효과로 말하지 않는다. 목표 지지가 '아니오'인 근거는 효과의 근거로 쓰지 않는다.
+- 근거 목록에 있는 연구만 언급한다. 그 근거의 '개선 지표'에 적힌 이름 그대로의 지표만 좋아졌다고
+  말한다 — 정서 결과를 스트레스 · 불안 감소로, 이완 상태를 불안 · 스트레스 감소로 바꿔 말하지 않고,
+  개선 지표에 없는 결과(생리 반응 · 과제 수행 …)는 효과로 말하지 않는다. '목표 지표 등급'은 활동의
+  등급이지 연구 결과가 아니다. 목표 지지가 '아니오'인 근거는 효과의 근거로 쓰지 않는다.
 - 근거에 없는 조건(시간 · 횟수 · 대상)을 덧붙이지 않는다.
 - '## 꼭 밝힐 것'의 내용은 빠짐없이 '다만 …'으로 시작하는 한 문장에 모아 마지막에 쓴다(여럿이면
   '…고, …'로 잇는다). 자연스러운 존댓말로 고쳐 써도 되지만 뜻을 줄이지 않고, '밝힌다' · '알려
@@ -227,8 +236,44 @@ IMAGE_DELIVERY: dict[ContentType, str] = {
 }
 
 
-def outcome_names(outcomes: Sequence[Outcome]) -> str:
-    return ", ".join(OUTCOME_NAMES.get(o, o.value) for o in outcomes) or "없음"
+# 지표 범주 안에서 근거가 실제로 잰 구성개념 — results[].measure로 가른다. SUBJECTIVE_STRESS는
+# '주관적 스트레스 + 상태 불안' 묶음이라 범주 이름("불안·주관적 스트레스")을 근거 줄에 그대로 적으면
+# 불안을 재지 않은 연구에도 '불안'이 붙었다 — Toussaint 2021(SRSI-3 이완 총점)은 2026-10-30 RAG
+# 비교에서 초록과 어긋난 주장 5건이 모두 이것이었고, P18 라벨을 고친 뒤에도 같았다. 잰 것이 가려지면
+# 그 이름을(둘 이상이면 '·'로 잇고), 가릴 수 없으면 범주 이름을 쓴다. 괄호 안(척도 구성 설명)은 보지
+# 않는다.
+_ABBR = r"(?<![A-Za-z]){}(?![A-Za-z])"
+OUTCOME_CONSTRUCTS: dict[Outcome, tuple[tuple[re.Pattern[str], str], ...]] = {
+    Outcome.SUBJECTIVE_STRESS: (
+        (re.compile(rf"불안|anxi|{_ABBR.format('STAI')}|{_ABBR.format('TAQ')}", re.I), "불안"),
+        (re.compile(rf"스트레스|stress|{_ABBR.format('PSS')}", re.I), "주관적 스트레스"),
+        (re.compile(rf"이완|relax|{_ABBR.format('SRSI')}", re.I), "이완 상태"),
+    ),
+}
+_PARENTHESIZED = re.compile(r"\([^)]*\)|（[^）]*）")
+
+
+def outcome_display(outcome: Outcome, results: Sequence[OutcomeResult]) -> str:
+    """근거 한 건의 개선 지표 이름 — 그 지표의 POSITIVE 결과가 잰 것(measure)으로 범주 안의
+    구성개념을 가른다. 가르는 규칙이 없는 지표나 measure가 비어 있으면 범주 이름."""
+    name = OUTCOME_NAMES.get(outcome, outcome.value)
+    rules = OUTCOME_CONSTRUCTS.get(outcome)
+    if not rules:
+        return name
+    measures = [
+        _PARENTHESIZED.sub("", r.measure)
+        for r in results
+        if r.outcome is outcome and r.effect is Effect.POSITIVE and r.measure
+    ]
+    found = [label for pattern, label in rules if any(pattern.search(m) for m in measures)]
+    return "·".join(found) if found else name
+
+
+def outcome_displays(verdict: EvidenceVerdict) -> str:
+    return (
+        ", ".join(outcome_display(o, verdict.goal_results) for o in verdict.supported_outcomes)
+        or "없음"
+    )
 
 
 def _state_lines(request: CareRequest, intake: IntakeResult, images: bool = True) -> list[str]:
@@ -358,7 +403,7 @@ def build_rationale_input(
                 f"- [{hit.evidence_record_id}] {paper.authors or paper.paper_id} ({paper.year})"
                 f" — {paper.title} · {hit.experiment_id or paper.paper_id} {hit.section.value}"
                 f" · 목표 지지: {'예' if verdict.supports_goal else '아니오'}"
-                f" · 개선 지표: {outcome_names(verdict.supported_outcomes)} · 플래그: {flags}"
+                f" · 개선 지표: {outcome_displays(verdict)} · 플래그: {flags}"
                 f"\n  발췌: {hit.excerpt}"
             )
         evidence_part = f"## 검증된 근거 ({len(shown)}건)\n" + "\n".join(evidence_lines)
