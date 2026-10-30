@@ -416,12 +416,10 @@
   },
   "grades": {
     "AFFECT": {
-      "grade": "B",
-      "support": [
-        "P18-E3"
-      ],
+      "grade": "—",
+      "support": [],
       "conflicts": [],
-      "note": null
+      "note": "P18은 SRSI-3 이완 총점만 보고 — 정서 · 기분 척도 없음(2026-10-30 원문 대조, data/evidence_overrides.json)"
     },
     "SUBJECTIVE_STRESS": {
       "grade": "B",
@@ -444,10 +442,12 @@
       "note": null
     },
     "PHYSIO": {
-      "grade": "미확인",
-      "support": [],
+      "grade": "B",
+      "support": [
+        "P18-E3"
+      ],
       "conflicts": [],
-      "note": null
+      "note": "P18-E3 심상군 피부전도활동 선형 감소(p=.008). 심박수 효과는 유의하지 않음(p=.084)"
     }
   },
   "paper_id_scheme": "RC_MASTER",
@@ -462,7 +462,6 @@
       "population": "대학생(미국)",
       "stimulus": "P18: 녹음된 음성 안내 유도 심상 20분. 원본 대본 및 장소 상세는 본문에서 확인되지 않음.",
       "outcomes": [
-        "AFFECT",
         "SUBJECTIVE_STRESS",
         "PHYSIO"
       ],

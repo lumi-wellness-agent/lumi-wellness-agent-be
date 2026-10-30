@@ -374,5 +374,96 @@
       "OUTDOOR_WALK",
       "MINDFULNESS"
     ]
+  },
+  "P18-E1": {
+    "_why": "2026-10-30 원문 대조(Europe PMC PMC8272667) — 심리 지표는 Smith Relaxation States Inventory-3 총점(이완 상태 18 + 스트레스 상태 3: 신체 스트레스 · 걱정 · 부정 정서)뿐이고 불안 · 기분 척도는 없다. 시트의 AFFECT POSITIVE는 측정하지 않은 지표라 뺐고, EDA · 심박수 결과를 원문대로 적었다",
+    "results": [
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "POSITIVE",
+        "measure": "SRSI-3 이완 총점(이완 상태 18 + 스트레스 상태 3)",
+        "comparison": "vs 대조, 사전→사후",
+        "timepoint": "직후",
+        "stat": "사후 집단차 p=.046 · 사전→사후 p=.002",
+        "note": "원문은 SRSI-3 총점(이완 상태)만 보고 — 상태 불안 · 기분 척도 없음"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "POSITIVE",
+        "measure": "EDA(피부전도)",
+        "comparison": "수행 중 시간 추세(선형 감소)",
+        "timepoint": "수행 중",
+        "stat": "F=13.40, p<.001"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "심박수",
+        "comparison": "집단×시간",
+        "timepoint": "수행 중",
+        "stat": "F=1.65, p=.084"
+      }
+    ]
+  },
+  "P18-E2": {
+    "_why": "2026-10-30 원문 대조(Europe PMC PMC8272667) — 심리 지표는 Smith Relaxation States Inventory-3 총점(이완 상태 18 + 스트레스 상태 3: 신체 스트레스 · 걱정 · 부정 정서)뿐이고 불안 · 기분 척도는 없다. 시트의 AFFECT POSITIVE는 측정하지 않은 지표라 뺐고, EDA · 심박수 결과를 원문대로 적었다",
+    "results": [
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "POSITIVE",
+        "measure": "SRSI-3 이완 총점(이완 상태 18 + 스트레스 상태 3)",
+        "comparison": "vs 대조, 사전→사후",
+        "timepoint": "직후",
+        "stat": "사후 집단차 p=.014 · 사전→사후 p<.001",
+        "note": "원문은 SRSI-3 총점(이완 상태)만 보고 — 상태 불안 · 기분 척도 없음"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "UNCLEAR",
+        "measure": "EDA(피부전도)",
+        "comparison": "수행 중 시간 추세",
+        "timepoint": "수행 중",
+        "stat": "F=7.46, p<.001",
+        "note": "처음 15분 증가 뒤 마지막 10분 감소(곡선) — 방향을 하나로 못 정한다"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "심박수",
+        "comparison": "집단×시간",
+        "timepoint": "수행 중",
+        "stat": "F=1.65, p=.084"
+      }
+    ]
+  },
+  "P18-E3": {
+    "_why": "2026-10-30 원문 대조(Europe PMC PMC8272667) — 심리 지표는 Smith Relaxation States Inventory-3 총점(이완 상태 18 + 스트레스 상태 3: 신체 스트레스 · 걱정 · 부정 정서)뿐이고 불안 · 기분 척도는 없다. 시트의 AFFECT POSITIVE는 측정하지 않은 지표라 뺐고, EDA · 심박수 결과를 원문대로 적었다",
+    "results": [
+      {
+        "outcome": "SUBJECTIVE_STRESS",
+        "effect": "POSITIVE",
+        "measure": "SRSI-3 이완 총점(이완 상태 18 + 스트레스 상태 3)",
+        "comparison": "vs 대조, 사전→사후",
+        "timepoint": "직후",
+        "stat": "사후 집단차 p=.015 · 사전→사후 p<.001",
+        "note": "원문은 SRSI-3 총점(이완 상태)만 보고 — 상태 불안 · 기분 척도 없음"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "POSITIVE",
+        "measure": "EDA(피부전도)",
+        "comparison": "수행 중 시간 추세(선형 감소)",
+        "timepoint": "수행 중",
+        "stat": "F=3.86, p=.008"
+      },
+      {
+        "outcome": "PHYSIO",
+        "effect": "NOT_SIGNIFICANT",
+        "measure": "심박수",
+        "comparison": "집단×시간",
+        "timepoint": "수행 중",
+        "stat": "F=1.65, p=.084"
+      }
+    ]
   }
 }
