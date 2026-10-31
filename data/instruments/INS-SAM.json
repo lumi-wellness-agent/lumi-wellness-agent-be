@@ -4,7 +4,7 @@
   "paper_id": "N08",
   "concept": "쾌(valence)·각성(arousal)",
   "timeframe": "지금",
-  "instruction": "지금 느낌에 가장 가까운 그림을 고르세요.",
+  "instruction": "막대를 좌우로 움직여 지금 느낌에 가장 가까운 곳에 맞춰 주세요.",
   "items": [
     {
       "id": "valence",
@@ -23,5 +23,5 @@
   "scoring": {"kind": "PER_ITEM", "range": [1, 9]},
   "license_note": "Bradley & Lang 1994. 연구용 무료. 상업 사용은 출처 표기·확인",
   "status": "READY",
-  "note": "지배(dominance) 차원은 생략(측정도구 시트). 그림 척도라 지시문·축 라벨만 한국어. 1=불쾌·차분, 9=유쾌·흥분. FE는 그림 5~9개로 렌더링한다"
+  "note": "지배(dominance) 차원은 생략(측정도구 시트). 그림 척도라 지시문·축 라벨만 한국어. 1=불쾌·차분, 9=유쾌·흥분. FE는 아직 그림 없이 1~9 막대(슬라이더)로 그려 지시문도 막대 기준이다 — 그림(5개 + 사이 칸)을 붙이면 지시문을 그림 기준으로 바꾼다"
 }
