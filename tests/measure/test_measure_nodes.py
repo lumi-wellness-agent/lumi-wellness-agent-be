@@ -7,7 +7,7 @@ from langgraph.types import Command
 
 from app.agent.nodes.measure import measure_final, measure_post, measure_pre
 from app.agent.state import CareState, IntakeResult
-from app.schemas.care import CareGoal
+from app.schemas.care import CareGoal, CareRequest
 from app.schemas.measure import InstrumentId, Timepoint
 
 CONFIG = {"configurable": {"thread_id": "m"}}
@@ -27,9 +27,15 @@ def instrument_ids(out) -> list[str]:
     return [i["instrument_id"] for i in out["__interrupt__"][0].value["instruments"]]
 
 
+def start(goal: CareGoal, lang="ko", **extra) -> dict:
+    """노드 하나에 넣을 상태 — 문항 언어는 세션 요청(request.lang)을 따른다."""
+    request = CareRequest(text="지금 상태", lang=lang)
+    return {"request": request, "intake": IntakeResult(goal=goal), **extra}
+
+
 def test_measure_pre_asks_anchor_plus_goal_scale_and_scores_both():
     graph = single_node_graph(measure_pre)
-    out = graph.invoke({"intake": IntakeResult(goal=CareGoal.S1)}, CONFIG)
+    out = graph.invoke(start(CareGoal.S1), CONFIG)
     payload = out["__interrupt__"][0].value
     assert payload["measure"] == "PRE" and payload["round"] == 0
     assert instrument_ids(out) == ["INS-SAM", "INS-BSRI"]
@@ -43,7 +49,7 @@ def test_measure_pre_asks_anchor_plus_goal_scale_and_scores_both():
 
 def test_measure_pre_for_s3_keeps_fatigue_vas_in_round_pre():
     graph = single_node_graph(measure_pre)
-    out = graph.invoke({"intake": IntakeResult(goal=CareGoal.S3)}, CONFIG)
+    out = graph.invoke(start(CareGoal.S3), CONFIG)
     assert instrument_ids(out) == ["INS-SAM", "INS-MFVAS"]
     out = graph.invoke(Command(resume={**SAM, **MFVAS}), CONFIG)
     assert out["pre"][1].scores == {"fatigue": 80.0, "concentration": 70.0, "energy": 20.0}
@@ -52,7 +58,7 @@ def test_measure_pre_for_s3_keeps_fatigue_vas_in_round_pre():
 
 def test_measure_post_is_anchor_only_with_round_number():
     graph = single_node_graph(measure_post)
-    out = graph.invoke({"intake": IntakeResult(goal=CareGoal.S2), "rounds": []}, CONFIG)
+    out = graph.invoke(start(CareGoal.S2, rounds=[]), CONFIG)
     payload = out["__interrupt__"][0].value
     assert payload["measure"] == "POST" and payload["round"] == 1
     assert instrument_ids(out) == ["INS-SAM"]
@@ -63,7 +69,7 @@ def test_measure_post_is_anchor_only_with_round_number():
 
 def test_measure_post_for_s3_adds_fatigue_vas():
     graph = single_node_graph(measure_post)
-    out = graph.invoke({"intake": IntakeResult(goal=CareGoal.S3), "rounds": []}, CONFIG)
+    out = graph.invoke(start(CareGoal.S3, rounds=[]), CONFIG)
     assert instrument_ids(out) == ["INS-SAM", "INS-MFVAS"]
     out = graph.invoke(Command(resume={**SAM, **MFVAS}), CONFIG)
     assert [m.instrument_id for m in out["post"]] == [InstrumentId.SAM, InstrumentId.MFVAS]
@@ -72,12 +78,39 @@ def test_measure_post_for_s3_adds_fatigue_vas():
 
 def test_measure_final_skips_scale_measured_every_round():
     graph = single_node_graph(measure_final)
-    out = graph.invoke({"intake": IntakeResult(goal=CareGoal.S3), "rounds": []}, CONFIG)
+    out = graph.invoke(start(CareGoal.S3, rounds=[]), CONFIG)
     assert "__interrupt__" not in out and "final" not in out
 
 
 def test_missing_instrument_answer_fails_loudly():
     graph = single_node_graph(measure_pre)
-    graph.invoke({"intake": IntakeResult(goal=CareGoal.S2)}, CONFIG)
+    graph.invoke(start(CareGoal.S2), CONFIG)
     with pytest.raises(ValueError, match="INS-STAI6 응답이 없다"):
         graph.invoke(Command(resume={"INS-SAM": {"valence": 2, "arousal": 8}}), CONFIG)
+
+
+def test_english_session_shows_english_items_and_scores_the_same():
+    """영어 세션은 문항 문구만 영어다 — 문항 id · 척도 · 채점은 한국어 세션과 같다."""
+    answers = {
+        **SAM,
+        "INS-STAI6": {"calm": 1, "tense": 4, "upset": 3, "relaxed": 2, "content": 1, "worried": 4},
+    }
+    scores = {}
+    for lang in ("ko", "en"):
+        graph = single_node_graph(measure_pre)
+        config = {"configurable": {"thread_id": f"m-{lang}"}}
+        out = graph.invoke(start(CareGoal.S2, lang), config)
+        stai6 = out["__interrupt__"][0].value["instruments"][1]
+        if lang == "en":
+            assert stai6["name"].endswith("(STAI-6)")
+            assert stai6["items"][0] == {
+                "id": "calm",
+                "text": "I feel calm.",
+                "low_label": "Not at all",
+                "high_label": "Very much so",
+            }
+        else:
+            assert stai6["items"][0]["text"] == "지금 나는 차분하다."
+        out = graph.invoke(Command(resume=answers), config)
+        scores[lang] = [m.scores for m in out["pre"]]
+    assert scores["ko"] == scores["en"]

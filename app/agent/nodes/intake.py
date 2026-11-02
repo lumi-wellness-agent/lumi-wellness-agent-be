@@ -115,10 +115,11 @@ def make_intake_nodes(intaker: Intaker) -> dict:
                 "pending_question": None,
                 "ended": SessionEnd.SAFETY,
             }
+        lang = request.lang  # 코드가 만드는 질문 · 보기는 세션 언어로(app/agent/intake_texts.py)
         question = (
-            rules.restate_question(reading, turns)
-            or rules.state_question(reading, turns)
-            or rules.mismatch_question(reading, turns)
+            rules.restate_question(reading, turns, lang)
+            or rules.state_question(reading, turns, lang)
+            or rules.mismatch_question(reading, turns, lang)
         )
         return {"intake": intake, "pending_question": question}
 
@@ -133,7 +134,7 @@ def make_intake_nodes(intaker: Intaker) -> dict:
             "intake": intake,
             "intake_turns": [turn],
             # 시점 질문에 '잘 모르겠어요'면 읽기 없이 고정 재질문(예산 안에서)
-            "pending_question": rules.followup_after_unknown(turns),
+            "pending_question": rules.followup_after_unknown(turns, state["request"].lang),
         }
 
     async def intake_goal(state: CareState) -> dict:
@@ -150,14 +151,15 @@ def make_intake_nodes(intaker: Intaker) -> dict:
 
     def intake_context(state: CareState) -> dict:
         turns = state.get("intake_turns") or []
+        lang = state["request"].lang
         used = len(rules.counted(turns))
         if used >= MAX_TURNS or any(t.slot is QuestionSlot.CONTEXT for t in turns):
             return {"pending_question": None}
         # 추론한 목표가 상황과 엇갈리면 환경보다 먼저 지금 상태를 묻는다 — 답하면 목표를 다시 정한다
-        if question := rules.goal_mismatch_question(state["intake"], turns):
+        if question := rules.goal_mismatch_question(state["intake"], turns, lang):
             return {"pending_question": question}
         groups = rules.context_groups(state["intake"])
-        return {"pending_question": rules.context_question(groups, used + 1)}
+        return {"pending_question": rules.context_question(groups, used + 1, lang)}
 
     def intake_finish(state: CareState) -> dict:
         turns = state.get("intake_turns") or []
@@ -206,15 +208,16 @@ async def intake_once(intaker: Intaker, request: CareRequest) -> tuple[IntakeRes
     if reading.safety:
         return rules.end_for_safety(intake), ["safety"]
     would_ask = []
-    if rules.restate_question(reading, []):
+    lang = request.lang
+    if rules.restate_question(reading, [], lang):
         would_ask.append("restate")
     elif question := (
-        rules.state_question(reading, []) or rules.mismatch_question(reading, [])
+        rules.state_question(reading, [], lang) or rules.mismatch_question(reading, [], lang)
     ):
         would_ask.append(question.slot.value)
     inference = None if request.goal is not None else await intaker.infer_goal(request, intake)
     intake = rules.apply_goal(intake, inference, request)
-    if not would_ask and rules.goal_mismatch_question(intake, []):
+    if not would_ask and rules.goal_mismatch_question(intake, [], lang):
         would_ask.append(QuestionSlot.STATE_FOLLOWUP.value)
     if groups := rules.context_groups(intake):
         would_ask.append("context:" + "+".join(groups))

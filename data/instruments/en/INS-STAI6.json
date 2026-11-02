@@ -1,0 +1,41 @@
+{
+  "instrument_id": "INS-STAI6",
+  "name": "Six-item short form of the STAI state scale (STAI-6)",
+  "concept": "State anxiety",
+  "instruction": "For each statement, answer how you feel right now, at this moment. Pick the answer that best describes how you feel now, and don't spend too long on any one statement. 1 Not at all · 2 Somewhat · 3 Moderately so · 4 Very much so.",
+  "items": {
+    "calm": {
+      "text": "I feel calm.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    },
+    "tense": {
+      "text": "I am tense.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    },
+    "upset": {
+      "text": "I feel upset.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    },
+    "relaxed": {
+      "text": "I am relaxed.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    },
+    "content": {
+      "text": "I feel content.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    },
+    "worried": {
+      "text": "I am worried.",
+      "low_label": "Not at all",
+      "high_label": "Very much so"
+    }
+  },
+  "status": "READY",
+  "source": "STAI 상태판 1 · 3 · 6 · 15 · 16 · 17번 문항(Marteau & Bekker 1992, N07 Table 1의 calm · tense · upset · relaxed · content · worried)의 영어 문장이다. 첨부본은 2019년 정정된 부록이라 문항 문장 대신 지시문 예시와 응답 보기(Not at all – Somewhat – Moderately so – Very much so)만 싣는다 — 문장은 이 6개 형용사의 STAI 원문항이다. 지시문은 한국어 지시문(원 지시문을 줄인 것)을 옮겼다. 영어는 원척도가 타당화된 언어라 READY다",
+  "license_note": "STAI는 Mind Garden 저작권이다. 2019년 정정된 N07 부록은 예시 문항의 재사용 · 수정을 허락하지 않는다고 적는다 — 한국어 번역 초안과 같은 처지(내부 시험용)이고, 공개 서비스 전에 라이선스를 확인해야 한다."
+}

@@ -1,10 +1,12 @@
-"""측정 도구 — instrument 계약·번역 payload·채점."""
+"""측정 도구 — instrument 계약·번역 payload·채점 · 세션 언어별 제시 문구."""
+
+import re
 
 import pytest
 
 from app import instruments
 from app.instruments import Instrument, ScoringKind, score
-from app.schemas.care import CareGoal
+from app.schemas.care import LANGS, CareGoal
 from app.schemas.measure import GOAL_SCALE, InstrumentId, Timepoint, final_scale, round_scale
 
 LOADED = instruments.load_instruments()
@@ -106,3 +108,77 @@ def test_stai6_and_bsri_are_available_as_internal_translation_drafts():
         assert instrument.status == "PROVISIONAL"
         assert all(item.text for item in instrument.items)
         assert "한국어 번역본 · 내부 시험용" in instrument.name
+
+
+HANGUL = re.compile(r"[가-힣]")
+
+
+def test_every_instrument_has_text_in_every_other_language():
+    expected = {(lang, i) for lang in LANGS if lang != "ko" for i in InstrumentId}
+    assert set(instruments.load_texts()) == expected
+
+
+def test_korean_presentation_is_the_source_unchanged():
+    for instrument in LOADED.values():
+        assert instruments.localized(instrument, "ko") is instrument
+        assert instruments.present(instrument) == instruments.present(instrument, "ko")
+
+
+@pytest.mark.parametrize("instrument_id", list(InstrumentId))
+def test_english_presentation_changes_only_the_wording(instrument_id):
+    source = LOADED[instrument_id]
+    ko = instruments.present(source, "ko")
+    en = instruments.present(source, "en")
+    assert en["instrument_id"] == ko["instrument_id"] and en["scale"] == ko["scale"]
+    assert [i["id"] for i in en["items"]] == [i["id"] for i in ko["items"]]
+    shown = [en["name"], en["instruction"]] + [
+        v for i in en["items"] for v in (i["text"], i["low_label"], i["high_label"])
+    ]
+    assert not any(HANGUL.search(v) for v in shown if v)
+    # 역채점 · 채점은 원천 그대로
+    english = instruments.localized(source, "en")
+    assert [i.reverse for i in english.items] == [i.reverse for i in source.items]
+    assert english.scoring == source.scoring
+
+
+def test_english_stai6_and_bsri_are_the_original_items_and_mfvas_stays_provisional():
+    def status(instrument_id):
+        return instruments.localized(LOADED[instrument_id], "en").status
+
+    # 원척도가 영어로 타당화됐다 — 한국어 번역 초안과 달리 검증 전이 아니다
+    assert status(InstrumentId.STAI6) == "READY" and status(InstrumentId.BSRI) == "READY"
+    assert status(InstrumentId.SAM) == "READY"
+    assert status(InstrumentId.MFVAS) == "PROVISIONAL"  # 팀이 쓴 문항은 언어와 상관없이 미검증
+    bsri = instruments.localized(LOADED[InstrumentId.BSRI], "en")
+    # 저자 문서 부록의 문장 그대로(따옴표 · 문장부호 포함)
+    assert bsri.items[0].text == "Right now, I am reflecting about my mood."
+    assert bsri.items[3].text == (
+        "Right now, I am thinking: “why do I have problems other people don't have?”."
+    )
+    stai6 = instruments.localized(LOADED[InstrumentId.STAI6], "en")
+    assert [i.text for i in stai6.items] == [
+        "I feel calm.",
+        "I am tense.",
+        "I feel upset.",
+        "I am relaxed.",
+        "I feel content.",
+        "I am worried.",
+    ]
+
+
+def test_a_translation_must_cover_every_item_and_label():
+    source = LOADED[InstrumentId.SAM]
+    text = instruments.load_texts()[("en", InstrumentId.SAM)]
+    missing = text.model_copy(update={"items": {"valence": text.items["valence"]}})
+    with pytest.raises(ValueError, match="문항 id"):
+        instruments._check_covers(source, missing, "en/INS-SAM.json")
+    unlabeled = text.model_copy(
+        update={
+            "items": {
+                **text.items,
+                "arousal": text.items["arousal"].model_copy(update={"low_label": None}),
+            }
+        }
+    )
+    with pytest.raises(ValueError, match="arousal.low_label"):
+        instruments._check_covers(source, unlabeled, "en/INS-SAM.json")

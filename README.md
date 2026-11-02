@@ -191,7 +191,7 @@ docstring에 있습니다.
 
 | 요청 | 그래프 | 응답 `step` |
 | --- | --- | --- |
-| `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
+| `POST /sessions` — `CareRequest`(문장 + 환경 칩 + 세션 언어 `lang`) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
 | `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤(질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S1 · S2 · S3 중 무작위 목표로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 사전: 재개 → plan → prepare → `run_session`에서 멈춤 | `RUN` |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | `MEASURE`(사후 — SAM, S3는 + MFVAS) |
@@ -233,6 +233,13 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 오류(404 · 409 · 422)는 스트림을 열기 전에 JSON으로 돌려줍니다. FE는 응답 전에 LLM이 도는 호출(`POST
 /sessions` · `answer` · 사전 `measure` · `decision` · `retry`)만 SSE로 받고 나머지는 JSON으로 받습니다.
 브라우저 `EventSource`는 GET만 되므로 fetch로 읽습니다.
+
+**세션 언어.** `CareRequest.lang`(`ko` 기본 · `en`)이 세션 언어입니다. 코드가 만드는 문장 — intake 고정 질문과
+보기 · 되묻기 고정 문장 · 환경 칩 · 코드가 쓰는 판단 이유(`app/agent/intake_texts.py`), 측정 문항
+(`data/instruments/en/`), Reference 카드의 목표 이름 · 한계 문장 · 척도 안내(`app/agent/card_texts.py`) — 을 이
+언어로 보냅니다. 보기를 고르면 채워지는 값과 측정 채점은 언어와 상관없이 같습니다. 영어판은 만드는 중입니다 —
+LLM이 쓰는 문장(되묻기 · 질문 초안 · 판단 이유 · 추천 이유), 활동 노드 문구, 근거 메타데이터는 아직 한국어이고
+FE도 아직 `lang`을 보내지 않습니다. `lang`을 빠뜨린 요청은 한국어라 전과 같은 세션입니다.
 
 **오류.** 본문은 `{"detail": {code, message, …}}`입니다.
 
@@ -317,11 +324,14 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 | 테이블 | 내용 |
 | --- | --- |
 | `user_consents` | 사용자당 한 행 — 필수 동의 버전 · 시각, 원문 동의 |
-| `care_sessions` | 세션 하나(id = thread_id) — 멈춘 자리(`step` · `node`), 목표, 환경 칩, intake 분류 값(`records.INTAKE_FIELDS`), 질문 slot과 칩 답, 사전 · 종료 측정, 끝난 이유와 END payload |
+| `care_sessions` | 세션 하나(id = thread_id) — 멈춘 자리(`step` · `node`), 세션 언어(`lang`), 목표, 환경 칩, intake 분류 값(`records.INTAKE_FIELDS`), 질문 slot과 칩 답, 사전 · 종료 측정, 끝난 이유와 END payload |
 | `care_rounds` | 끝난 라운드 — 활동 · 시간 · 근거 ID · 푼 조건, 완료 여부, 사전 · 사후 측정과 변화, 권고 단계 · 선택지 · 사용자 선택 |
 | `care_texts` | 원문(원문 동의한 사용자만) — 세션당 한 행, 보관 기한 `expires_at`(기본 90일, `TEXT_RETENTION_DAYS`) |
 
 - SAFETY로 끝난 세션은 끝난 사실(`end_reason`)만 남깁니다 — 칩 · 분류 값 · 원문을 지웁니다(테이블 제약이 지킵니다).
+- 세션 언어(`lang`)는 내용이 아니라 게스트 · SAFETY 세션에도 남깁니다. 완료 · 멈춘 이유 · 다음 단계 · 활동
+  분포는 합쳐 보되 언어별로도 나누고, 척도 점수 · 척도 검증(MFVAS 신뢰도) · intake와 안전 판단 품질은 언어마다
+  따로 봅니다.
 - 세션이 끝나면 원문이 든 체크포인트를 바로 지우고, 그 뒤의 `GET /sessions/{id}`는 `care_sessions.end_summary`로 답합니다.
 - 정리 작업 `GET /internal/cleanup`(Vercel Cron, 매일 03:00 KST, `CRON_SECRET`)이 기한이 지난 원문, 쓰지 않은
   게스트(하루, `GUEST_RETENTION_DAYS`), 24시간(`SESSION_IDLE_HOURS`) 넘게 쉰 미완료 세션의 체크포인트(세션은
@@ -375,9 +385,12 @@ payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/c
   `ADAPTED_STIMULUS`는 프로토콜이 각색(대본 · 음원)을 밝혔거나 목표를 지지하는 근거가 모두 다른 자극일 때,
   `AI_IMAGE_UNVERIFIED`는 사용자가 AI 생성 이미지를 골라 제공 매체에 들어갈 때 답니다.
 - S3는 근거의 1차 지표(주의 과제)와 LUMI가 재는 것(정신 피로 VAS, 팀이 만든 임시 도구)이 달라 `goal.notes`에 밝힙니다.
-- 목표 척도가 `PROVISIONAL`이면 척도마다 한 문장을 `goal.notes`에 넣습니다(`reference_card.PROVISIONAL_NOTES`) — STAI-6 ·
+- 목표 척도가 `PROVISIONAL`이면 척도마다 한 문장을 `goal.notes`에 넣습니다(`card_texts`의 `provisional_notes`) — STAI-6 ·
   BSRI는 타당성이 확인된 영어판을 옮긴 번역 초안이라 번역본은 따로 검증하지 않았다고, MFVAS는 LUMI가 만든 질문이라
-  검증되지 않았다고 적습니다.
+  검증되지 않았다고 적습니다. `PROVISIONAL`은 세션 언어의 문항 기준이라, 영어 세션의 STAI-6 · BSRI는 원척도
+  문항이어서 배지 · 문장이 붙지 않고 MFVAS만 밝힙니다.
+- 코드가 쓰는 문장(목표 이름 · 고정 한계 문장 · 척도 안내)은 세션 언어로 씁니다(`app/agent/card_texts.py`).
+  프로토콜이 적은 문장(이름 · 대상 메모 · `reference_card_note`)과 근거 메타데이터는 아직 한국어입니다.
 - 근거 DB가 없거나 검증을 통과한 근거가 없으면 `evidence`가 비고 `NO_VERIFIED_EVIDENCE`가 붙습니다.
 
 ## 시작하기
@@ -414,7 +427,7 @@ Windows(PowerShell)에서는 `py -3.12 -m venv .venv`로 만들고 `.venv\Script
 
 1. Supabase 프로젝트에 마이그레이션을 이름 순서대로 적용합니다 — `supabase/migrations/20261021000000_init_evidence.sql`,
    `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`,
-   `supabase/migrations/20261029000000_care_rounds_selection.sql`.
+   `supabase/migrations/20261029000000_care_rounds_selection.sql`, `supabase/migrations/20261103000000_care_sessions_lang.sql`.
    대시보드 SQL Editor에 붙여 실행하거나 `psql "$DATABASE_URL" -f <파일>`로 실행합니다. 두 번째 파일은
    `papers`·`evidence_records`가 비어 있을 때만 적용되고, 행이 있으면 아무것도 바꾸지 않고 멈춥니다. 세 번째
    파일은 세션 기록 테이블이고 `auth.users`(Supabase Auth)를 참조합니다.
@@ -491,7 +504,8 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
   -f supabase/migrations/20261021000000_init_evidence.sql \
   -f supabase/migrations/20261026000000_evidence_contracts.sql \
   -f supabase/migrations/20261027000000_care_records.sql \
-  -f supabase/migrations/20261029000000_care_rounds_selection.sql
+  -f supabase/migrations/20261029000000_care_rounds_selection.sql \
+  -f supabase/migrations/20261103000000_care_sessions_lang.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
@@ -881,6 +895,8 @@ Supabase DB는 팀이 함께 쓰므로 마이그레이션은 `main`에 머지된
   사전·라운드마다 재고, 피로가 10점 이상 줄었는지로 판정합니다(문턱도 임시). 주의 용량은 재지 않습니다(근거의 S3 1차
   지표 ATTENTION은 과제) — 사용자 데이터로 문항 신뢰도와 문턱을 본 뒤 ROS 같은 외부 척도로 바꿀지 정합니다.
 - STAI-6·BSRI는 한국어 번역 초안을 `PROVISIONAL`로 두고 내부 시험에 사용합니다. 두 척도는 PRE/FINAL에만 측정하며, 검증된 한국어판으로 해석하지 않습니다.
+  영어 세션은 원척도 문항(`data/instruments/en/` — BSRI는 저자 문서 부록 그대로, STAI-6은 STAI 원문항)이라 `READY`입니다.
+  STAI는 Mind Garden 저작권이라 두 언어 모두 공개 서비스 전에 라이선스를 확인해야 합니다.
 - intake 환경 가정. 사무실·카페에서 이어폰이 있으면 소리 · 조용한 곳 활동을 할 수 있다고 보고, 지하철·버스는
   이어폰이 있어도 조용한 곳으로 보지 않습니다(`app/schemas/care.environment_for` 한 곳). 장소를 끝내 모르면
   조용한 실내로 가정하고 `missing_slots`에 `setting`을 남깁니다 — FE가 활동 시작 화면에 "소리가 나와요"와
@@ -920,7 +936,7 @@ app/
 ├─ api/internal.py      정리 작업 (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care(요청·환경) · intake(질문·답 계약) · measure · evidence · protocol(활동 노드) · retrieval · card(Reference 카드)
 ├─ intake_cues.py       intake 단서표 · 개념 정의 — data/intake_cues.json · goal_definitions.json 로더
-├─ instruments.py       측정 도구 — data/instruments 로더 · 제시 · 채점
+├─ instruments.py       측정 도구 — data/instruments 로더 · 세션 언어별 제시 · 채점
 ├─ protocols.py         활동 노드 — data/protocols 로더 · 후보 조회 · LLM용 압축본
 ├─ agent/               LUMI Care Agent (LangGraph)
 │  ├─ graph.py          노드 배선·라우팅 (v2)
@@ -931,9 +947,11 @@ app/
 │  ├─ checkpoint.py     체크포인터(Postgres·메모리)와 직렬화 허용 타입
 │  ├─ prompts.py        intake · Planner 프롬프트와 입력 메시지
 │  ├─ intake_rules.py   intake 규칙 — 질문 검증 · 답 병합 · 환경 질문 판정 · 목표 · 끝 (LLM 없이 테스트)
+│  ├─ intake_texts.py   intake가 코드로 만드는 문장 — 고정 질문 · 보기 · 되묻기 · 판단 이유 (세션 언어마다)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool 본체 (judge: DB 없는 규칙)
 │  ├─ rationale_rules.py 추천 이유 글자 규칙 — plan 후검증(어기면 1회 재질의)과 추천 이유 평가가 같이 쓴다
+│  ├─ card_texts.py     Reference 카드에서 코드가 만드는 문장 — 목표 이름 · 한계 문장 · 척도 안내 (세션 언어마다)
 │  └─ reference_card.py Reference 카드 — 검증한 근거 · 프로토콜 · intake로 만든다(LLM 없음)
 ├─ content/             콘텐츠 자산 — 외부 공급자 · 검수 자산 매니페스트 · 콘텐츠 Factor 카탈로그 (Executor가 쓴다)
 ├─ static/              검수 자산 — 음원(audio) · 컬러링 도안 SVG(coloring), /assets로 제공
@@ -941,7 +959,7 @@ app/
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
 data/
 ├─ protocols/           활동 노드 JSON 21개 (A · B · C 담당이 채움, review DRAFT)
-├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS)
+├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS) — en/는 영어 제시 문구 · 상태
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
 ├─ manifest.csv         논문 84편 매니페스트

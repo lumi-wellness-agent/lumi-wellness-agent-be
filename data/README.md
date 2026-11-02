@@ -23,7 +23,13 @@
 `INS-SAM` · `INS-STAI6` · `INS-BSRI` · `INS-MFVAS`. 문항 · 응답 척도 · 채점 규칙(`app/instruments.py`).
 SAM은 READY. STAI-6와 BSRI는 원척도 문항의 한국어 번역 초안, MFVAS는 S3용으로 팀이 쓴 임시 문항이라 셋 다
 `status: PROVISIONAL`(내부 시험용)이다 — 바로 제시하지만 검증된 한국어판이 아니고, Reference 카드가 척도마다 이를
-밝힌다(`reference_card.PROVISIONAL_NOTES`). STAI는 Mind Garden 저작권이라 공개 서비스 전에는 허가가 필요하다.
+밝힌다(`app/agent/card_texts.py`의 `provisional_notes`). STAI는 Mind Garden 저작권이라 공개 서비스 전에는 허가가 필요하다.
+
+`instruments/en/`은 영어 세션(`CareRequest.lang = "en"`)의 제시 문구다 — 이름 · 구성개념 · 지시문 · 문항 문장 ·
+양끝 라벨과 그 언어의 `status`만 두고, 문항 id · 역채점 · 응답 척도 · 채점은 위 원천을 그대로 쓴다. 원천의 문항 id ·
+지시문 · 라벨 유무를 모두 덮어야 로드된다. BSRI는 저자 문서(N28) 부록의 영어 원문항 그대로, STAI-6은 STAI
+원문항이라 둘 다 `READY`이고, SAM은 한국어 지시문 · 질문을, MFVAS는 팀 문항을 옮겨 MFVAS는 영어도
+`PROVISIONAL`이다. 파일마다 `source`에 문구 출처를 적는다.
 
 ## evidence_overrides.json — 사람이 확정한 근거 메타데이터
 
