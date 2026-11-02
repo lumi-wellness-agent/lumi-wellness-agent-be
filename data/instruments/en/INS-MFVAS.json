@@ -1,0 +1,26 @@
+{
+  "instrument_id": "INS-MFVAS",
+  "name": "Mental Fatigue VAS",
+  "concept": "Momentary mental fatigue (subjective) — tiredness · difficulty concentrating · energy",
+  "instruction": "Mark the point closest to how you feel right now.",
+  "items": {
+    "fatigue": {
+      "text": "How mentally tired are you right now?",
+      "low_label": "Not tired at all",
+      "high_label": "Very tired"
+    },
+    "concentration": {
+      "text": "How hard is it to concentrate right now?",
+      "low_label": "Not hard at all",
+      "high_label": "Very hard"
+    },
+    "energy": {
+      "text": "How much energy do you have right now?",
+      "low_label": "None at all",
+      "high_label": "A lot"
+    }
+  },
+  "status": "PROVISIONAL",
+  "source": "팀이 쓴 한국어 문항(data/instruments/INS-MFVAS.json)을 옮겼다. 원문이 없는 팀 문항이라 영어도 한국어처럼 타당화 전이다",
+  "license_note": null
+}

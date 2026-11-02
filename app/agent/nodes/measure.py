@@ -8,13 +8,15 @@
 
 interrupt payload: {"measure": "PRE", "round": 0, "instruments": [instruments.present(...)]}
 resume value:      {"INS-SAM": {"valence": 3, "arousal": 7}, "INS-STAI6": {"calm": 2, ...}}
-도구 계약(문항 · 응답 척도 · 채점)은 app/instruments.py와 data/instruments/*.json.
+도구 계약(문항 · 응답 척도 · 채점)은 app/instruments.py와 data/instruments/*.json. 문항은 세션
+언어(CareRequest.lang)로 제시하고, 채점은 언어와 상관없이 같다.
 """
 
 from langgraph.types import interrupt
 
 from app import instruments
 from app.agent.state import CareState
+from app.schemas.care import Lang
 from app.schemas.measure import (
     GOAL_SCALE,
     InstrumentId,
@@ -25,13 +27,15 @@ from app.schemas.measure import (
 )
 
 
-def _administer(ids: list[InstrumentId], timepoint: Timepoint, round_no: int) -> list[Measurement]:
+def _administer(
+    ids: list[InstrumentId], timepoint: Timepoint, round_no: int, lang: Lang
+) -> list[Measurement]:
     loaded = [instruments.get_instrument(i) for i in ids]
     answers = interrupt(
         {
             "measure": timepoint.value,
             "round": round_no,
-            "instruments": [instruments.present(i) for i in loaded],
+            "instruments": [instruments.present(i, lang) for i in loaded],
         }
     )
     if not isinstance(answers, dict):
@@ -57,7 +61,7 @@ def measure_pre(state: CareState) -> dict:
     ids = [InstrumentId.SAM]
     if scale := GOAL_SCALE[state["intake"].goal]:
         ids.append(scale)
-    measurements = _administer(ids, Timepoint.PRE, 0)
+    measurements = _administer(ids, Timepoint.PRE, 0, state["request"].lang)
     round_ids = _round_ids(state)
     return {
         "pre": measurements,
@@ -67,7 +71,8 @@ def measure_pre(state: CareState) -> dict:
 
 def measure_post(state: CareState) -> dict:
     round_no = len(state.get("rounds", [])) + 1
-    return {"post": _administer(_round_ids(state), Timepoint.POST, round_no)}
+    lang = state["request"].lang
+    return {"post": _administer(_round_ids(state), Timepoint.POST, round_no, lang)}
 
 
 def measure_final(state: CareState) -> dict:
@@ -75,4 +80,4 @@ def measure_final(state: CareState) -> dict:
     if scale is None:  # route_after_confirm이 건너뛰지만 방어
         return {}
     round_no = len(state.get("rounds", []))
-    return {"final": _administer([scale], Timepoint.FINAL, round_no)[0]}
+    return {"final": _administer([scale], Timepoint.FINAL, round_no, state["request"].lang)[0]}

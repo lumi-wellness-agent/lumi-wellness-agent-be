@@ -11,8 +11,15 @@
 """
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# 세션 언어 — 코드가 만드는 문장(고정 질문 · 칩 · 안내 · Reference 카드 문장)과 측정 문항을
+# 이 언어로 보낸다. 사용자 글 · LLM 지시문 · 근거 원문은 언어와 상관없다. FE 화면 언어로 정하고
+# 세션 내내 같다
+Lang = Literal["ko", "en"]
+LANGS: tuple[Lang, ...] = ("ko", "en")
 
 
 class CareGoal(StrEnum):
@@ -108,3 +115,4 @@ class CareRequest(BaseModel):
     goal: CareGoal | None = None  # 리허설용. 있으면 목표 추론을 건너뛴다(goal_source = CHIP)
     place: Place | None = None  # 옛 칩. setting이 있으면 setting이 우선
     profile: UserProfile = UserProfile()
+    lang: Lang = "ko"  # 세션 언어. 빠뜨리면 한국어 — 영어 전 요청과 같은 세션이 된다

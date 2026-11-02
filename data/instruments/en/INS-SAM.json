@@ -1,0 +1,21 @@
+{
+  "instrument_id": "INS-SAM",
+  "name": "Self-Assessment Manikin (SAM)",
+  "concept": "Valence · arousal",
+  "instruction": "Move the bar left or right to the point closest to how you feel right now.",
+  "items": {
+    "valence": {
+      "text": "How do you feel right now?",
+      "low_label": "Unpleasant",
+      "high_label": "Pleasant"
+    },
+    "arousal": {
+      "text": "How excited or tense do you feel right now?",
+      "low_label": "Calm",
+      "high_label": "Excited · tense"
+    }
+  },
+  "status": "READY",
+  "source": "그림 척도라 문항 문장이 원척도에 없다 — 한국어 지시문 · 질문(LUMI가 쓴 것)을 옮겼다. 양끝 라벨은 한국어(불쾌–유쾌 · 차분–흥분·긴장)와 같은 뜻으로 두었다",
+  "license_note": null
+}

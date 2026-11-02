@@ -9,6 +9,8 @@ plan 노드가 검증을 마친 근거(검색 결과 + 판정)와 프로토콜 �
 - 한계 문장은 배지마다 고정 문구다. 프로토콜 작성자가 카드용으로 적은 reference_card_note가 있으면
   그 배지의 고정 문구 대신 쓴다 — content_spec의 메모는 각색 대본(ADAPTED_STIMULUS), 슬롯 생성
   설정의 메모는 AI 생성 이미지(AI_IMAGE_UNVERIFIED)에 대한 것이다.
+- 코드가 만드는 문장(목표 이름 · 고정 한계 문장 · 척도 안내)은 세션 언어(CareRequest.lang)로 쓴다 —
+  언어마다 app/agent/card_texts.py.
 - 근거는 같은 실험의 chunk(METHODS · RESULTS)를 하나로 묶는다 — 실험 ID가 없는 리뷰 · 메타분석은
   논문 단위로. 목표 근거(개념 정의)의 논문 정보는 data/manifest.csv에서 찾는다.
 - 카드의 ADAPTED_STIMULUS 배지는 프로토콜이 각색을 밝혔거나, 목표를 지지하는 근거가 모두 다른
@@ -22,6 +24,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app import instruments, intake_cues
+from app.agent.card_texts import TEXTS
 from app.agent.state import IntakeResult, PlannedActivity
 from app.schemas.card import (
     CardBadge,
@@ -33,77 +36,14 @@ from app.schemas.card import (
     PaperCitation,
     ReferenceCard,
 )
-from app.schemas.care import CareGoal
+from app.schemas.care import CareGoal, Lang
 from app.schemas.evidence import Medium, Section
 from app.schemas.intake import GoalSource
-from app.schemas.measure import GOAL_SCALE, InstrumentId
+from app.schemas.measure import GOAL_SCALE
 from app.schemas.protocol import CareProtocol, Composition
 from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict, Flag, PaperRef
 
 MANIFEST = Path(__file__).resolve().parents[2] / "data" / "manifest.csv"
-
-GOAL_LABELS: dict[CareGoal, str] = {
-    CareGoal.S1: "반추 완화",
-    CareGoal.S2: "긴장·스트레스 완화",
-    CareGoal.S3: "주의·피로 회복",
-}
-
-GENERAL_LIMIT = "연구 참여자에게서 관찰된 결과이며, 진단이나 치료 효과를 뜻하지 않습니다."
-
-BADGE_LIMITS: dict[CardBadge, str] = {
-    CardBadge.EXPERIMENTAL: (
-        "여러 활동을 묶은 실험적 구성이라, 함께 했을 때의 효과는 검증되지 않았습니다."
-    ),
-    CardBadge.LIMITED_EVIDENCE: "이 활동을 뒷받침하는 연구가 아직 적습니다.",
-    CardBadge.NO_VERIFIED_EVIDENCE: (
-        "이번에는 이 활동을 직접 뒷받침하는 검증된 연구를 찾지 못했습니다."
-    ),
-    CardBadge.CONFLICTING_EVIDENCE: (
-        "같은 활동 · 지표에서 효과가 없거나 반대로 나온 연구도 있습니다."
-    ),
-    CardBadge.ADAPTED_STIMULUS: (
-        "연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라, 같은 효과가 나는지는 확인되지 않았습니다."
-    ),
-    CardBadge.AI_IMAGE_UNVERIFIED: (
-        "AI로 만든 이미지는 연구의 자연 사진과 효과가 같은지 검증되지 않았습니다."
-    ),
-    CardBadge.RELAXED_ORDER: (
-        "지금 상황에 맞춘 활동이 없어, 다른 상황을 위해 만든 활동을 골랐습니다."
-    ),
-    CardBadge.RELAXED_ENVIRONMENT: (
-        "지금 있는 곳에 딱 맞는 활동이 없어, 환경이 맞지 않을 수 있는 활동을 골랐습니다."
-    ),
-}
-
-FLAG_LIMITS: dict[Flag, str] = {
-    Flag.POPULATION_MISMATCH: "임상 진단을 받은 사람들을 대상으로 한 연구라 참고로만 인용합니다.",
-    Flag.CONFLICTING_EVIDENCE: "같은 활동 · 지표에서 효과가 없거나 반대로 나온 연구가 있습니다.",
-    Flag.ADAPTED_STIMULUS: "LUMI 콘텐츠는 이 연구의 자극과 다릅니다.",
-    Flag.NOT_SUPPORTING: "목표 지표의 개선은 보이지 않아 참고로만 인용합니다.",
-}
-
-# 근거의 1차 지표와 LUMI가 재는 것이 다른 목표 — 카드에 밝힌다(schemas/measure.GOAL_SCALE)
-MEASURE_GAPS: dict[CareGoal, str] = {
-    CareGoal.S3: (
-        "근거 연구는 주의 과제 성적을 봤지만, LUMI는 주의 용량을 재지 않고 지금 느끼는 정신 피로로 "
-        "변화를 봅니다."
-    ),
-}
-
-# 목표 척도가 PROVISIONAL일 때 밝히는 문장. 원척도가 검증된 번역 초안(STAI-6 · BSRI)과 팀이 만든
-# 문항(MFVAS)은 사정이 달라 척도마다 둔다. 척도 이름은 measured_by에 보이므로 문장에 넣지 않는다
-TRANSLATED_DRAFT_NOTE = (
-    "이 척도는 연구에서 타당성이 확인된 영어판 문항을 LUMI가 한국어로 옮긴 것입니다. 번역본은 아직 "
-    "따로 검증하지 않아, 점수 변화는 참고로 봐 주세요."
-)
-PROVISIONAL_NOTES: dict[InstrumentId, str] = {
-    InstrumentId.STAI6: TRANSLATED_DRAFT_NOTE,
-    InstrumentId.BSRI: TRANSLATED_DRAFT_NOTE,
-    InstrumentId.MFVAS: (
-        "이 척도는 지금 느끼는 정신 피로를 보려고 LUMI가 만든 질문이라, 아직 검증되지 않았습니다. "
-        "점수 변화는 참고로 봐 주세요."
-    ),
-}
 
 _ADAPTED = "ADAPTED_STIMULUS"
 _EXPERIMENTAL = "EXPERIMENTAL"
@@ -149,20 +89,23 @@ def build_card(
     *,
     delivered: Sequence[Medium],
     relaxed: Iterable[str] = (),
+    lang: Lang = "ko",
 ) -> ReferenceCard:
-    """계획 하나의 카드. cited는 plan 노드가 인용하기로 한 (검색 결과, 판정) — 목표 지지가 앞."""
+    """계획 하나의 카드. cited는 plan 노드가 인용하기로 한 (검색 결과, 판정) — 목표 지지가 앞.
+    코드가 만드는 문장은 세션 언어(lang)로 쓴다."""
     goal = intake.goal
     if goal is None:  # plan 노드는 목표 없이 계획하지 않는다
         raise ValueError("목표 없이 Reference 카드를 만들 수 없다")
-    evidence = card_evidence(cited)
-    goal_section = goal_section_for(intake, goal)
+    texts = TEXTS[lang]
+    evidence = card_evidence(cited, lang)
+    goal_section = goal_section_for(intake, goal, lang)
     badges = card_badges(protocol, goal, evidence, delivered, relaxed, goal_section)
     notes = protocol_notes(protocol, delivered)
-    limits = [GENERAL_LIMIT]
+    limits = [texts.general_limit]
     for badge in badges:
         note = notes.get(badge)
-        if note or badge in BADGE_LIMITS:
-            limits.append(note or BADGE_LIMITS[badge])
+        if note or badge in texts.badge_limits:
+            limits.append(note or texts.badge_limits[badge])
     if protocol.population_note:
         limits.append(protocol.population_note)
     return ReferenceCard(
@@ -182,8 +125,11 @@ def build_card(
     )
 
 
-def card_evidence(cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]]) -> list[CardEvidence]:
+def card_evidence(
+    cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]], lang: Lang = "ko"
+) -> list[CardEvidence]:
     """같은 실험의 chunk를 하나로 묶는다(실험 ID가 없으면 논문 단위). 순서는 처음 나온 순서."""
+    flag_limits = TEXTS[lang].flag_limits
     groups: dict[str, list[tuple[EvidenceHit, EvidenceVerdict]]] = {}
     for hit, verdict in cited:
         groups.setdefault(hit.experiment_id or hit.paper.paper_id, []).append((hit, verdict))
@@ -213,7 +159,7 @@ def card_evidence(cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]]) -> list[
                 supports_goal=any(v.supports_goal for _, v in items),
                 supported_outcomes=supported,
                 flags=flags,
-                limits=[FLAG_LIMITS[f] for f in flags if f in FLAG_LIMITS],
+                limits=[flag_limits[f] for f in flags if f in flag_limits],
                 excerpts=[
                     Excerpt(
                         evidence_record_id=h.evidence_record_id, section=h.section, text=h.excerpt
@@ -226,16 +172,18 @@ def card_evidence(cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]]) -> list[
     return out
 
 
-def goal_section_for(intake: IntakeResult, goal: CareGoal) -> GoalSection:
-    label = GOAL_LABELS[goal]
+def goal_section_for(intake: IntakeResult, goal: CareGoal, lang: Lang = "ko") -> GoalSection:
+    texts = TEXTS[lang]
+    label = texts.goal_labels[goal]
     notes = []
     if intake.goal_source is GoalSource.DEFAULT:
-        notes.append(f"상황 단서가 부족해 기본 목표({label})로 시작했습니다.")
-    if goal in MEASURE_GAPS:
-        notes.append(MEASURE_GAPS[goal])
+        notes.append(texts.default_goal(label))
+    if goal in texts.measure_gaps:
+        notes.append(texts.measure_gaps[goal])
     measure = None
     if (scale := GOAL_SCALE[goal]) is not None:
-        instrument = instruments.get_instrument(scale)
+        # 척도 이름 · 상태는 세션 언어의 문항 기준 — 영어 STAI-6 · BSRI는 원척도라 검증 전이 아니다
+        instrument = instruments.localized(instruments.get_instrument(scale), lang)
         measure = MeasureRef(
             instrument_id=scale,
             name=instrument.name,
@@ -243,7 +191,7 @@ def goal_section_for(intake: IntakeResult, goal: CareGoal) -> GoalSection:
             provisional=instrument.status == "PROVISIONAL",
         )
         if measure.provisional:
-            notes.append(PROVISIONAL_NOTES[scale])
+            notes.append(texts.provisional_notes[scale])
     return GoalSection(
         goal=goal,
         label=label,

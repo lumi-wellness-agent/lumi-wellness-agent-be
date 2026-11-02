@@ -38,7 +38,7 @@ class CardBadge(StrEnum):
     RELAXED_ORDER = "RELAXED_ORDER"  # 지금 상황에 맞춘 활동이 없어 다른 상황용 활동을 골랐다
     RELAXED_ENVIRONMENT = "RELAXED_ENVIRONMENT"  # 지금 환경에 맞는 활동이 없었다
     DEFAULT_GOAL = "DEFAULT_GOAL"  # 상황 단서가 부족해 기본 목표로 시작했다
-    PROVISIONAL_MEASURE = "PROVISIONAL_MEASURE"  # 목표 척도의 한국어 문항이 검증 전
+    PROVISIONAL_MEASURE = "PROVISIONAL_MEASURE"  # 목표 척도의 세션 언어 문항이 검증 전
 
 
 class PaperCitation(BaseModel):
@@ -66,7 +66,9 @@ class MeasureRef(BaseModel):
     instrument_id: InstrumentId
     name: str
     concept: str
-    provisional: bool  # 한국어 문항이 검증 전 — 번역 초안(STAI-6 · BSRI) 또는 팀이 만든 문항(MFVAS)
+    # 세션 언어의 문항이 검증 전 — 한국어 번역 초안(STAI-6 · BSRI) · 팀이 만든 문항(MFVAS,
+    # 언어 무관). 영어 STAI-6 · BSRI는 원척도 문항이라 False
+    provisional: bool
 
 
 class GoalSection(BaseModel):

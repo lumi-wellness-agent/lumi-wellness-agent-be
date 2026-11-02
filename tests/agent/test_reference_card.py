@@ -3,13 +3,14 @@ data/protocols로 카드를 만들어 배지 · 한계 문장 · 근거 묶음 �
 
 import logging
 
-from app import intake_cues, protocols
+from app import instruments, intake_cues, protocols
 from app.agent import reference_card
+from app.agent.card_texts import EN, KO, TEXTS, TRANSLATED_DRAFT_NOTE
 from app.agent.checkpoint import serializer
 from app.agent.state import GoalEvidence, IntakeResult, PlannedActivity
 from app.agent.validation import judge
 from app.schemas.card import CardBadge, ReferenceCard
-from app.schemas.care import CareGoal
+from app.schemas.care import LANGS, CareGoal
 from app.schemas.evidence import InterventionOrder, Medium, Outcome, Section
 from app.schemas.intake import GoalSource
 from app.schemas.measure import GOAL_SCALE, InstrumentId
@@ -26,7 +27,7 @@ def cited(ids, *, goal, media, order):
     ]
 
 
-def card(protocol_id, intake, evidence=(), *, delivered=None, relaxed=(), minutes=10):
+def card(protocol_id, intake, evidence=(), *, delivered=None, relaxed=(), minutes=10, lang="ko"):
     protocol = protocols.get_protocol(protocol_id)
     return reference_card.build_card(
         intake,
@@ -35,6 +36,7 @@ def card(protocol_id, intake, evidence=(), *, delivered=None, relaxed=(), minute
         list(evidence),
         delivered=list(protocol.media) if delivered is None else delivered,
         relaxed=relaxed,
+        lang=lang,
     )
 
 
@@ -66,25 +68,25 @@ def test_s3_card_groups_chunks_and_states_what_lumi_measures():
     # 재현 실패(N19) — 지지하지 않는 참고 근거
     second = got.evidence[1]
     assert not second.supports_goal and Flag.NOT_SUPPORTING in second.flags
-    assert reference_card.FLAG_LIMITS[Flag.NOT_SUPPORTING] in second.limits
+    assert KO.flag_limits[Flag.NOT_SUPPORTING] in second.limits
 
     # S3는 근거가 주의 과제를 봤지만 LUMI는 정신 피로(임시 도구)를 잰다
     assert got.goal.evidence_outcomes == [Outcome.ATTENTION]
     assert got.goal.measured_by.instrument_id is InstrumentId.MFVAS
     assert got.goal.measured_by.provisional is True
-    assert reference_card.MEASURE_GAPS[CareGoal.S3] in got.goal.notes
-    assert reference_card.PROVISIONAL_NOTES[InstrumentId.MFVAS] in got.goal.notes
+    assert KO.measure_gaps[CareGoal.S3] in got.goal.notes
+    assert KO.provisional_notes[InstrumentId.MFVAS] in got.goal.notes
     assert CardBadge.PROVISIONAL_MEASURE in got.badges
     assert got.grades == {
         Outcome.ATTENTION: protocols.get_protocol("PR-01").grades[Outcome.ATTENTION].grade
     }
-    assert got.limits[0] == reference_card.GENERAL_LIMIT
+    assert got.limits[0] == KO.general_limit
 
 
 def test_every_goal_scale_has_a_provisional_note():
     # 목표 척도가 PROVISIONAL이면 카드가 이 표에서 문장을 꺼낸다 — 목표 척도를 더하면 문장도 더한다
     scales = {scale for scale in GOAL_SCALE.values() if scale}
-    assert scales <= set(reference_card.PROVISIONAL_NOTES)
+    assert scales <= set(KO.provisional_notes)
 
 
 def test_a_review_is_one_entry_and_a_matching_experiment_keeps_the_card_unadapted():
@@ -103,7 +105,7 @@ def test_a_review_is_one_entry_and_a_matching_experiment_keeps_the_card_unadapte
     ]
     review = got.evidence[0]
     assert Flag.ADAPTED_STIMULUS in review.flags
-    assert reference_card.FLAG_LIMITS[Flag.ADAPTED_STIMULUS] in review.limits
+    assert KO.flag_limits[Flag.ADAPTED_STIMULUS] in review.limits
     # 사진 실험(P03-E1)이 제공 콘텐츠와 같은 자극이라 카드 배지는 달지 않는다
     assert CardBadge.ADAPTED_STIMULUS not in got.badges
 
@@ -121,11 +123,11 @@ def test_default_goal_without_evidence_uses_the_protocol_note_for_the_adapted_sc
     assert got.evidence == [] and got.goal.definitions == []
     assert got.goal.notes[0] == "상황 단서가 부족해 기본 목표(긴장·스트레스 완화)로 시작했습니다."
     # STAI-6은 검증된 영어판의 번역 초안 — 팀이 만든 척도라고 적지 않는다
-    assert got.goal.notes[1:] == [reference_card.TRANSLATED_DRAFT_NOTE]
+    assert got.goal.notes[1:] == [TRANSLATED_DRAFT_NOTE]
     note = protocols.get_protocol("PR-06").content_spec.model_dump()["reference_card_note"]
     assert got.limits == [
-        reference_card.GENERAL_LIMIT,
-        reference_card.BADGE_LIMITS[CardBadge.NO_VERIFIED_EVIDENCE],
+        KO.general_limit,
+        KO.badge_limits[CardBadge.NO_VERIFIED_EVIDENCE],
         note,  # 작성자가 카드용으로 적은 메모가 고정 문구 대신 들어간다
         protocols.get_protocol("PR-06").population_note,
     ]
@@ -172,7 +174,7 @@ def test_badges_follow_protocol_flags_media_and_relaxed_conditions():
     # 후보가 모자라 푼 조건
     relaxed = card("PR-01", s2, relaxed=["order", "environment"])
     assert {CardBadge.RELAXED_ORDER, CardBadge.RELAXED_ENVIRONMENT} <= set(relaxed.badges)
-    assert reference_card.BADGE_LIMITS[CardBadge.RELAXED_ORDER] in relaxed.limits
+    assert KO.badge_limits[CardBadge.RELAXED_ORDER] in relaxed.limits
     # 조합 근거가 없는 구성
     assert card("PR-22", s2).badges[0] is CardBadge.EXPERIMENTAL
 
@@ -191,3 +193,59 @@ def test_a_full_card_survives_the_checkpoint(caplog):
         restored = serializer().loads_typed(serializer().dumps_typed(got))
     assert not [r for r in caplog.records if "Blocked deserialization" in r.getMessage()]
     assert isinstance(restored, ReferenceCard) and restored == got
+
+
+def test_every_language_has_every_card_sentence():
+    for lang in LANGS:
+        texts = TEXTS[lang]
+        assert set(texts.goal_labels) == set(CareGoal)
+        assert set(texts.badge_limits) == set(KO.badge_limits)
+        assert set(texts.flag_limits) == set(KO.flag_limits)
+        assert set(texts.measure_gaps) == set(KO.measure_gaps)
+        # 그 언어에서 PROVISIONAL인 목표 척도는 문장이 있어야 한다
+        provisional = {
+            scale
+            for scale in GOAL_SCALE.values()
+            if scale
+            and instruments.localized(instruments.get_instrument(scale), lang).status
+            == "PROVISIONAL"
+        }
+        assert provisional <= set(texts.provisional_notes)
+
+
+def test_english_card_writes_code_sentences_in_english():
+    evidence = cited(
+        [122, 121, 142, 141],
+        goal=CareGoal.S3,
+        media=[Medium.STATIC_IMAGE],
+        order=InterventionOrder.POST_FATIGUE,
+    )
+    ko = card("PR-01", S3, evidence, delivered=[Medium.STATIC_IMAGE])
+    en = card("PR-01", S3, evidence, delivered=[Medium.STATIC_IMAGE], lang="en")
+
+    # 배지 · 근거 묶음 · 등급은 언어와 상관없다
+    assert en.badges == ko.badges and en.grades == ko.grades
+    assert [e.evidence_record_ids for e in en.evidence] == [
+        e.evidence_record_ids for e in ko.evidence
+    ]
+    assert en.goal.label == "Recovering from mental fatigue"
+    assert en.goal.measured_by.name == "Mental Fatigue VAS" and en.goal.measured_by.provisional
+    assert en.goal.notes == [EN.measure_gaps[CareGoal.S3], EN.provisional_notes[InstrumentId.MFVAS]]
+    assert en.limits[0] == EN.general_limit
+    assert EN.flag_limits[Flag.NOT_SUPPORTING] in en.evidence[1].limits
+
+
+def test_english_stai6_is_not_provisional_so_the_card_drops_the_translation_note():
+    intake = IntakeResult(goal=CareGoal.S2, goal_source=GoalSource.DEFAULT)
+    ko = card("PR-06", intake)
+    en = card("PR-06", intake, lang="en")
+
+    assert CardBadge.PROVISIONAL_MEASURE in ko.badges
+    assert CardBadge.PROVISIONAL_MEASURE not in en.badges
+    assert en.goal.measured_by.provisional is False
+    assert en.goal.measured_by.name.endswith("(STAI-6)")
+    assert en.goal.notes == [
+        "There weren't enough cues about your situation, so we started with the default goal "
+        "(Easing stress and tension)."
+    ]
+    assert en.limits[:2] == [EN.general_limit, EN.badge_limits[CardBadge.NO_VERIFIED_EVIDENCE]]

@@ -5,6 +5,10 @@ measure_pre · measure_post · measure_final(app/agent/nodes/measure.py)이 pres
 PROVISIONAL은 출처 문항의 한국어 번역 초안 또는 팀 작성 임시 문항을 내부 시험에 제시하는 상태다.
 화면에는 '한국어 번역본 · 내부 시험용'으로 표시하고, 검증된 한국어판처럼 해석하지 않는다.
 READY는 확인된 문항을 제시하는 상태, TODO는 제시 문구가 아직 없는 상태다.
+
+세션 언어(CareRequest.lang)가 한국어가 아니면 data/instruments/<lang>/INS-*.json의 문구로
+제시한다(localized). 문항 id · 역채점 · 응답 척도 · 채점은 한국어 원천 그대로라 언어가 달라도 점수
+계산은 같다. 상태도 언어마다다 — STAI-6 · BSRI의 영어 문항은 원척도라 READY다.
 """
 
 from collections.abc import Mapping
@@ -15,6 +19,7 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.schemas.care import LANGS, Lang
 from app.schemas.measure import InstrumentId, Measurement, Timepoint
 
 INSTRUMENT_DIR = Path(__file__).resolve().parents[1] / "data" / "instruments"
@@ -77,6 +82,28 @@ class Instrument(BaseModel):
         return self
 
 
+class ItemText(BaseModel):
+    text: str
+    low_label: str | None = None
+    high_label: str | None = None
+
+
+class InstrumentText(BaseModel):
+    """한국어가 아닌 세션 언어의 제시 문구 — data/instruments/<lang>/INS-*.json.
+
+    이름 · 구성개념 · 지시문 · 문항 문장 · 양끝 라벨만 바꾼다. status는 그 언어 문항의 상태다.
+    """
+
+    instrument_id: InstrumentId
+    name: str
+    concept: str
+    instruction: str | None = None
+    items: dict[str, ItemText]  # 문항 id → 문구. 원천의 문항 id를 모두 덮는다
+    status: Literal["READY", "PROVISIONAL"]
+    source: str  # 문구 출처 — 원문 그대로인지, 옮겼는지
+    license_note: str | None = None
+
+
 @lru_cache
 def load_instruments() -> dict[InstrumentId, Instrument]:
     out: dict[InstrumentId, Instrument] = {}
@@ -94,16 +121,63 @@ def get_instrument(instrument_id: InstrumentId) -> Instrument:
     return load_instruments()[instrument_id]
 
 
-def present(instrument: Instrument) -> dict:
-    """interrupt에 싣는 제시용 payload. FE가 그대로 렌더링한다."""
+@lru_cache
+def load_texts() -> dict[tuple[Lang, InstrumentId], InstrumentText]:
+    """한국어가 아닌 언어의 제시 문구. 원천과 문항 id · 지시문 · 양끝 라벨 유무가 같아야 한다."""
+    out: dict[tuple[Lang, InstrumentId], InstrumentText] = {}
+    for lang in LANGS:
+        if lang == "ko":
+            continue
+        for path in sorted((INSTRUMENT_DIR / lang).glob("INS-*.json")):
+            text = InstrumentText.model_validate_json(path.read_text(encoding="utf-8"))
+            if text.instrument_id.value != path.stem:
+                raise ValueError(f"{lang}/{path.name}: instrument_id가 파일명과 다르다")
+            _check_covers(get_instrument(text.instrument_id), text, f"{lang}/{path.name}")
+            out[(lang, text.instrument_id)] = text
+    return out
+
+
+def _check_covers(source: Instrument, text: InstrumentText, where: str) -> None:
+    if set(text.items) != {item.id for item in source.items}:
+        raise ValueError(f"{where}: 문항 id가 원천과 다르다")
+    if (text.instruction is None) != (source.instruction is None):
+        raise ValueError(f"{where}: 지시문 유무가 원천과 다르다")
+    for item in source.items:
+        got = text.items[item.id]
+        for label in ("low_label", "high_label"):
+            if (getattr(got, label) is None) != (getattr(item, label) is None):
+                raise ValueError(f"{where}: {item.id}.{label} 유무가 원천과 다르다")
+
+
+def localized(instrument: Instrument, lang: Lang) -> Instrument:
+    """세션 언어로 제시할 도구 — 한국어는 원천 그대로, 다른 언어는 문구 · 상태만 바꾼 사본."""
+    if lang == "ko":
+        return instrument
+    text = load_texts()[(lang, instrument.instrument_id)]
+    items = [item.model_copy(update=text.items[item.id].model_dump()) for item in instrument.items]
+    return instrument.model_copy(
+        update={
+            "name": text.name,
+            "concept": text.concept,
+            "instruction": text.instruction,
+            "items": items,
+            "status": text.status,
+            "license_note": text.license_note,
+        }
+    )
+
+
+def present(instrument: Instrument, lang: Lang = "ko") -> dict:
+    """interrupt에 싣는 제시용 payload. FE가 그대로 렌더링한다. 문구는 세션 언어로."""
+    shown = localized(instrument, lang)
     return {
-        "instrument_id": instrument.instrument_id.value,
-        "name": instrument.name,
-        "instruction": instrument.instruction,
-        "scale": instrument.scale.model_dump(),
+        "instrument_id": shown.instrument_id.value,
+        "name": shown.name,
+        "instruction": shown.instruction,
+        "scale": shown.scale.model_dump(),
         "items": [
             {"id": i.id, "text": i.text, "low_label": i.low_label, "high_label": i.high_label}
-            for i in instrument.items
+            for i in shown.items
         ],
     }
 

@@ -373,6 +373,7 @@ class MemoryStore:
             "node": None,
             "goal": None,
             "request": {} if guest else request_row(request),
+            "lang": request.lang,
             "intake": None,
             "turns": [],
             "pre": None,
@@ -661,8 +662,15 @@ class PostgresStore:
     ) -> None:
         async with self.pool.connection() as conn:
             await conn.execute(
-                "insert into public.care_sessions (id, user_id, request) values (%s, %s, %s)",
-                (UUID(session_id), user_id, Jsonb({} if guest else request_row(request))),
+                # lang은 내용이 아니라 게스트 · SAFETY 세션에도 남긴다(언어별 안전 판정 비율)
+                "insert into public.care_sessions (id, user_id, request, lang)"
+                " values (%s, %s, %s, %s)",
+                (
+                    UUID(session_id),
+                    user_id,
+                    Jsonb({} if guest else request_row(request)),
+                    request.lang,
+                ),
             )
 
     async def session(self, session_id: str) -> SessionRecord | None:

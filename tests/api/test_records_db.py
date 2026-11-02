@@ -259,6 +259,30 @@ def test_a_safety_end_drops_the_texts_already_kept():
     asyncio.run(in_rollback(test))
 
 
+def test_the_session_language_is_kept_for_every_session():
+    # 언어는 내용이 아니라 게스트 · SAFETY 세션에도 남는다 — 빠뜨린 요청은 한국어
+    async def test(conn, store):
+        user_id = await new_user(conn)
+        ids = {name: str(uuid.uuid4()) for name in ("ko", "en", "guest")}
+        await store.create(ids["ko"], user_id, CareRequest(text="-"))
+        await store.create(ids["en"], user_id, CareRequest(text="-", lang="en"))
+        await store.create(ids["guest"], user_id, CareRequest(text="-", lang="en"), guest=True)
+        for name, sid in ids.items():
+            row = await one(
+                conn, "select lang, request from public.care_sessions where id = %s", uuid.UUID(sid)
+            )
+            assert row[0] == ("ko" if name == "ko" else "en")
+        assert (
+            await one(
+                conn,
+                "select request from public.care_sessions where id = %s",
+                uuid.UUID(ids["guest"]),
+            )
+        )[0] == {}
+
+    asyncio.run(in_rollback(test))
+
+
 def test_cleanup_queries_pick_idle_orphan_and_finished_threads():
     async def test(conn, store):
         user_id = await new_user(conn)

@@ -21,7 +21,7 @@ from app.agent.state import (
     SessionReport,
 )
 from app.api.sessions import Step
-from app.schemas.care import CareGoal, CareRequest, Setting, UserProfile
+from app.schemas.care import LANGS, CareGoal, CareRequest, Setting, UserProfile
 
 MIGRATIONS = sorted((Path(__file__).parents[1] / "supabase/migrations").glob("*.sql"))
 
@@ -31,7 +31,7 @@ def allowed(column: str) -> set[str]:
     sql = "\n".join(path.read_text() for path in MIGRATIONS)
     match = re.search(rf"check \({column} in \(([^)]*)\)\)", sql)
     assert match, column
-    return set(re.findall(r"'([A-Z_0-9]+)'", match.group(1)))
+    return set(re.findall(r"'([A-Za-z_0-9]+)'", match.group(1)))
 
 
 def test_the_migration_checks_match_the_code_values():
@@ -41,6 +41,7 @@ def test_the_migration_checks_match_the_code_values():
     assert allowed("end_reason") == {"DONE"} | {end.value for end in SessionEnd}
     assert allowed("recommended") == allowed("next_step") == {s.value for s in NextStep}
     assert allowed("rule_recommended") == {s.value for s in NextStep}
+    assert allowed("lang") == set(LANGS)
 
 
 def test_every_intake_field_is_either_a_record_or_a_text():
@@ -107,6 +108,27 @@ def test_a_guest_session_keeps_only_its_progress():
         "ended": False,
         **records.NO_CONTENT,
     }
+
+
+def test_every_session_keeps_its_language_even_without_content():
+    # 언어는 내용이 아니다 — 게스트 · SAFETY 세션도 언어별로 나눠 볼 수 있게 남긴다
+    store = records.MemoryStore()
+    user = uuid.uuid4()
+
+    async def run():
+        await store.create("ko", user, CareRequest(text="-"))
+        await store.create("en", user, CareRequest(text="-", lang="en"))
+        await store.create("guest", user, CareRequest(text="-", lang="en"), guest=True)
+
+    asyncio.run(run())
+    assert {sid: row["lang"] for sid, row in store.sessions.items()} == {
+        "ko": "ko",
+        "en": "en",
+        "guest": "en",
+    }
+    assert store.sessions["guest"]["request"] == {}
+    # 세션이 끝나며 내용 칸을 비워도(SAFETY · 게스트) 언어 칸은 건드리지 않는다
+    assert "lang" not in records.NO_CONTENT
 
 
 def finished_round(protocol_id: str, next_step: NextStep, proposal: ReplanProposal) -> Round:

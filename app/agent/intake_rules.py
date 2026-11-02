@@ -29,10 +29,12 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app import intake_cues, protocols
+from app.agent.intake_texts import TEXTS
 from app.agent.state import GoalEvidence, IntakeResult, default_environment
 from app.schemas.care import (
     CareGoal,
     CareRequest,
+    Lang,
     Place,
     Setting,
     environment_for,
@@ -47,8 +49,6 @@ from app.schemas.intake import (
     MIN_OPTIONS,
     MINUTES_ASK_BOUNDARIES,
     MINUTES_CHOICES,
-    SKIP_LABEL,
-    UNKNOWN_LABEL,
     GoalSource,
     IntakeAnswer,
     IntakeEndReason,
@@ -225,27 +225,14 @@ def merge_values(intake: IntakeResult, values: dict[str, Any]) -> IntakeResult:
 
 # ── State 질문 ────────────────────────────────────────────────────────────────────────────
 
-STATE_TEXT = "방금 있었던 일 때문인가요, 곧 있을 일 때문인가요?"
-STATE_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
-    ("방금 있었던 일 때문이에요", {"order_condition": "POST_STRESS"}),
-    ("곧 있을 일이 걱정돼요", {"order_condition": "PRE_STRESS"}),
-    ("오래 집중해서 지쳤어요", {"order_condition": "POST_FATIGUE"}),
-    ("딱히 계기는 없어요", {"order_condition": "NO_INDUCTION"}),
-)
-FOLLOWUP_TEXT = "요즘 오래 집중해야 하는 일이 많았나요, 신경 쓰이는 일이 있었나요?"
-FOLLOWUP_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
-    ("오래 집중하는 일이 많았어요", {"order_condition": "POST_FATIGUE", "goal_hint": ["S3"]}),
-    ("신경 쓰이는 일이 있었어요", {"order_condition": "POST_STRESS", "goal_hint": ["S2"]}),
-    ("둘 다예요", {"order_condition": "POST_STRESS", "goal_hint": ["S2", "S3"]}),
-)
-# 상황은 분명한데 증상이 다른 목표를 가리킬 때(symptom_mismatch) — 원인이 아니라 지금 상태를 묻는다.
-# 예: "야근하고 나니 신경이 곤두서 있어요"(피로 후 + 긴장)
-#     "곧 시험인데 머리가 안 돌아가요"(시험 전 + 멍함)
-MISMATCH_TEXT = "지금은 어느 쪽에 더 가까워요?"
-MISMATCH_FIXED: tuple[tuple[str, dict[str, Any]], ...] = (
-    ("긴장되거나 예민해요", {"goal_hint": ["S2"]}),
-    ("머리가 멍하고 지쳐요", {"goal_hint": ["S3"]}),
-)
+# 고정 질문 문장과 보기는 세션 언어마다 app/agent/intake_texts.py에 있다. 아래는 한국어
+# 별칭(테스트 · 리허설용)
+STATE_TEXT = TEXTS["ko"].state
+STATE_FIXED = TEXTS["ko"].state_fixed
+FOLLOWUP_TEXT = TEXTS["ko"].followup
+FOLLOWUP_FIXED = TEXTS["ko"].followup_fixed
+MISMATCH_TEXT = TEXTS["ko"].mismatch
+MISMATCH_FIXED = TEXTS["ko"].mismatch_fixed
 LLM_MAX_OPTIONS = MAX_OPTIONS - 1  # 잘 모르겠어요 자리를 남긴다
 
 
@@ -277,23 +264,24 @@ def state_slot(reading: StateReading, turns: Sequence[IntakeTurn]) -> QuestionSl
     return None
 
 
-def _with_unknown(options: list[QuestionOption]) -> list[QuestionOption]:
-    return [*options, QuestionOption(label=UNKNOWN_LABEL, set={})]
+def _with_unknown(options: list[QuestionOption], lang: Lang = "ko") -> list[QuestionOption]:
+    return [*options, QuestionOption(label=TEXTS[lang].unknown, set={})]
 
 
-def fixed_question(slot: QuestionSlot, turn: int) -> IntakeQuestion:
+def fixed_question(slot: QuestionSlot, turn: int, lang: Lang = "ko") -> IntakeQuestion:
     """고정 질문 — LLM 보기가 검증 뒤 2개 미만일 때와 '잘 모르겠어요' 뒤 재질문."""
+    texts = TEXTS[lang]
     if slot is QuestionSlot.STATE:
-        text, fixed = STATE_TEXT, STATE_FIXED
+        text, fixed = texts.state, texts.state_fixed
     else:
-        text, fixed = FOLLOWUP_TEXT, FOLLOWUP_FIXED
+        text, fixed = texts.followup, texts.followup_fixed
     options = [QuestionOption(label=label, set=values) for label, values in fixed]
     return IntakeQuestion(
         question_id=f"q{turn}",
         slot=slot,
         turn=turn,
         text=text,
-        groups=[QuestionGroup(key=slot.value, options=_with_unknown(options))],
+        groups=[QuestionGroup(key=slot.value, options=_with_unknown(options, lang))],
         allow_free_text=True,
     )
 
@@ -313,7 +301,9 @@ def _draft_options(draft: StateQuestionDraft, slot: QuestionSlot) -> list[Questi
     return options
 
 
-def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+def state_question(
+    reading: StateReading, turns: Sequence[IntakeTurn], lang: Lang = "ko"
+) -> IntakeQuestion | None:
     """LLM 초안을 검증해 질문으로. 유효한 보기가 2개 미만이거나 문장이 비면 고정 질문으로 바꾼다.
 
     보기는 LLM 보기(2~4개) + 잘 모르겠어요 = 3~5개다.
@@ -325,18 +315,20 @@ def state_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Intake
     options = _draft_options(reading.question, slot)
     text = reading.question.text.strip()
     if len(options) < MIN_OPTIONS or not text:
-        return fixed_question(slot, turn)
+        return fixed_question(slot, turn, lang)
     return IntakeQuestion(
         question_id=f"q{turn}",
         slot=slot,
         turn=turn,
         text=text,
-        groups=[QuestionGroup(key=slot.value, options=_with_unknown(options))],
+        groups=[QuestionGroup(key=slot.value, options=_with_unknown(options, lang))],
         allow_free_text=True,
     )
 
 
-def mismatch_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+def mismatch_question(
+    reading: StateReading, turns: Sequence[IntakeTurn], lang: Lang = "ko"
+) -> IntakeQuestion | None:
     """상황은 정했는데 증상이 다른 목표를 가리키면 지금 상태를 묻는 고정 재질문(slot은 재질문).
 
     시점 질문을 하지 않은 경우만이라 State 예산(시점 + 재질문)을 넘지 않는다. 답의 goal_hint는
@@ -344,7 +336,7 @@ def mismatch_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Int
     """
     if not reading.symptom_mismatch or reading.order_condition is None:
         return None
-    return _current_state_question(turns)
+    return _current_state_question(turns, lang)
 
 
 # 상황이 가리키는 목표 — 사건 전·후는 긴장(S2), 오래 집중한 뒤는 피로(S3). 계기 없음 · 미상은 없다
@@ -356,7 +348,7 @@ ORDER_GOAL: dict[InterventionOrder, CareGoal] = {
 
 
 def goal_mismatch_question(
-    intake: IntakeResult, turns: Sequence[IntakeTurn]
+    intake: IntakeResult, turns: Sequence[IntakeTurn], lang: Lang = "ko"
 ) -> IntakeQuestion | None:
     """목표 추론 뒤 코드로 한 번 더 — 추론한 목표(S2 · S3)가 상황이 가리키는 목표와 다르면 지금
     상태를 묻는다. ① 읽기의 symptom_mismatch만으로는 절반쯤 놓쳤다(2026-10-29 intake 평가: LLM은
@@ -370,56 +362,53 @@ def goal_mismatch_question(
     implied = ORDER_GOAL.get(intake.order_condition)
     if implied is None or implied is intake.goal:
         return None
-    return _current_state_question(turns)
+    return _current_state_question(turns, lang)
 
 
-def _current_state_question(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+def _current_state_question(
+    turns: Sequence[IntakeTurn], lang: Lang = "ko"
+) -> IntakeQuestion | None:
     if _state_turns(turns) or len(counted(turns)) >= MAX_TURNS:
         return None
     turn = len(counted(turns)) + 1
-    options = [QuestionOption(label=label, set=values) for label, values in MISMATCH_FIXED]
+    texts = TEXTS[lang]
+    options = [QuestionOption(label=label, set=values) for label, values in texts.mismatch_fixed]
     return IntakeQuestion(
         question_id=f"q{turn}",
         slot=QuestionSlot.STATE_FOLLOWUP,
         turn=turn,
-        text=MISMATCH_TEXT,
+        text=texts.mismatch,
         groups=[
-            QuestionGroup(key=QuestionSlot.STATE_FOLLOWUP.value, options=_with_unknown(options))
+            QuestionGroup(
+                key=QuestionSlot.STATE_FOLLOWUP.value, options=_with_unknown(options, lang)
+            )
         ],
         allow_free_text=True,
     )
 
 
-def followup_after_unknown(turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+def followup_after_unknown(turns: Sequence[IntakeTurn], lang: Lang = "ko") -> IntakeQuestion | None:
     """시점 질문에 '잘 모르겠어요'로 답했으면 원인을 묻는 고정 재질문(읽기 없이). 예산 안에서만."""
     asked = _state_turns(turns)
     if len(counted(turns)) >= MAX_TURNS or len(asked) != 1:
         return None
     last = asked[0]
     if last.slot is QuestionSlot.STATE and last.answer == {}:
-        return fixed_question(QuestionSlot.STATE_FOLLOWUP, len(counted(turns)) + 1)
+        return fixed_question(QuestionSlot.STATE_FOLLOWUP, len(counted(turns)) + 1, lang)
     return None
 
 
 # ── 입구 되묻기 ──────────────────────────────────────────────────────────────────────────
 
-RESTATE_FIXED = (
-    "오늘 하루는 어떠셨어요? 지금 상황을 한두 마디로 들려주세요. 예: 발표 끝나고 계속 생각나요"
-)
-# 남의 위험을 이야기했을 때(third_party_risk) — LLM 문장 대신 고정 문장. 도울 곳(109)을 먼저 알리고
-# 사용자 자신의 이야기를 묻는다. 109는 자살예방상담전화(24시간)
-THIRD_PARTY_TEXT = (
-    "걱정되는 분이 있다면 자살예방상담전화 109에서 함께 도울 방법을 들을 수 있어요. "
-    "지금은 당신의 이야기를 듣고 싶어요. 오늘 하루는 어떠셨어요?"
-)
-# 진단 · 처방만 물었을 때(diagnosis_request) — 진단하지 않고 지금 상태를 묻는 고정 문장
-DIAGNOSIS_TEXT = (
-    "LUMI는 진단은 하지 못해요. 걱정되면 전문가와 이야기해 보세요. "
-    "지금 상태를 한두 마디로 들려주시면 쉬어 갈 활동을 찾아 드릴게요."
-)
+# 입구 되묻기의 고정 문장 — 비었을 때 · 남의 위험(109) · 진단 요청. 한국어 별칭(문장은 intake_texts)
+RESTATE_FIXED = TEXTS["ko"].restate
+THIRD_PARTY_TEXT = TEXTS["ko"].third_party
+DIAGNOSIS_TEXT = TEXTS["ko"].diagnosis
 
 
-def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> IntakeQuestion | None:
+def restate_question(
+    reading: StateReading, turns: Sequence[IntakeTurn], lang: Lang = "ko"
+) -> IntakeQuestion | None:
     """처음 입력(또는 앞선 되묻기 답)이 관계없으면 되묻기. 예산 질문을 시작하기 전에만, 제한 없이.
 
     문장은 LLM이 사용자 말에 맞춰 만들고, 비었으면 고정 문장을 쓴다.
@@ -431,19 +420,20 @@ def restate_question(reading: StateReading, turns: Sequence[IntakeTurn]) -> Inta
     if reading.relevance is not Relevance.OFF_TOPIC and not reading.third_party_risk:
         return None
     n = len(turns) + 1  # 앞선 것은 모두 되묻기다
+    texts = TEXTS[lang]
     if reading.third_party_risk:
-        text = THIRD_PARTY_TEXT
+        text = texts.third_party
     elif reading.diagnosis_request:
-        text = DIAGNOSIS_TEXT
+        text = texts.diagnosis
     else:
-        text = (reading.restate_text or "").strip() or RESTATE_FIXED
+        text = (reading.restate_text or "").strip() or texts.restate
     return IntakeQuestion(
         question_id=f"r{n}",
         slot=QuestionSlot.RESTATE,
         turn=0,
         text=text,
         allow_free_text=True,
-        skip_label=SKIP_LABEL,
+        skip_label=texts.skip,
     )
 
 
@@ -460,13 +450,20 @@ def both_state_unknown(turns: Sequence[IntakeTurn]) -> bool:
 
 # ── ④ 환경 질문 ─────────────────────────────────────────────────────────────────────────────
 
-SETTING_OPTIONS: tuple[tuple[str, Setting], ...] = (
-    ("집이나 혼자 있는 방", Setting.HOME),
-    ("사무실·카페", Setting.OFFICE_CAFE),
-    ("지하철·버스", Setting.TRANSIT),
-    ("밖에 나갈 수 있어요", Setting.OUTDOOR),
+# 환경 칩의 보기 — 값 순서는 이것이고 문구는 세션 언어마다 intake_texts에 있다
+SETTINGS: tuple[Setting, ...] = (
+    Setting.HOME,
+    Setting.OFFICE_CAFE,
+    Setting.TRANSIT,
+    Setting.OUTDOOR,
 )
-EARPHONE_OPTIONS: tuple[tuple[str, bool], ...] = (("있어요", True), ("없어요", False))
+SETTING_OPTIONS: tuple[tuple[str, Setting], ...] = tuple(
+    (TEXTS["ko"].settings[s.value], s) for s in SETTINGS
+)
+EARPHONE_OPTIONS: tuple[tuple[str, bool], ...] = (
+    (TEXTS["ko"].earphones[0], True),
+    (TEXTS["ko"].earphones[1], False),
+)
 
 
 def candidate_ids(intake: IntakeResult, **override: Any) -> frozenset[str]:
@@ -514,27 +511,33 @@ def context_groups(intake: IntakeResult) -> list[str]:
     return groups
 
 
-def context_question(groups: Sequence[str], turn: int) -> IntakeQuestion | None:
+def context_question(groups: Sequence[str], turn: int, lang: Lang = "ko") -> IntakeQuestion | None:
     """환경 칩 질문. 보기는 고정이고 '잘 모르겠어요'는 붙이지 않는다(고르지 않으면 키가 빠진다)."""
     if not groups:
         return None
+    texts = TEXTS[lang]
     built: list[QuestionGroup] = []
     asks: list[str] = []
     if "setting" in groups:
-        options = [QuestionOption(label=lb, set={"setting": s.value}) for lb, s in SETTING_OPTIONS]
+        options = [
+            QuestionOption(label=texts.settings[s.value], set={"setting": s.value})
+            for s in SETTINGS
+        ]
         built.append(QuestionGroup(key="setting", options=options))
-        asks.append("지금 어디에 계세요?")
+        asks.append(texts.ask_setting)
     if "earphones" in groups:
-        options = [QuestionOption(label=lb, set={"earphones": v}) for lb, v in EARPHONE_OPTIONS]
+        options = [
+            QuestionOption(label=label, set={"earphones": value})
+            for label, value in zip(texts.earphones, (True, False), strict=True)
+        ]
         built.append(QuestionGroup(key="earphones", options=options))
-        asks.append("이어폰이 있으세요?")
+        asks.append(texts.ask_earphones)
     if "minutes" in groups:
         options = [
-            QuestionOption(label="20분 이상" if m == 20 else f"{m}분", set={"minutes": m})
-            for m in MINUTES_CHOICES
+            QuestionOption(label=texts.minutes(m), set={"minutes": m}) for m in MINUTES_CHOICES
         ]
         built.append(QuestionGroup(key="minutes", options=options))
-        asks.append("쓸 수 있는 시간은 얼마나 되세요?")
+        asks.append(texts.ask_minutes)
     return IntakeQuestion(
         question_id=f"q{turn}",
         slot=QuestionSlot.CONTEXT,
@@ -588,13 +591,27 @@ DEFAULT_CHOICES = (CareGoal.S1, CareGoal.S2, CareGoal.S3)
 _default_rng = random.Random()
 
 
-# 판단 이유에 남기지 않는 진단명(사용자가 말했어도)
+# 판단 이유에 남기지 않는 진단명(사용자가 말했어도). 영어는 대소문자를 가리지 않고 본다
 DIAGNOSIS_WORDS = ("우울증", "불안장애", "공황장애", "ADHD", "장애", "질환")
+DIAGNOSIS_WORDS_EN = (
+    "depression",
+    "anxiety disorder",
+    "panic disorder",
+    "adhd",
+    "disorder",
+    "illness",
+)
+
+
+def mentions_diagnosis(reason: str) -> bool:
+    lowered = reason.lower()
+    return any(w in reason for w in DIAGNOSIS_WORDS) or any(
+        w in lowered for w in DIAGNOSIS_WORDS_EN
+    )
 
 
 def default_goal(rng: random.Random | None = None) -> CareGoal:
     return (rng or _default_rng).choice(DEFAULT_CHOICES)
-
 
 
 def apply_goal(
@@ -607,31 +624,33 @@ def apply_goal(
     """목표 칸 채우기. 요청 칩 > '그냥 시작할게요' · State 두 질문 모두 모름(무작위 DEFAULT) >
     추론 > 재질문 목표 단서 > 단서 없음(무작위 DEFAULT, 화면에 밝힌다). 추론한 목표(INFERRED)면
     그 목표와 부목표의 개념 정의(② data/goal_definitions.json)를 goal_evidence로 붙인다 — 칩 ·
-    기본값은 정의로 판단한 것이 아니라 비운다. rng는 테스트가 무작위를 고정할 때."""
+    기본값은 정의로 판단한 것이 아니라 비운다. 코드가 쓰는 판단 이유는 세션 언어(request.lang)로
+    쓴다. rng는 테스트가 무작위를 고정할 때."""
+    texts = TEXTS[request.lang]
     if request.goal is not None:
         update: dict[str, Any] = {"goal": request.goal, "goal_source": GoalSource.CHIP}
     elif entry_skipped(turns):
         update = {
             "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황을 말하지 않고 '그냥 시작할게요'를 골라 목표를 무작위로 정했다",
+            "goal_reason": texts.reason_skipped,
         }
     elif both_state_unknown(turns):
         update = {
             "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "상황 질문 두 개에 모두 '잘 모르겠어요'라고 답해 목표를 무작위로 정했다",
+            "goal_reason": texts.reason_both_unknown,
         }
     elif inference is not None and inference.has_cues:
         goal, secondary, reason = inference.goal, inference.secondary_goal, inference.reason
         # 재질문에서 지금 상태를 하나 골랐으면 그 답이 추론보다 앞선다(사용자가 직접 말한 상태)
         if len(intake.goal_hint) == 1 and intake.goal_hint[0] is not goal:
             goal, secondary = intake.goal_hint[0], goal
-            reason = "재질문에서 고른 지금 상태를 따랐다"
+            reason = texts.reason_hint_chosen
         # 사용자가 말한 진단명을 판단 이유에 옮겨 쓰면 진단처럼 읽힌다 — 프롬프트로 막아도 남았다
         # (2026-10-29 intake 평가)
-        if any(word in reason for word in DIAGNOSIS_WORDS):
-            reason = "사용자가 말한 지금 상태 표현이 이 목표의 단서에 맞았다"
+        if mentions_diagnosis(reason):
+            reason = texts.reason_without_diagnosis
         update = {
             "goal": goal,
             "secondary_goal": secondary if secondary is not goal else None,
@@ -644,13 +663,13 @@ def apply_goal(
             "goal": hint[0],
             "secondary_goal": hint[1] if len(hint) > 1 else None,
             "goal_source": GoalSource.INFERRED,
-            "goal_reason": "재질문 답이 가리킨 목표",
+            "goal_reason": texts.reason_hint,
         }
     else:
         update = {
             "goal": default_goal(rng),
             "goal_source": GoalSource.DEFAULT,
-            "goal_reason": "목표를 가를 단서가 없어 세 목표 중 하나를 무작위로 정했다",
+            "goal_reason": texts.reason_no_cues,
         }
     update["target_outcomes"] = list(GOAL_OUTCOMES[update["goal"]].primary)
     update["goal_evidence"] = (

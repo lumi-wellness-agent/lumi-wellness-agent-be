@@ -534,6 +534,7 @@ def make_plan_node(planner: Planner):
             [(c.hit, c.verdict) for c in evidence],
             delivered=protocols.delivered_media(protocol, session.content_type),
             relaxed=relaxed,
+            lang=state["request"].lang,
         )
         progress({"node": "plan", "step": "write_rationale"})
         rationale, factors = await write_rationale(planner, state, choice, protocol, evidence, card)

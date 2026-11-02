@@ -216,7 +216,7 @@ are in each node's docstring.
 
 | Request | Graph | Response `step` |
 | --- | --- | --- |
-| `POST /sessions` — `CareRequest` (text + environment chips) | new thread → intake → stops at `intake_ask` if a question is needed (a re-ask if the text is unrelated), otherwise at `measure_pre`. A safety signal ends it with `ended = SAFETY` | `ASK` · `MEASURE` (pre) · `END` |
+| `POST /sessions` — `CareRequest` (text + environment chips + session language `lang`) | new thread → intake → stops at `intake_ask` if a question is needed (a re-ask if the text is unrelated), otherwise at `measure_pre`. A safety signal ends it with `ended = SAFETY` | `ASK` · `MEASURE` (pre) · `END` |
 | `POST /sessions/{id}/answer` — `IntakeAnswer` | resume → stops at the next question or `measure_pre` (3 questions in total, re-asks excluded). A re-ask's `{"skip": true}` starts with a goal chosen at random among S1 · S2 · S3. A safety signal in a free-text answer ends it with `ended = SAFETY` | `ASK` · `MEASURE` (pre) · `END` |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | pre: resume → plan → prepare → stops at `run_session` | `RUN` |
 | `POST /sessions/{id}/report` — `SessionReport` | resume → stops at `measure_post` | `MEASURE` (post — SAM, plus MFVAS for S3) |
@@ -264,6 +264,15 @@ JSON response). A failed run ends with `error` (shaped like the error body), and
 The FE uses SSE only for calls where an LLM runs before the response (`POST /sessions` · `answer` · pre
 `measure` · `decision` · `retry`) and JSON for the rest. The browser `EventSource` supports GET only, so the
 stream is read with fetch.
+
+**Session language.** `CareRequest.lang` (`ko` by default · `en`) is the session language. Sentences the code
+writes — intake fixed questions and options · fixed re-ask sentences · environment chips · goal reasons written by
+code (`app/agent/intake_texts.py`), measurement items (`data/instruments/en/`), and the Reference card's goal name ·
+limit sentences · scale notes (`app/agent/card_texts.py`) — are sent in this language. The values an option fills
+in and the measurement scoring are the same in every language. The English version is in progress — sentences an
+LLM writes (re-asks · question drafts · goal reasons · rationales), activity node wording and evidence metadata
+are still Korean, and the FE does not send `lang` yet. A request without `lang` is Korean, the same session as
+before.
 
 **Errors.** The body is `{"detail": {code, message, …}}`.
 
@@ -355,12 +364,15 @@ session API rewrites the records from the state after the graph stops.
 | Table | Contents |
 | --- | --- |
 | `user_consents` | one row per user — required-consent version · time, raw-text consent |
-| `care_sessions` | one session (id = thread_id) — where it is stopped (`step` · `node`), goal, environment chips, intake classification values (`records.INTAKE_FIELDS`), question slots and chip answers, pre · final measurements, end reason and END payload |
+| `care_sessions` | one session (id = thread_id) — where it is stopped (`step` · `node`), session language (`lang`), goal, environment chips, intake classification values (`records.INTAKE_FIELDS`), question slots and chip answers, pre · final measurements, end reason and END payload |
 | `care_rounds` | finished rounds — activity · minutes · evidence IDs · relaxed conditions, completion, pre · post measurements and change, recommended step · options · user's choice |
 | `care_texts` | raw text (only for users who consented to raw text) — one row per session, retention deadline `expires_at` (90 days by default, `TEXT_RETENTION_DAYS`) |
 
 - A session that ended with SAFETY keeps only the fact that it ended (`end_reason`) — chips · classification
   values · raw text are deleted (a table constraint enforces this).
+- The session language (`lang`) is not content, so guest and SAFETY sessions keep it too. Completion · stop
+  reasons · next steps · activity mix are pooled and also broken down by language; scale scores · scale validation
+  (MFVAS reliability) · intake and safety-judgment quality are analyzed per language only.
 - When a session ends, its checkpoint, which holds raw text, is deleted right away, and later
   `GET /sessions/{id}` calls are answered from `care_sessions.end_summary`.
 - The cleanup job `GET /internal/cleanup` (Vercel Cron, daily at 03:00 KST, `CRON_SECRET`) deletes expired raw
@@ -424,9 +436,13 @@ results are never stretched into diagnosis or treatment effects.
 - For S3, the evidence's primary outcome (attention tasks) differs from what LUMI measures (a mental-fatigue VAS,
   a provisional instrument made by the team), which `goal.notes` discloses.
 - If the goal scale is `PROVISIONAL`, one sentence per scale goes into `goal.notes`
-  (`reference_card.PROVISIONAL_NOTES`) — for STAI-6 · BSRI, that they are translation drafts of validated English
+  (`provisional_notes` in `card_texts`) — for STAI-6 · BSRI, that they are translation drafts of validated English
   versions and the translations have not been validated separately; for MFVAS, that it consists of LUMI's own
-  questions and is unvalidated.
+  questions and is unvalidated. `PROVISIONAL` follows the items in the session language: in an English session
+  STAI-6 · BSRI are the original items, so they get no badge or sentence, and only MFVAS is disclosed.
+- Sentences the code writes (goal name · fixed limit sentences · scale notes) are in the session language
+  (`app/agent/card_texts.py`). Sentences written in the protocol (name · population note · `reference_card_note`)
+  and evidence metadata are still Korean.
 - With no evidence DB, or no evidence that passed validation, `evidence` is empty and `NO_VERIFIED_EVIDENCE` is
   added.
 
@@ -464,7 +480,7 @@ On Windows (PowerShell), create it with `py -3.12 -m venv .venv` and install wit
 
 1. Apply the migrations to the Supabase project in name order — `supabase/migrations/20261021000000_init_evidence.sql`,
    `supabase/migrations/20261026000000_evidence_contracts.sql`, `supabase/migrations/20261027000000_care_records.sql`,
-   `supabase/migrations/20261029000000_care_rounds_selection.sql`.
+   `supabase/migrations/20261029000000_care_rounds_selection.sql`, `supabase/migrations/20261103000000_care_sessions_lang.sql`.
    Paste each into the dashboard SQL Editor or run `psql "$DATABASE_URL" -f <file>`. The second file applies only
    while `papers` · `evidence_records` are empty; if they have rows, it stops without changing anything. The third
    file holds the session record tables and references `auth.users` (Supabase Auth).
@@ -548,7 +564,8 @@ psql "postgresql://postgres:postgres@localhost:54329/postgres" -c 'create schema
   -f supabase/migrations/20261021000000_init_evidence.sql \
   -f supabase/migrations/20261026000000_evidence_contracts.sql \
   -f supabase/migrations/20261027000000_care_records.sql \
-  -f supabase/migrations/20261029000000_care_rounds_selection.sql
+  -f supabase/migrations/20261029000000_care_rounds_selection.sql \
+  -f supabase/migrations/20261103000000_care_sessions_lang.sql
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:54329/postgres make test
 ```
 
@@ -1007,7 +1024,10 @@ are checked first on a local Postgres (e.g. the `pgvector/pgvector` Docker image
   capacity is not measured (the evidence's S3 primary outcome ATTENTION is task-based) — after checking item
   reliability and the threshold on user data, we will decide whether to switch to an external scale such as ROS.
 - STAI-6 · BSRI use Korean translation drafts kept as `PROVISIONAL` for internal testing. Both scales are measured
-  only at PRE/FINAL and are not interpreted as validated Korean versions.
+  only at PRE/FINAL and are not interpreted as validated Korean versions. English sessions use the original items
+  (`data/instruments/en/` — BSRI exactly as in the authors' appendix, STAI-6 the original STAI items), so they are
+  `READY`. STAI is copyrighted by Mind Garden, so the license must be checked for both languages before a public
+  service.
 - The intake environment assumptions. In an office · café with earphones, sound and quiet-place activities count
   as possible; a subway · bus is not treated as quiet even with earphones (one place:
   `app/schemas/care.environment_for`). If the place stays unknown, a quiet indoor place is assumed and `setting`
@@ -1053,7 +1073,7 @@ app/
 ├─ api/internal.py      cleanup job (GET /internal/cleanup, Vercel Cron)
 ├─ schemas/             care (request · environment) · intake (question · answer contract) · measure · evidence · protocol (activity node) · retrieval · card (Reference card)
 ├─ intake_cues.py       intake cue table · concept definitions — loader for data/intake_cues.json · goal_definitions.json
-├─ instruments.py       measurement instruments — data/instruments loader · presentation · scoring
+├─ instruments.py       measurement instruments — data/instruments loader · presentation per session language · scoring
 ├─ protocols.py         activity nodes — data/protocols loader · candidate lookup · compact form for the LLM
 ├─ agent/               LUMI Care Agent (LangGraph)
 │  ├─ graph.py          node wiring · routing (v2)
@@ -1064,9 +1084,11 @@ app/
 │  ├─ checkpoint.py     checkpointers (Postgres · memory) and the types allowed for serialization
 │  ├─ prompts.py        intake · Planner prompts and input messages
 │  ├─ intake_rules.py   intake rules — question validation · answer merging · environment-question decision · goal · end (tested without an LLM)
+│  ├─ intake_texts.py   sentences intake builds in code — fixed questions · options · re-asks · goal reasons (per session language)
 │  ├─ nodes/            intake · measure · ① planner · ② executor · ③ evaluator · ④ replanner
 │  ├─ validation.py     EvidenceValidationTool core (judge: rules without the DB)
 │  ├─ rationale_rules.py character rules for rationales — shared by the plan post-check (one re-ask on a violation) and the rationale evaluation
+│  ├─ card_texts.py     sentences the Reference card builds in code — goal name · limit sentences · scale notes (per session language)
 │  └─ reference_card.py Reference card — built from validated evidence · protocol · intake (no LLM)
 ├─ content/             content assets — external providers · reviewed-asset manifests · content Factor catalog (used by the Executor)
 ├─ static/              reviewed assets — audio (audio) · coloring-template SVGs (coloring), served at /assets
@@ -1074,7 +1096,7 @@ app/
 └─ retrieval/           hybrid search (metadata filter → vector · keyword → RRF) · query embedding
 data/
 ├─ protocols/           21 activity node JSON files (filled in by owners A · B · C, review DRAFT)
-├─ instruments/         4 measurement instruments (SAM · STAI-6 · BSRI · MFVAS)
+├─ instruments/         4 measurement instruments (SAM · STAI-6 · BSRI · MFVAS) — en/ holds English wording · status
 ├─ evidence_overrides.json evidence metadata confirmed by people (overrides the sheet values at load)
 ├─ evidence_excerpts.json  per-record METHODS · RESULTS excerpts from the papers (used as content at load)
 ├─ manifest.csv         manifest of 84 papers

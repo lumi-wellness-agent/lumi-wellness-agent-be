@@ -1,0 +1,51 @@
+{
+  "instrument_id": "INS-BSRI",
+  "name": "Brief State Rumination Inventory (BSRI)",
+  "concept": "State rumination",
+  "instruction": "Please respond to the following items by referring to the way you feel or think right now. For each item, mark the degree to which you agree or disagree with the statement, from 0 (completely disagree) to 100 (completely agree).",
+  "items": {
+    "item1": {
+      "text": "Right now, I am reflecting about my mood.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item2": {
+      "text": "Right now, I wonder why I react the way I do.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item3": {
+      "text": "Right now, I wonder why I always feel the way I do.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item4": {
+      "text": "Right now, I am thinking: “why do I have problems other people don't have?”.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item5": {
+      "text": "Right now, I am rehashing in my mind recent things I've said or done.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item6": {
+      "text": "Right now, I am thinking “why can't I handle things better?”.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item7": {
+      "text": "Right now, it is hard for me to shut off negative thoughts about myself.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    },
+    "item8": {
+      "text": "Right now, I wonder why I can’t respond in a better way.",
+      "low_label": "Completely disagree",
+      "high_label": "Completely agree"
+    }
+  },
+  "status": "READY",
+  "source": "BSRI 개발자들의 척도 소개 문서(Research_paper 00_original_PDF/N28_2018_Marchetti_BSRI_author_overview_items_and_scoring.pdf) 부록의 영어 원문항 그대로다(따옴표 · 문장부호 포함). 양끝 라벨은 같은 부록 Note의 'completely disagree'(0) · 'completely agree'(100). 지시문 첫 문장은 원문, 둘째 문장은 종이 VAS에 세로선을 긋는 안내를 0–100 슬라이더에 맞게 바꿨다. 영어는 원척도가 타당화된 언어라 READY다",
+  "license_note": "같은 문서에 'The scale is freely available for research groups to use'라고 적혀 있고 Marchetti et al. (2018) 인용을 요구한다."
+}
