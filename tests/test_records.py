@@ -250,6 +250,45 @@ def test_history_lists_the_users_sessions_with_activities_latest_first():
     asyncio.run(scenario())
 
 
+def test_history_keeps_to_the_asked_start_range_and_knows_the_first_record():
+    clock = iter(datetime(2026, 10, 31, 12, tzinfo=UTC) + timedelta(hours=h) for h in range(20))
+    store = records.MemoryStore(clock=lambda: next(clock))
+    alice = uuid.uuid4()
+    rule = ReplanProposal(recommended=NextStep.END, reason="-", options=[NextStep.END])
+    confirm = {"step": "CONFIRM", "node": "confirm", "payload": {}}
+
+    async def session(*protocol_ids: str) -> str:
+        sid = str(uuid.uuid4())
+        await store.create(sid, alice, CareRequest(text="-"))
+        values = {
+            "request": CareRequest(text="-"),
+            "intake": IntakeResult(goal=CareGoal.S2),
+            "rounds": [finished_round(p, NextStep.END, rule) for p in protocol_ids],
+        }
+        await store.save(records.SessionRecord(id=sid, user_id=alice), values, confirm)
+        return sid
+
+    async def scenario() -> None:
+        assert await store.first_history(alice) is None
+        await session()  # 활동 전에 멈췄다 — 첫 기록이 아니다
+        first, second, third = [await session("PR-06") for _ in range(3)]
+        started = {s["session_id"]: s["started_at"] for s in await store.history(alice, 10)}
+        assert await store.first_history(alice) == started[first]
+        assert await store.first_history(uuid.uuid4()) is None
+
+        def ids(rows: list[dict]) -> list[str]:
+            return [row["session_id"] for row in rows]
+
+        # since 이상 · until 미만(시작 시각) — 달의 경계에 걸친 세션은 한쪽에만 들어간다
+        both = await store.history(alice, 10, since=started[second], until=started[third])
+        assert ids(both) == [second]
+        assert ids(await store.history(alice, 10, since=started[second])) == [third, second]
+        assert ids(await store.history(alice, 10, until=started[second])) == [first]
+        assert ids(await store.history(alice, 1, since=started[first])) == [third]  # 최근 것부터
+
+    asyncio.run(scenario())
+
+
 def test_intake_records_carry_definition_papers_not_sentences():
     intake = IntakeResult.model_validate(
         {

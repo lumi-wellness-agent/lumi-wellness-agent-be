@@ -239,6 +239,7 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 | `UNAUTHENTICATED` · `INVALID_TOKEN` · `SESSION_REVOKED` | 401 | 로그인 토큰이 없거나, 서명 · 만료 · 프로젝트가 맞지 않거나, 로그아웃 · 탈퇴로 로그인 세션이 끝났다(「인증 · 세션 기록」) — FE는 다시 로그인시킨다 |
 | `CONSENT_REQUIRED` | 403 | 회원이 지금 버전(`version`)의 기록 동의 없이 `POST /sessions` |
 | `MEMBERS_ONLY` | 403 | 게스트가 `PUT /me/consent` · `GET /me/sessions` — 게스트 체험은 기록하지 않는다 |
+| `INVALID_RANGE` | 422 | `GET /me/sessions`의 `since`가 `until`보다 늦거나 같다 |
 | `SESSION_NOT_FOUND` | 404 | 없는 세션, 남의 세션(있다는 것도 알리지 않는다) |
 | `SESSION_EXPIRED` | 410 | 끝나지 않은 채 오래 쉬어 정리 작업이 체크포인트를 지운 세션 — 새로 시작한다 |
 | `STEP_MISMATCH` | 409 | 지금 멈춘 자리와 다른 요청. `step` · `node`를 함께 준다 |
@@ -330,8 +331,15 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 것부터 `limit`개(기본 20 · 최대 100) 돌려주고, 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠집니다. 분석
 테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다.
 
+FE 기록 탭은 달력이라 한 달씩 묻습니다. `since`(이상) · `until`(미만)에 시간대를 붙인 ISO 8601 시각을 주면 그
+사이에 시작한 세션만 돌려줍니다(예: 한국 시간 11월 = `since=2026-10-31T15:00:00Z&until=2026-11-30T15:00:00Z`).
+날의 경계는 기기 시간대가 정하므로 시간대 없는 시각은 422이고, `since`가 `until`보다 늦거나 같으면 422
+(`INVALID_RANGE`)입니다. `first_started_at`은 기간과 상관없이 가장 이른 기록의 시작 시각(없으면 `null`)이라
+FE가 앞 달로 넘길 끝과 기록이 하나도 없는지를 압니다.
+
 ```json
-{"sessions": [{"session_id": "…", "started_at": "2026-10-29T05:12:03+00:00",
+{"first_started_at": "2026-10-21T09:40:11+00:00",
+ "sessions": [{"session_id": "…", "started_at": "2026-10-29T05:12:03+00:00",
   "ended_at": "2026-10-29T05:24:41+00:00", "goal": "S2",
   "rounds": [{"round": 1, "protocol_id": "PR-06", "name": "주기적 한숨 호흡 5분", "minutes": 5,
               "completed": true, "deltas": {"valence": 1.0, "arousal": -2.0}, "improved": true,
