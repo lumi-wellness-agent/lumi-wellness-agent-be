@@ -1,5 +1,7 @@
 # lumi-wellness-agent-be
 
+**한국어** · [English](README.en.md)
+
 LUMI(Light + Mind)의 백엔드입니다. LUMI는 심리학 이론·임상/실험 연구 Reference 기반 AI 웰니스 에이전트로,
 사용자 상태에 맞는 자연 이미지·소리 회복 세션을 추천하고 추천 근거를 Reference 카드로 보여 줍니다.
 FastAPI, Supabase Postgres(pgvector), LangGraph·LangChain을 사용합니다. 프론트엔드는
@@ -190,7 +192,7 @@ docstring에 있습니다.
 | 요청 | 그래프 | 응답 `step` |
 | --- | --- | --- |
 | `POST /sessions` — `CareRequest`(문장 + 환경 칩) | 새 thread → intake → 질문(관계없는 말이면 되묻기)이 필요하면 `intake_ask`에서, 아니면 `measure_pre`에서 멈춤. 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
-| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤(질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S2로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
+| `POST /sessions/{id}/answer` — `IntakeAnswer` | 재개 → 다음 질문이나 `measure_pre`에서 멈춤(질문 합계 3회, 되묻기 제외). 되묻기의 `{"skip": true}`는 S1 · S2 · S3 중 무작위 목표로 시작. 글 답에 안전 신호면 `ended = SAFETY`로 끝 | `ASK` · `MEASURE`(사전) · `END` |
 | `POST /sessions/{id}/measure` — `{instrument_id: {item_id: value}}` | 사전: 재개 → plan → prepare → `run_session`에서 멈춤 | `RUN` |
 | `POST /sessions/{id}/report` — `SessionReport` | 재개 → `measure_post`에서 멈춤 | `MEASURE`(사후 — SAM, S3는 + MFVAS) |
 | `POST /sessions/{id}/measure` — 사후 응답 | 재개 → evaluate → replan → `confirm`에서 멈춤 | `CONFIRM` |
