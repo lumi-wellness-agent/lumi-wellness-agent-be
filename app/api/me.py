@@ -2,7 +2,8 @@
 
     GET    /me/consent   지금 동의 상태. agreed가 false면 FE가 동의 화면을 띄운다
     PUT    /me/consent   {"records": true, "raw_text": bool} — 필수 동의와 원문 동의(선택)
-    GET    /me/sessions  활동 기록 — 활동을 한 세션을 최근 것부터(?limit=, 기본 20 · 최대 100)
+    GET    /me/sessions  활동 기록 — 활동을 한 세션을 최근 것부터(?limit=, 기본 20 · 최대 100).
+                         ?since= · ?until=(시간대를 붙인 ISO 8601)로 시작 시각 범위를 줄인다
     DELETE /me           탈퇴 — 계정과 기록 · 원문 · 동의 · 체크포인트를 지운다(되돌릴 수 없다)
 
 records(필수)는 세션 기록 — 상황 분류 · 질문 답 · 측정값 · 활동 · 결과. 심리 상태 측정값이 들어 있어
@@ -17,7 +18,9 @@ records(필수)는 세션 기록 — 상황 분류 · 질문 답 · 측정값 ·
 활동 기록은 세션 기록(분석 테이블)만 읽는다 — 시작 · 끝 시각, 목표, 라운드(활동 · 시간 ·
 끝까지 했는지 · 변화 · 나아졌는지 · 고른 다음 단계)와 목표 척도의 세션 변화. 원문은 싣지 않는다.
 END payload처럼 protocol_id만 보내면 FE가 지난 활동의 이름을 모르므로 라운드마다 활동 이름(name)을
-붙인다. 게스트는 기록이 없어 403(MEMBERS_ONLY)이다.
+붙인다. 게스트는 기록이 없어 403(MEMBERS_ONLY)이다. FE 기록 탭은 달력이라 기기 시간대의 한 달을
+since(이상) · until(미만)으로 묻고, 앞 달로 넘길 끝을 알도록 응답에 가장 이른 기록의 시작 시각
+(first_started_at — 기간과 상관없다)을 함께 싣는다.
 
 탈퇴는 Supabase Auth의 사용자 행(auth.users)을 지운다. 로그인 세션도 함께 지워져 같은 토큰은 바로
 401(SESSION_REVOKED)이 된다. FE는 204를 받으면 브라우저에 남은 세션을 지우고 첫 화면으로 간다.
@@ -27,7 +30,7 @@ import logging
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel
 
 from app import protocols, records
 from app.auth import CurrentUser
@@ -83,16 +86,25 @@ async def get_sessions(
     request: Request,
     user: CurrentUser,
     limit: Annotated[int, Query(ge=1, le=100)] = HISTORY_LIMIT,
+    since: Annotated[AwareDatetime | None, Query()] = None,
+    until: Annotated[AwareDatetime | None, Query()] = None,
 ) -> dict:
-    """활동 기록 {"sessions": [...]} — 최근 세션부터. 라운드마다 활동 이름을 붙인다."""
+    """활동 기록 {"sessions": [...], "first_started_at": ...} — 최근 세션부터, since 이상 ·
+    until 미만(시작 시각)만. 라운드마다 활동 이름을 붙인다. 시간대 없는 시각은 422 — 날의
+    경계가 모호하다."""
     if user.anonymous:
         message = "게스트 체험은 기록을 남기지 않습니다. 로그인하면 활동 기록을 볼 수 있습니다."
         raise HTTPException(403, {"code": "MEMBERS_ONLY", "message": message})
-    sessions = await _store(request).history(user.id, limit)
+    if since and until and since >= until:
+        message = "since는 until보다 앞선 시각이어야 합니다."
+        raise HTTPException(422, {"code": "INVALID_RANGE", "message": message})
+    store = _store(request)
+    sessions = await store.history(user.id, limit, since, until)
     return {
         "sessions": [
             {**session, "rounds": [_named(r) for r in session["rounds"]]} for session in sessions
-        ]
+        ],
+        "first_started_at": await store.first_history(user.id),
     }
 
 

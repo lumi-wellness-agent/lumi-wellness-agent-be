@@ -670,22 +670,35 @@ def test_account_deletion_removes_the_user_their_records_and_checkpoints():
 
 def test_members_see_their_activity_records_and_guests_have_none():
     client = client_for()
-    assert client.get("/me/sessions").json() == {"sessions": []}
+    assert client.get("/me/sessions").json() == {"sessions": [], "first_started_at": None}
     start(client)  # 활동 전에 멈춘 세션은 기록에 없다
     sid = run_s2_to_end(client)
 
-    (session,) = client.get("/me/sessions").json()["sessions"]
+    body = client.get("/me/sessions").json()
+    (session,) = body["sessions"]
     end = client.get(f"/sessions/{sid}").json()["payload"]
     assert (session["session_id"], session["goal"]) == (sid, "S2")
     assert session["started_at"] < session["ended_at"]
     assert session["goal_scale"] == end["goal_scale"]
+    assert body["first_started_at"] == session["started_at"]
     # 라운드는 END payload의 rounds에 활동 이름을 붙인 것이다
     name = protocols.get_protocol("PR-06").name
     assert session["rounds"] == [{**r, "name": name} for r in end["rounds"]]
     assert client.get("/me/sessions", params={"limit": 0}).status_code == 422
 
+    # 달력의 한 달 — 시작 시각이 since 이상 · until 미만인 세션만. 가장 이른 기록은 기간과 상관없다
+    started, ended = session["started_at"], session["ended_at"]
+    month = client.get("/me/sessions", params={"since": started, "until": ended}).json()
+    assert [s["session_id"] for s in month["sessions"]] == [sid]
+    later = client.get("/me/sessions", params={"since": ended}).json()
+    assert later == {"sessions": [], "first_started_at": started}
+    res = client.get("/me/sessions", params={"since": ended, "until": started})
+    assert (res.status_code, res.json()["detail"]["code"]) == (422, "INVALID_RANGE")
+    naive = client.get("/me/sessions", params={"since": "2026-11-01T00:00:00"})
+    assert naive.status_code == 422  # 시간대가 없으면 날의 경계가 모호하다
+
     login(client.app, BOB)  # 남의 기록은 보이지 않는다
-    assert client.get("/me/sessions").json() == {"sessions": []}
+    assert client.get("/me/sessions").json() == {"sessions": [], "first_started_at": None}
     login(client.app, GUEST)
     res = client.get("/me/sessions")
     assert (res.status_code, res.json()["detail"]["code"]) == (403, "MEMBERS_ONLY")

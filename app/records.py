@@ -266,9 +266,21 @@ class SessionStore(Protocol):
         추천 순서에서 가중치를 낮춘다(protocols.RECENT_FACTOR)."""
         ...
 
-    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+    async def history(
+        self,
+        user_id: UUID,
+        limit: int,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> list[dict]:
         """활동 기록 — 이 사용자가 활동을 한(라운드 기록이 있는) 세션을 최근 것부터 limit개
-        (history_row). 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠진다."""
+        (history_row). since 이상 · until 미만(세션 시작 시각)인 것만 — FE 달력이 기기 시간대의
+        한 달을 묻는다. 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠진다."""
+        ...
+
+    async def first_history(self, user_id: UUID) -> datetime | None:
+        """활동 기록에서 가장 이른 세션의 시작 시각(기록이 없으면 None). FE 달력이 앞 달로
+        넘길 끝이다."""
         ...
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
@@ -393,7 +405,13 @@ class MemoryStore:
         )
         return list(dict.fromkeys(pid for *_, pid in mine[:limit]))
 
-    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+    async def history(
+        self,
+        user_id: UUID,
+        limit: int,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> list[dict]:
         rounds: dict[str, list[dict]] = {}
         for (sid, _), row in sorted(self.rounds.items()):
             rounds.setdefault(sid, []).append(row)
@@ -401,7 +419,10 @@ class MemoryStore:
             (
                 (row["created_at"], sid)
                 for sid, row in self.sessions.items()
-                if row["user_id"] == user_id and sid in rounds
+                if row["user_id"] == user_id
+                and sid in rounds
+                and (since is None or row["created_at"] >= since)
+                and (until is None or row["created_at"] < until)
             ),
             reverse=True,
         )
@@ -415,6 +436,17 @@ class MemoryStore:
                 )
             )
         return out
+
+    async def first_history(self, user_id: UUID) -> datetime | None:
+        played = {sid for sid, _ in self.rounds}
+        return min(
+            (
+                row["created_at"]
+                for sid, row in self.sessions.items()
+                if row["user_id"] == user_id and sid in played
+            ),
+            default=None,
+        )
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         now, row = self.clock(), self.sessions[record.id]
@@ -529,14 +561,25 @@ where s.user_id = %s
 order by r.created_at desc, r.round desc
 limit %s
 """
-# 활동 기록 — 이 사용자가 활동을 한(라운드 기록이 있는) 세션, 최근 것부터(care_sessions_user_idx)
+# 활동 기록 — 이 사용자가 활동을 한(라운드 기록이 있는) 세션, 최근 것부터(care_sessions_user_idx).
+# 기간을 안 주면 끝없는 범위로 둔다 — 늘 같은 범위 조건이라 인덱스 범위 검색을 탄다
 HISTORY_SQL = """
 select s.id::text, s.created_at, s.ended_at, s.goal, s.end_summary -> 'goal_scale'
 from public.care_sessions s
-where s.user_id = %s
+where s.user_id = %(user_id)s
+  and s.created_at >= coalesce(%(since)s::timestamptz, '-infinity')
+  and s.created_at < coalesce(%(until)s::timestamptz, 'infinity')
   and exists (select 1 from public.care_rounds r where r.session_id = s.id)
 order by s.created_at desc
-limit %s
+limit %(limit)s
+"""
+# 가장 이른 활동 기록의 시작 시각 — 같은 인덱스를 앞에서부터 읽다 라운드가 있는 첫 세션에서 멈춘다
+FIRST_HISTORY_SQL = """
+select s.created_at from public.care_sessions s
+where s.user_id = %s
+  and exists (select 1 from public.care_rounds r where r.session_id = s.id)
+order by s.created_at
+limit 1
 """
 HISTORY_ROUNDS_SQL = f"""
 select session_id::text, {", ".join(HISTORY_ROUND_FIELDS)} from public.care_rounds
@@ -636,9 +679,16 @@ class PostgresStore:
             cur = await conn.execute(RECENT_SQL, (user_id, limit))
             return list(dict.fromkeys(pid for (pid,) in await cur.fetchall()))
 
-    async def history(self, user_id: UUID, limit: int) -> list[dict]:
+    async def history(
+        self,
+        user_id: UUID,
+        limit: int,
+        since: datetime | None = None,
+        until: datetime | None = None,
+    ) -> list[dict]:
+        params = {"user_id": user_id, "since": since, "until": until, "limit": limit}
         async with self.pool.connection() as conn:
-            cur = await conn.execute(HISTORY_SQL, (user_id, limit))
+            cur = await conn.execute(HISTORY_SQL, params)
             sessions = await cur.fetchall()
             if not sessions:
                 return []
@@ -651,6 +701,12 @@ class PostgresStore:
             history_row(sid, started_at, ended_at, goal, goal_scale, rounds[sid])
             for sid, started_at, ended_at, goal, goal_scale in sessions
         ]
+
+    async def first_history(self, user_id: UUID) -> datetime | None:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(FIRST_HISTORY_SQL, (user_id,))
+            row = await cur.fetchone()
+        return row[0] if row else None
 
     async def save(self, record: SessionRecord, values: dict, view: dict) -> None:
         columns = session_columns(values, view, guest=record.guest)

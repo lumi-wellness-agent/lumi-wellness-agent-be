@@ -217,6 +217,15 @@ def test_history_reads_the_sessions_with_activities_and_their_rounds():
         assert session["rounds"] == end["payload"]["rounds"]
         assert session["goal_scale"] == end["payload"]["goal_scale"]
         assert await store.history(await new_user(conn), 20) == []
+        # 시작 시각 범위(since 이상 · until 미만)와 가장 이른 기록 — 활동 전에 멈춘 세션은 뺀다
+        started = session["started_at"]
+        assert await store.first_history(user_id) == started
+        assert await store.first_history(await new_user(conn)) is None
+        until = started + timedelta(seconds=1)
+        window = await store.history(user_id, 20, since=started, until=until)
+        assert [s["session_id"] for s in window] == [record.id]
+        assert await store.history(user_id, 20, since=started + timedelta(microseconds=1)) == []
+        assert await store.history(user_id, 20, until=started) == []
 
     asyncio.run(in_rollback(test))
 
