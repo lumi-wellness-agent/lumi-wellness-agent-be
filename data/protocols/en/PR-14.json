@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-14",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "만다라 컬러링",
+      "en": "Mandala coloring"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 만다라 컬러링을 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 20 minutes, you'll color a mandala. Start in a comfortable position, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "컬러링 20분",
+      "en": "Coloring, 20 min"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

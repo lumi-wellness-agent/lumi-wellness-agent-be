@@ -10,19 +10,30 @@ Protocol DB 테이블은 두지 않는다(발표 범위). 프로토콜은 검수
   고르는 활동 · 선택지가 어긋난다.
 - prepare(app/agent/nodes/executor.py)는 get_protocol()로 steps · guide · content_spec을 읽고,
   NOTICE 단계가 있으면 stage_module()의 화면 명세를 함께 싣는다.
+
+언어판: 한국어가 원본이다. 영어 세션은 localized()로 화면에 나가는 문구(TEXT_PATHS)만 바꾼 사본을
+쓴다 — 문구는 data/protocols/<lang>/PR-*.json에 {path, ko, en}으로 있다. LLM 입력(compact) ·
+후보 · 검증은 한국어 원본 그대로다. 한국어로만 할 수 있는 활동(KOREAN_ONLY)은 다른 언어 세션의
+후보에서 뺀다.
 """
 
+import logging
 import random
+import re
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from app.schemas.care import CareGoal, ContentType, Environment
+from pydantic import BaseModel
+
+from app.schemas.care import CareGoal, ContentType, Environment, Lang
 from app.schemas.evidence import InterventionOrder, Medium
-from app.schemas.protocol import CareProtocol, Composition, Grade, SlotType
+from app.schemas.protocol import CareProtocol, Composition, Grade, ProtocolId, SlotType
 from app.schemas.retrieval import GOAL_OUTCOMES
+
+log = logging.getLogger(__name__)
 
 PROTOCOL_DIR = Path(__file__).resolve().parents[1] / "data" / "protocols"
 
@@ -44,6 +55,142 @@ def load_protocols() -> dict[str, CareProtocol]:
 
 def get_protocol(protocol_id: str) -> CareProtocol | None:
     return load_protocols().get(protocol_id)
+
+
+# ── 언어판 ─────────────────────────────────────────────────────────────────────────────────
+
+# 화면에 나가는 문구의 자리(JSON pointer) — FE가 읽는 칸이다. 활동 이름 · 단계 이름(NOTICE 팝업
+# 제목) · 시작 안내, 대본(접지 · 호흡 · 마음챙김 · 심상 · ReST의 scripts, PMR의 부위 대본 · 준비 ·
+# 끝), PMR 부위 · 단계 이름, NOTICE 팝업 시작 문구(PR-16), Reference 카드의 대상 메모 · 카드 메모.
+# 나머지(검수 메모 · 생성 설정 · 검색 태그 · 근거 연결)는 내부 기록이라 한국어로 둔다. 플레이어가 새
+# 칸을 읽으면 여기에 더한다 — 테스트가 그 칸의 언어판이 있는지 본다
+TEXT_PATHS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"^/name$",
+        r"^/steps/\d+/label$",
+        r"^/guide/intro_text$",
+        r"^/population_note$",
+        r"^/content_spec/reference_card_note$",
+        r"^/content_spec/slots/\d+/generation/reference_card_note$",
+        r"^/content_spec/slots/\d+/scripts/\d+/(text|label|example_text)$",
+        r"^/content_spec/slots/\d+/scripts/\d+/examples/\d+$",
+        r"^/content_spec/slots/\d+/scripts/region_scripts/\d+/"
+        r"(instruction_text|tension_cue|relaxation_cue|transition_text)$",
+        r"^/content_spec/slots/\d+/scripts/(pre_start|end)$",
+        r"^/content_spec/slots/\d+/render/regions/\d+/label$",
+        r"^/content_spec/session_ui/phase_labels/\d+$",
+        r"^/content_spec/session_ui/popup/start_text$",
+    )
+)
+_HANGUL = re.compile(r"[가-힣]")
+
+# 한국어로만 할 수 있는 활동 — 다른 언어 세션의 후보에서 뺀다(2026-11-02 결정). PR-21은 한국어
+# 녹음 명상(app/static/audio)이라 영어 화면에서 들을 수 없다
+KOREAN_ONLY: frozenset[str] = frozenset({"PR-21"})
+
+
+class ProtocolText(BaseModel):
+    path: str  # JSON pointer — TEXT_PATHS 중 하나
+    ko: str  # 옮길 때의 한국어 원문. 원본이 바뀌면 이 문구는 쓰지 않는다(테스트가 잡는다)
+    en: str
+
+
+class ProtocolTexts(BaseModel):
+    """data/protocols/<lang>/PR-*.json — 한 활동의 화면 문구 언어판."""
+
+    protocol_id: ProtocolId
+    texts: list[ProtocolText]
+
+
+def _walk(node: Any, path: str = ""):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _walk(value, f"{path}/{key}")
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _walk(value, f"{path}/{i}")
+    elif isinstance(node, str):
+        yield path, node
+
+
+def user_texts(protocol: CareProtocol) -> list[tuple[str, str]]:
+    """화면에 나가는 한국어 문구 (path, 원문) — TEXT_PATHS 자리 중 한글이 있는 것."""
+    return [
+        (path, text)
+        for path, text in _walk(protocol.model_dump(mode="json"))
+        if _HANGUL.search(text) and any(p.match(path) for p in TEXT_PATHS)
+    ]
+
+
+def _resolve(doc: Any, path: str) -> tuple[Any, str | int] | None:
+    """JSON pointer의 부모와 마지막 키. 없는 자리면 None."""
+    parts = path.lstrip("/").split("/")
+    node = doc
+    for part in parts[:-1]:
+        try:
+            node = node[int(part)] if isinstance(node, list) else node[part]
+        except (KeyError, IndexError, ValueError, TypeError):
+            return None
+    last: str | int = int(parts[-1]) if isinstance(node, list) else parts[-1]
+    try:
+        node[last]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return node, last
+
+
+@lru_cache
+def load_texts(lang: Lang) -> dict[str, ProtocolTexts]:
+    """한 언어의 화면 문구 — 활동 ID별. 한국어는 원본이라 비어 있다."""
+    if lang == "ko":
+        return {}
+    out: dict[str, ProtocolTexts] = {}
+    for path in sorted((PROTOCOL_DIR / lang).glob("PR-*.json")):
+        texts = ProtocolTexts.model_validate_json(path.read_text(encoding="utf-8"))
+        if texts.protocol_id != path.stem:
+            raise ValueError(f"{lang}/{path.name}: protocol_id가 파일명과 다르다")
+        out[texts.protocol_id] = texts
+    return out
+
+
+def apply_texts(protocol: CareProtocol, texts: ProtocolTexts, lang: Lang) -> CareProtocol:
+    """언어판 문구를 넣은 사본. 원문(ko)이 원본과 다른 자리는 한국어로 둔다 — 원본을 고친 뒤
+    언어판을 고치지 않았다는 뜻이고 테스트가 잡는다. 운영에서는 그 문구만 한국어로 보인다."""
+    doc = protocol.model_dump(mode="json")
+    for text in texts.texts:
+        found = _resolve(doc, text.path)
+        if found is None or found[0][found[1]] != text.ko:
+            log.warning(
+                "%s %s의 %s: 언어판 원문이 원본과 달라 쓰지 않는다",
+                protocol.protocol_id,
+                lang,
+                text.path,
+            )
+            continue
+        found[0][found[1]] = text.en
+    return CareProtocol.model_validate(doc)
+
+
+@lru_cache
+def _localized(protocol_id: str, lang: Lang) -> CareProtocol | None:
+    protocol = get_protocol(protocol_id)
+    texts = load_texts(lang).get(protocol_id)
+    if protocol is None or texts is None:
+        return protocol
+    return apply_texts(protocol, texts, lang)
+
+
+def localized(protocol: CareProtocol, lang: Lang) -> CareProtocol:
+    """세션 언어로 보일 활동 — 한국어는 원본 그대로, 다른 언어는 화면 문구만 바꾼 사본."""
+    if lang == "ko":
+        return protocol
+    return _localized(protocol.protocol_id, lang) or protocol
+
+
+def allowed_in(protocol_id: str, lang: Lang) -> bool:
+    """그 언어 세션의 후보가 될 수 있는가 — 한국어로만 할 수 있는 활동은 한국어 세션에서만."""
+    return lang == "ko" or protocol_id not in KOREAN_ONLY
 
 
 def stage_module() -> CareProtocol | None:
@@ -91,8 +238,10 @@ def candidates(
     minutes: int | None = None,
     environment: Environment | None = None,
     exclude: Iterable[str] = (),
+    lang: Lang = "ko",
 ) -> list[CareProtocol]:
-    """목표에 맞는 검수 프로토콜. 단계 모듈과 exclude(직전 라운드에서 바꾸기로 한 활동)는 뺀다.
+    """목표에 맞는 검수 프로토콜. 단계 모듈과 exclude(직전 라운드에서 바꾸기로 한 활동), 세션
+    언어로 할 수 없는 활동(KOREAN_ONLY)은 뺀다.
 
     environment를 주면 그 환경에서 할 수 있는 것만 남긴다(environment_gaps). 주 목표가 앞, 부 목표가
     뒤이고, 같은 쪽에서는 목표 1차 지표 등급이 높은 순이다(기준 순서). plan이 LLM에 보일 순서는
@@ -104,6 +253,7 @@ def candidates(
         for p in load_protocols().values()
         if p.composition is not Composition.STAGE_MODULE
         and p.protocol_id not in excluded
+        and allowed_in(p.protocol_id, lang)
         and p.serves(goal)
         and p.allows_order(order)
         and p.fits_minutes(minutes)
@@ -144,6 +294,7 @@ def plan_candidates(
     minutes: int | None = None,
     environment: Environment | None = None,
     exclude: Iterable[str] = (),
+    lang: Lang = "ko",
 ) -> CandidateSearch:
     """플래너가 고를 후보. 다 맞는 것이 없으면 RELAX_STEPS 순서로 조건을 풀고, 푼 조건을 남긴다.
 
@@ -157,6 +308,7 @@ def plan_candidates(
             minutes=None if "minutes" in relaxed else minutes,
             environment=None if "environment" in relaxed else environment,
             exclude=exclude,
+            lang=lang,
         )
         if found:
             if "minutes" in relaxed:

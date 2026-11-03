@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-04",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연음 듣기(스트레스 후·과제 전후)",
+      "en": "Listening to nature sounds (after stress · around tasks)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 잔잔한 자연음을 약 4분 동안 듣습니다. 볼륨을 편안한 수준으로 맞추고, 불편하거나 귀가 피로하면 언제든 멈춰 주세요.",
+      "en": "For about 4 minutes, you'll listen to gentle nature sounds. Set the volume to a comfortable level, and stop anytime if it's uncomfortable or your ears get tired."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "검수된 자연음 듣기",
+      "en": "Listening to reviewed nature sounds"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

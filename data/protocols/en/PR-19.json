@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-19",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "세 가지 좋은 일 기록(일간 1주)",
+      "en": "Three good things journal (daily, 1 week)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 세 가지 좋은 일 기록을 약 5분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 5 minutes, you'll write down three good things. Start in a comfortable position, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "기록 5–10분",
+      "en": "Writing, 5–10 min"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

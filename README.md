@@ -240,9 +240,12 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 언어로 보냅니다. 보기를 고르면 채워지는 값과 측정 채점은 언어와 상관없이 같습니다. LLM이 사용자에게 보일 문장을
 쓰는 호출(① 상황 읽기의 되묻기 · 질문 초안, ③ 목표 판단 이유, 추천 이유, 다음 단계 추천 이유)은 영어 세션이면
 한국어 지시문 끝에 출력 언어 지시(`prompts.*_EN_NOTE`)를 붙이고 필드 설명만 다른 출력 모델(`*En`)을 씁니다 —
-한국어 세션의 LLM 입력은 그대로입니다. 추천 이유 글자 규칙도 영어 문장에 맞춰 봅니다(「추천 이유 평가」). 영어판은
-만드는 중입니다 — 활동 노드 문구와 근거 메타데이터는 아직 한국어이고 FE도 아직 `lang`을 보내지 않습니다.
-`lang`을 빠뜨린 요청은 한국어라 전과 같은 세션입니다.
+한국어 세션의 LLM 입력은 그대로입니다. 추천 이유 글자 규칙도 영어 문장에 맞춰 봅니다(「추천 이유 평가」). 활동
+노드의 화면 문구(활동 이름 · 단계 이름 · 시작 안내 · 대본 · PMR 부위 · NOTICE 팝업 · 카드 메모)도 언어판
+(`data/protocols/en/`, `protocols.localized`)으로 싣고, 한국어로만 할 수 있는 활동(`protocols.KOREAN_ONLY` —
+PR-21 한국어 녹음 명상)은 후보에서 뺍니다(계획 · intake 환경 질문 · 활동 변경 모두). 영어판은 만드는 중입니다 —
+근거 메타데이터는 아직 한국어이고 FE도 아직 `lang`을 보내지 않습니다. `lang`을 빠뜨린 요청은 한국어라 전과 같은
+세션입니다.
 
 **오류.** 본문은 `{"detail": {code, message, …}}`입니다.
 
@@ -344,7 +347,8 @@ Supabase 대시보드에서 Anonymous Sign-Ins를 켭니다. 익명 로그인은
 
 회원은 `GET /me/sessions`로 자기 활동 기록을 봅니다(FE 기록 탭). 활동을 한(라운드 기록이 있는) 세션을 최근
 것부터 `limit`개(기본 20 · 최대 100) 돌려주고, 활동 전에 멈췄거나 SAFETY로 끝난 세션은 빠집니다. 분석
-테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다.
+테이블(`care_sessions` · `care_rounds`)만 읽고 원문은 싣지 않습니다. 라운드마다 붙는 활동 이름은 `lang`(FE 화면
+언어, 기본 `ko`)으로 줍니다 — 그 세션의 언어가 아니라 지금 보는 화면에 맞춥니다.
 
 FE 기록 탭은 달력이라 한 달씩 묻습니다. `since`(이상) · `until`(미만)에 시간대를 붙인 ISO 8601 시각을 주면 그
 사이에 시작한 세션만 돌려줍니다(예: 한국 시간 11월 = `since=2026-10-31T15:00:00Z&until=2026-11-30T15:00:00Z`).
@@ -964,7 +968,7 @@ app/
 ├─ ingestion/           Offline 근거 구축 — 수집(collect) · Docling 섹션 파싱(parse) · 원문 발췌(extract)
 └─ retrieval/           하이브리드 검색(메타 필터 → 벡터·키워드 → RRF) · 질의 임베딩
 data/
-├─ protocols/           활동 노드 JSON 21개 (A · B · C 담당이 채움, review DRAFT)
+├─ protocols/           활동 노드 JSON 21개 (A · B · C 담당이 채움, review DRAFT) — en/는 화면 문구 영어판
 ├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS) — en/는 영어 제시 문구 · 상태
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)

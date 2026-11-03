@@ -273,9 +273,13 @@ in and the measurement scoring are the same in every language. The LLM calls tha
 user (① state reading's re-asks · question drafts, ③ goal reasons, rationales, next-step recommendation reasons)
 add an output-language note (`prompts.*_EN_NOTE`) to the end of the Korean instructions in an English session and
 use output models (`*En`) that differ only in their field descriptions — the LLM input of a Korean session is
-unchanged. The rationale character rules also check English sentences (see “Rationale evaluation”). The English
-version is in progress — activity node wording and evidence metadata are still Korean, and the FE does not send
-`lang` yet. A request without `lang` is Korean, the same session as before.
+unchanged. The rationale character rules also check English sentences (see “Rationale evaluation”). Activity
+nodes' on-screen wording (activity names · step names · start guidance · scripts · PMR areas · NOTICE popup · card
+notes) is also sent from the language version (`data/protocols/en/`, `protocols.localized`), and activities that
+can only be done in Korean (`protocols.KOREAN_ONLY` — PR-21, a recorded Korean meditation) are left out of the
+candidates (in planning, intake's environment question and activity changes alike). The English version is in
+progress — evidence metadata is still Korean, and the FE does not send `lang` yet. A request without `lang` is
+Korean, the same session as before.
 
 **Errors.** The body is `{"detail": {code, message, …}}`.
 
@@ -388,7 +392,8 @@ session API rewrites the records from the state after the graph stops.
 Members see their activity history with `GET /me/sessions` (the FE records tab). It returns sessions with at least
 one activity (a round record), newest first, up to `limit` (20 by default · 100 at most); sessions that stopped
 before an activity or ended with SAFETY are left out. It reads only the analysis tables (`care_sessions` ·
-`care_rounds`) and carries no raw text.
+`care_rounds`) and carries no raw text. The activity name attached to each round follows `lang` (the FE screen
+language, `ko` by default) — the screen being viewed now, not the session's language.
 
 The FE records tab is a calendar, so it asks one month at a time. Given ISO 8601 times with a time zone for
 `since` (inclusive) · `until` (exclusive), it returns only sessions started in between (e.g. November in Korea
@@ -1102,7 +1107,7 @@ app/
 ├─ ingestion/           offline evidence building — collect (collect) · Docling section parsing (parse) · source excerpts (extract)
 └─ retrieval/           hybrid search (metadata filter → vector · keyword → RRF) · query embedding
 data/
-├─ protocols/           21 activity node JSON files (filled in by owners A · B · C, review DRAFT)
+├─ protocols/           21 activity node JSON files (filled in by owners A · B · C, review DRAFT) — en/ holds the English on-screen wording
 ├─ instruments/         4 measurement instruments (SAM · STAI-6 · BSRI · MFVAS) — en/ holds English wording · status
 ├─ evidence_overrides.json evidence metadata confirmed by people (overrides the sheet values at load)
 ├─ evidence_excerpts.json  per-record METHODS · RESULTS excerpts from the papers (used as content at load)

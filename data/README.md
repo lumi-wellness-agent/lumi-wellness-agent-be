@@ -16,6 +16,14 @@
   다른 활동의 NOTICE 단계를 그리는 모듈이다(`ActivityContent.notice_module`).
 - `evidence[].evidence_record_ids`는 비워 둔다 — plan의 근거 검색이 `evidence[]`의 key(ARM은
   experiment_id, 리뷰는 paper_id)로 그 활동의 레코드를 먼저 찾는다(README 「근거 검색 평가」).
+- 화면에 나가는 문구의 영어판은 `protocols/en/PR-*.json`이다 — 자리(JSON pointer) · 원문(`ko`) · 영어(`en`)를
+  `texts[]`에 둔다. 화면에 나가는 자리는 FE 플레이어가 읽는 칸이다(`app/protocols.TEXT_PATHS` — 활동 이름 ·
+  단계 이름 · 시작 안내 · 대본 · PMR 부위 · 단계 이름 · NOTICE 팝업 시작 문구 · 카드 메모). 검수 메모 · 생성
+  설정 · 검색 태그는 한국어로 둔다. **한국어 원문을 고치면 같은 활동의 영어판 `ko` · `en`도 함께 고친다** —
+  `tests/protocols/test_protocol_texts.py`가 원문과 어긋난 영어판을 잡는다(운영에서는 그 자리만 한국어로 보인다).
+  영어판은 한국어 대본을 옮긴 것이고(LUMI의 각색 포함) 원 연구의 영어 대본을 그대로 옮긴 것이 아니다.
+- 한국어로만 할 수 있는 활동(PR-21 — 한국어 녹음 명상)은 `app/protocols.KOREAN_ONLY`에 있고 영어 세션 후보에서
+  빠진다. 기록 화면의 활동 이름 때문에 영어판은 둔다.
 - 합격 기준: `make test-protocols`.
 
 ## instruments/ — 측정 도구 4개

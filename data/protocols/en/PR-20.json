@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-20",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "온라인 예술 감상 1–2분",
+      "en": "Viewing art online, 1–2 min"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 미술 작품 한 점을 1–2분 동안 천천히 바라봅니다. 정답을 찾거나 해석할 필요는 없으며, 불편하면 언제든 멈춰 주세요.",
+      "en": "For 1–2 minutes, you'll slowly look at a single artwork. There's no right answer to find and nothing to interpret, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "미술 작품 한 점 감상",
+      "en": "Viewing a single artwork"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

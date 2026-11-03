@@ -199,6 +199,11 @@ def check_plan(
         problems.append(f"활동 시간 {activity.minutes}분이 가용 시간 {intake.minutes}분을 넘는다")
     if activity.protocol_id in excluded_protocols(state):
         problems.append(f"{activity.protocol_id}는 이번 세션에서 바꾸기로 한 활동이다")
+    lang = state["request"].lang
+    if not protocols.allowed_in(activity.protocol_id, lang):
+        problems.append(
+            f"{activity.protocol_id}는 한국어로만 할 수 있어 {lang} 세션에서 쓸 수 없다"
+        )
     return problems
 
 
@@ -233,6 +238,7 @@ def planner_context(context: AgentContext | None, state: CareState) -> PlannerCo
         content_type=state["request"].profile.content_type,
         excluded_protocol_ids=excluded_protocols(state),
         recent_protocol_ids=tuple(state.get("recent_protocol_ids") or ()),
+        lang=state["request"].lang,
     )
 
 
@@ -251,6 +257,7 @@ def search_candidates(
         minutes=session.minutes_available,
         environment=session.environment,
         exclude=session.excluded_protocol_ids if exclude is None else exclude,
+        lang=session.lang,
     )
 
 

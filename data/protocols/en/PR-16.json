@@ -1,0 +1,30 @@
+{
+  "protocol_id": "PR-16",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "감정에 이름 붙이기(NOTICE 모듈)",
+      "en": "Naming emotions (NOTICE module)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 감정에 이름 붙이기를 약 1분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 1 minute, you'll put names to your emotions. Start in a comfortable position, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "지금 감정을 한 단어로 명명",
+      "en": "Name your current emotion in one word"
+    },
+    {
+      "path": "/content_spec/session_ui/popup/start_text",
+      "ko": "감정이나 분위기를 1~3개의 짧은 단어로 입력해 주세요. 이 활동에는 정답이 있지 않습니다.",
+      "en": "Enter your emotion or mood in 1–3 short words. There's no right answer in this activity."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

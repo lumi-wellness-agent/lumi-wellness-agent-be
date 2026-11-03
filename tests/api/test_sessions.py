@@ -685,6 +685,10 @@ def test_members_see_their_activity_records_and_guests_have_none():
     name = protocols.get_protocol("PR-06").name
     assert session["rounds"] == [{**r, "name": name} for r in end["rounds"]]
     assert client.get("/me/sessions", params={"limit": 0}).status_code == 422
+    # 이름은 FE 화면 언어(lang)로 — 세션 언어와 상관없이 지금 보는 화면에 맞춘다
+    english = client.get("/me/sessions", params={"lang": "en"}).json()["sessions"][0]
+    assert [r["name"] for r in english["rounds"]] == ["Cyclic sighing — 5 minutes"]
+    assert client.get("/me/sessions", params={"lang": "fr"}).status_code == 422
 
     # 달력의 한 달 — 시작 시각이 since 이상 · until 미만인 세션만. 가장 이른 기록은 기간과 상관없다
     started, ended = session["started_at"], session["ended_at"]

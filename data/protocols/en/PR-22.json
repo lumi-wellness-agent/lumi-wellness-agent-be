@@ -1,0 +1,45 @@
+{
+  "protocol_id": "PR-22",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연 이미지 보며 주기적 한숨 호흡 (5분)",
+      "en": "Cyclic sighing with nature images (5 min)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 5분 동안 주기적 한숨 호흡을 합니다. 편하게 앉거나 누워 주세요. 안내에 따라 호흡하되, 어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오세요.",
+      "en": "For the next 5 minutes, you'll practice cyclic sighing. Sit or lie down comfortably. Breathe along with the guidance, and if you feel dizzy or uncomfortable, stop and return to your normal breathing."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 사진과 주기적 한숨 호흡 5분",
+      "en": "Nature photos with cyclic sighing, 5 min"
+    },
+    {
+      "path": "/content_spec/slots/1/scripts/0/text",
+      "ko": "코로 천천히 숨을 들이쉰 뒤, 이어서 한 번 더 짧게 들이쉬세요. 두 번째 들숨은 첫 번째보다 짧고 양이 적어도 괜찮습니다. 그다음 입으로 천천히 숨을 충분히 내쉬세요. 원하시면 내쉴 때도 코를 사용하셔도 됩니다.\n이 순서를 자신의 속도로 반복합니다. 무리하지 마시고, 어지럽거나 불편하면 멈추고 평소 호흡으로 돌아오세요.\n마지막 10초에는 종료를 알리는 짧은 소리가 들립니다.\n이제 5분 활동을 시작합니다.",
+      "en": "Breathe in slowly through your nose, then take one more short breath in on top of it. The second breath in can be shorter and smaller than the first. Then breathe out slowly and fully through your mouth. If you prefer, you can breathe out through your nose as well.\nRepeat this sequence at your own pace. Don't push yourself, and if you feel dizzy or uncomfortable, stop and return to your normal breathing.\nIn the last 10 seconds, you'll hear a short sound signaling the end.\nNow let's begin the 5-minute activity."
+    },
+    {
+      "path": "/content_spec/slots/1/scripts/1/text",
+      "ko": "3분 남았습니다. 천천히 들이쉬고, 한 번 더 짧게 들이쉰 뒤, 천천히 내쉬는 순서를 떠올려 주세요. 무리하지 않고 자신의 속도로 이어가시면 됩니다.",
+      "en": "Three minutes left. Remember the sequence: breathe in slowly, take one more short breath in, then breathe out slowly. Just keep going at your own pace without pushing yourself."
+    },
+    {
+      "path": "/content_spec/slots/1/scripts/2/text",
+      "ko": "이제 1분 남았습니다. 마무리를 위해 호흡을 서두르지 마세요. 남은 시간도 자신의 속도로 이어가고, 활동이 끝나면 평소 호흡으로 돌아오겠습니다.",
+      "en": "One minute left. There's no need to rush your breathing to finish. Keep going at your own pace for the rest of the time, and when the activity ends, we'll return to normal breathing."
+    },
+    {
+      "path": "/content_spec/slots/1/scripts/3/text",
+      "ko": "5분 활동이 끝났습니다. 반복을 마치고 평소 호흡으로 돌아오세요. 잠시 편안하게 머물러 주세요.",
+      "en": "The 5-minute activity is over. Finish the cycle and return to your normal breathing. Stay here comfortably for a moment."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

@@ -1,0 +1,510 @@
+{
+  "protocol_id": "PR-07",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "점진적 근육 이완(PMR) 18부위 — 수행 9분",
+      "en": "Progressive muscle relaxation (PMR), 18 areas — 9 min practice"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 안내에 따라 부위별로 근육을 긴장시키고 이완합니다. 통증이 있거나 불편한 부위는 힘주기를 생략하고 편하게 쉬세요. 불편하면 언제든 활동을 종료할 수 있습니다.",
+      "en": "Following the guidance, you'll tense and then relax your muscles one area at a time. If an area hurts or feels uncomfortable, skip tensing it and just rest. You can end the activity anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "부위별 PMR 수행 블록 — 18부위 기준",
+      "en": "PMR practice by body area — 18 areas"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/0/label",
+      "ko": "오른손·아래팔",
+      "en": "Right hand · forearm"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/1/label",
+      "ko": "오른쪽 위팔",
+      "en": "Right upper arm"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/2/label",
+      "ko": "왼손·아래팔",
+      "en": "Left hand · forearm"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/3/label",
+      "ko": "왼쪽 위팔",
+      "en": "Left upper arm"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/4/label",
+      "ko": "이마",
+      "en": "Forehead"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/5/label",
+      "ko": "눈 주변·볼",
+      "en": "Eyes · cheeks"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/6/label",
+      "ko": "입·턱",
+      "en": "Mouth · jaw"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/7/label",
+      "ko": "목",
+      "en": "Neck"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/8/label",
+      "ko": "어깨",
+      "en": "Shoulders"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/9/label",
+      "ko": "견갑골·등",
+      "en": "Shoulder blades · back"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/10/label",
+      "ko": "가슴·배",
+      "en": "Chest · belly"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/11/label",
+      "ko": "엉덩이",
+      "en": "Buttocks"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/12/label",
+      "ko": "오른쪽 허벅지",
+      "en": "Right thigh"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/13/label",
+      "ko": "오른쪽 종아리",
+      "en": "Right calf"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/14/label",
+      "ko": "오른발",
+      "en": "Right foot"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/15/label",
+      "ko": "왼쪽 허벅지",
+      "en": "Left thigh"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/16/label",
+      "ko": "왼쪽 종아리",
+      "en": "Left calf"
+    },
+    {
+      "path": "/content_spec/slots/0/render/regions/17/label",
+      "ko": "왼발",
+      "en": "Left foot"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/pre_start",
+      "ko": "등과 머리가 편하게 지지되는 의자에 앉아 주세요. 각 부위의 설명을 듣고 시작 신호가 나오면 통증 없는 범위에서 가볍게 힘을 줍니다. 힘을 빼라는 안내가 나오면 편하게 쉽니다. 숨을 참지 마세요. 통증이 있거나 불편한 부위는 건너뛰고, 원하면 언제든 종료할 수 있습니다.",
+      "en": "Sit in a chair that comfortably supports your back and head. Listen to the instructions for each area, and when you hear the start signal, tense gently within a pain-free range. When you're told to let go, relax comfortably. Don't hold your breath. Skip any area that hurts or feels uncomfortable, and you can stop anytime you like."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/0/instruction_text",
+      "ko": "오른손을 가볍게 쥐어 손과 아래팔의 긴장을 느낄 준비를 하세요.",
+      "en": "Get ready to make a light fist and feel the tension in your right hand and forearm."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/0/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/0/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/0/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/1/instruction_text",
+      "ko": "오른팔의 팔꿈치를 굽혀 위팔에 가볍게 힘줄 준비를 하세요.",
+      "en": "Get ready to bend your right elbow and gently tense your upper arm."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/1/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/1/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/1/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/2/instruction_text",
+      "ko": "왼손을 가볍게 쥐어 손과 아래팔의 긴장을 느낄 준비를 하세요.",
+      "en": "Get ready to make a light fist and feel the tension in your left hand and forearm."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/2/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/2/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/2/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/3/instruction_text",
+      "ko": "왼팔의 팔꿈치를 굽혀 위팔에 가볍게 힘줄 준비를 하세요.",
+      "en": "Get ready to bend your left elbow and gently tense your upper arm."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/3/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/3/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/3/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/4/instruction_text",
+      "ko": "눈썹을 살짝 들어 이마에 긴장을 줄 준비를 하세요.",
+      "en": "Get ready to raise your eyebrows slightly and tense your forehead."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/4/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/4/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/4/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/5/instruction_text",
+      "ko": "눈을 가볍게 감아 눈 주변과 볼에 긴장을 줄 준비를 하세요.",
+      "en": "Get ready to close your eyes gently and tense around your eyes and cheeks."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/5/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/5/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/5/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/6/instruction_text",
+      "ko": "턱이 불편하지 않은 범위에서 입을 조금 벌릴 준비를 하세요.",
+      "en": "Get ready to open your mouth a little, as far as is comfortable for your jaw."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/6/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/6/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/6/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/7/instruction_text",
+      "ko": "목이 불편하면 건너뛰세요. 편안한 범위에서 고개를 조금 뒤로 기울릴 준비를 하세요.",
+      "en": "If your neck feels uncomfortable, skip this. Get ready to tilt your head back slightly, as is comfortable."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/7/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/7/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/7/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/8/instruction_text",
+      "ko": "어깨를 귀 쪽으로 살짝 올릴 준비를 하세요.",
+      "en": "Get ready to raise your shoulders slightly toward your ears."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/8/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/8/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/8/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/9/instruction_text",
+      "ko": "양쪽 날개뼈를 가볍게 모아 등 근육에 힘줄 준비를 하세요.",
+      "en": "Get ready to gently squeeze your shoulder blades together and tense your back."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/9/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/9/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/9/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/10/instruction_text",
+      "ko": "숨을 편안히 들이쉬며 가슴과 배의 움직임을 느껴보세요. 숨은 참지 마세요.",
+      "en": "Breathe in comfortably and feel your chest and belly move. Don't hold your breath."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/10/tension_cue",
+      "ko": "숨을 참지 말고 편안히 움직임을 느껴보세요.",
+      "en": "Don't hold your breath; just feel the movement comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/10/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/10/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/11/instruction_text",
+      "ko": "엉덩이 근육에 가볍게 힘줄 준비를 하세요.",
+      "en": "Get ready to gently tense your buttock muscles."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/11/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/11/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/11/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/12/instruction_text",
+      "ko": "오른쪽 허벅지 근육에 가볍게 힘줄 준비를 하세요.",
+      "en": "Get ready to gently tense the muscles of your right thigh."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/12/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/12/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/12/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/13/instruction_text",
+      "ko": "쥐가 나지 않도록 오른발 끝을 몸 쪽으로 살짝 당길 준비를 하세요.",
+      "en": "To avoid a cramp, get ready to pull your right toes gently toward you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/13/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/13/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/13/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/14/instruction_text",
+      "ko": "오른발 발가락을 가볍게 오므릴 준비를 하세요.",
+      "en": "Get ready to gently curl the toes of your right foot."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/14/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/14/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/14/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/15/instruction_text",
+      "ko": "왼쪽 허벅지 근육에 가볍게 힘줄 준비를 하세요.",
+      "en": "Get ready to gently tense the muscles of your left thigh."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/15/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/15/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/15/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/16/instruction_text",
+      "ko": "쥐가 나지 않도록 왼발 끝을 몸 쪽으로 살짝 당길 준비를 하세요.",
+      "en": "To avoid a cramp, get ready to pull your left toes gently toward you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/16/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/16/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/16/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/17/instruction_text",
+      "ko": "왼발 발가락을 가볍게 오므릴 준비를 하세요.",
+      "en": "Get ready to gently curl the toes of your left foot."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/17/tension_cue",
+      "ko": "이제 가볍게 힘을 주세요.",
+      "en": "Now tense gently."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/17/relaxation_cue",
+      "ko": "이제 힘을 빼고 편하게 쉬세요.",
+      "en": "Now let go and relax comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/region_scripts/17/transition_text",
+      "ko": "편하게 쉬며 다음 부위를 준비하세요.",
+      "en": "Rest comfortably and get ready for the next area."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/end",
+      "ko": "모든 부위의 안내가 끝났습니다. 몸의 힘을 편하게 풀고 평소 호흡을 이어가세요. 잠시 앉아서 주변을 살핀 뒤 천천히 움직이세요.",
+      "en": "The guidance for all areas is complete. Let your body relax and keep breathing normally. Sit for a moment, look around you, and then move slowly."
+    },
+    {
+      "path": "/content_spec/reference_card_note",
+      "ko": "P18은 20분 녹음 안내 PMR 연구다. LUMI 수행 대본은 HealthyWA·CCI 공개 안내를 참고해 별도 작성하며 원 연구 대본 및 효과의 동등성은 확인되지 않았다.",
+      "en": "P18 is a PMR study with a 20-minute recorded guide. LUMI's practice script was written separately, referring to public guides from HealthyWA and CCI, and its equivalence to the original study script and effect hasn't been confirmed."
+    },
+    {
+      "path": "/content_spec/session_ui/phase_labels/0",
+      "ko": "동작 안내",
+      "en": "Instructions"
+    },
+    {
+      "path": "/content_spec/session_ui/phase_labels/1",
+      "ko": "힘주기 또는 감각 관찰",
+      "en": "Tense or notice sensations"
+    },
+    {
+      "path": "/content_spec/session_ui/phase_labels/2",
+      "ko": "힘 빼고 쉬기",
+      "en": "Let go and rest"
+    },
+    {
+      "path": "/content_spec/session_ui/phase_labels/3",
+      "ko": "다음 부위 준비",
+      "en": "Get ready for the next area"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-02",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연 영상 + 자연음 감상(스트레스 후)",
+      "en": "Nature video + nature sounds (after stress)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 자연 영상과 자연음을 약 10분 동안 함께 감상합니다. 화면과 소리를 편안한 수준으로 맞추고, 어지럽거나 불편하면 언제든 멈춰 주세요.",
+      "en": "For about 10 minutes, you'll watch a nature video with nature sounds. Set the screen and sound to a comfortable level, and stop anytime if you feel dizzy or uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 영상과 자연음 감상",
+      "en": "Watching a nature video with nature sounds"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

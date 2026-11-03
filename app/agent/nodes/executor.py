@@ -6,6 +6,8 @@
   콘텐츠는 UNVERIFIED로 표시한다. plan이 고른 콘텐츠 Factor(CarePlan.content_factors)가 공급자
   검색어를 정하고, 세션마다 값의 검수 검색어 가운데 하나를 무작위로 골라 같은 풍경이라도 다른 사진·
   소리를 받는다(app/content/resolver.py).
+- 활동 이름 · 단계 이름 · 시작 안내 · 대본 같은 화면 문구는 세션 언어로 싣는다(protocols.localized
+  — 한국어는 원본 그대로).
 - run_session: interrupt로 멈춘다. FE 플레이어가 프로토콜 1개를 실행하고(선택 NOTICE 단계 포함),
   끝나면 SessionReport로 재개한다. 점수는 여기서 받지 않는다 — measure_post가 잰다.
 
@@ -19,15 +21,18 @@ from langgraph.types import interrupt
 
 from app.agent.state import ActivityContent, CareState, ContentStep, SessionReport
 from app.content import resolve_activity_assets
-from app.protocols import get_protocol, stage_module
+from app.protocols import get_protocol, localized, stage_module
+from app.schemas.care import Lang
 from app.schemas.protocol import StepType
 
 
 def prepare_session(state: CareState) -> dict:
     activity = state["plan"].activity
-    protocol = get_protocol(activity.protocol_id)
-    if protocol is None:  # check_plan이 막지만 방어한다
+    found = get_protocol(activity.protocol_id)
+    if found is None:  # check_plan이 막지만 방어한다
         raise ValueError(f"검수되지 않은 프로토콜 {activity.protocol_id}")
+    lang = state["request"].lang
+    protocol = localized(found, lang)
     steps = [
         ContentStep(
             order=s.order, type=s.type.value, label=s.label, minutes=s.minutes, optional=s.optional
@@ -54,14 +59,16 @@ def prepare_session(state: CareState) -> dict:
         guide_text=protocol.guide.intro_text or "",
         notice_prompt=notice,
         content_spec=protocol.content_spec.model_dump(mode="json"),
-        notice_module=_notice_module() if notice else None,
+        notice_module=_notice_module(lang) if notice else None,
     )
     return {"content": content}
 
 
-def _notice_module() -> dict | None:
+def _notice_module(lang: Lang) -> dict | None:
     module = stage_module()
-    return (module.content_spec.model_extra or {}).get("session_ui") if module else None
+    if module is None:
+        return None
+    return (localized(module, lang).content_spec.model_extra or {}).get("session_ui")
 
 
 def run_session(state: CareState) -> dict:

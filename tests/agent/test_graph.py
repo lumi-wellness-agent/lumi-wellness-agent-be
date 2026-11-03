@@ -520,7 +520,7 @@ def activity(protocol_id: str, minutes: int = 5):
 
 
 def test_check_plan_rules():
-    state = {"intake": S2_INTAKE}
+    state = {"request": CareRequest(text="-"), "intake": S2_INTAKE}
     assert check_plan(BREATHING.activity, state) == []
     assert check_plan(activity("PR-99"), state) == ["PR-99는 검수된 프로토콜이 아니다"]
     assert "단계 모듈" in check_plan(activity("PR-16", 1), state)[0]
@@ -530,7 +530,8 @@ def test_check_plan_rules():
     # PR-01은 POST_STRESS·POST_FATIGUE만 허용 — PRE_STRESS 사용자에게는 맞지 않는다
     assert any("허용 상태" in p for p in check_plan(PHOTO.activity, state))
     post_stress = {
-        "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS})
+        **state,
+        "intake": S2_INTAKE.model_copy(update={"order_condition": InterventionOrder.POST_STRESS}),
     }
     assert check_plan(PHOTO.activity, post_stress) == []
     # 활동 변경을 골랐으면 바꾸기로 한 프로토콜을 다시 넣을 수 없다
@@ -560,13 +561,13 @@ def test_check_plan_follows_the_environment_and_what_the_search_relaxed():
     cafe = IntakeResult(
         goal=CareGoal.S1, minutes=10, environment=environment_for(Setting.OFFICE_CAFE, False)
     )
-    state = {"intake": cafe}
+    state = {"request": CareRequest(text="-"), "intake": cafe}
     assert check_plan(activity("PR-09", 3), state) == [
         "PR-09는 지금 환경에서 하기 어렵다(AUDIO, QUIET)"
     ]
     assert check_plan(activity("PR-09", 3), state, relaxed=("environment",)) == []
     assert check_plan(activity("PR-15"), state) == []
-    pre_stress = {"intake": S2_INTAKE}
+    pre_stress = {"request": CareRequest(text="-"), "intake": S2_INTAKE}
     assert any("허용 상태" in p for p in check_plan(PHOTO.activity, pre_stress))
     assert check_plan(PHOTO.activity, pre_stress, relaxed=("order",)) == []
 

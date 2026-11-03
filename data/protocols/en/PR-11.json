@@ -1,0 +1,50 @@
+{
+  "protocol_id": "PR-11",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "야외 자연 보행",
+      "en": "Walking outdoors in nature"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 야외 자연 보행을 약 50분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 50 minutes, you'll take a walk outdoors in nature. Start comfortably, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 보행",
+      "en": "Nature walk"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "권장 시간 동안 편안한 속도로 걸으며 주변의 자연물을 바라보고, 불편하거나 위험하다고 느끼면 무리하지 말고 중단하세요.",
+      "en": "For the recommended time, walk at a comfortable pace and look at the nature around you. If you feel uncomfortable or unsafe, don't push yourself — stop."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "화면을 계속 바라보기보다 타이머를 가끔 확인하며 주변의 자연물을 보세요.",
+      "en": "Rather than watching the screen, check the timer now and then and look at the nature around you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/2/text",
+      "ko": "권장 시간에 도달했습니다. 활동을 마쳤다면 완료를 눌러주세요.",
+      "en": "You've reached the recommended time. If you've finished the activity, tap Done."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/3/text",
+      "ko": "활동을 중단하시겠습니까?",
+      "en": "Do you want to stop the activity?"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/4/text",
+      "ko": "이 활동은 실제 보행 여부나 개인별 효과를 자동으로 확인하거나 검증하지 않습니다.",
+      "en": "This activity doesn't automatically check whether you actually walked, and it doesn't verify its effect for you."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

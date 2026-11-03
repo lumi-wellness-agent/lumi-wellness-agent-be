@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from psycopg_pool import AsyncConnectionPool
 
-from app.schemas.care import CareGoal, ContentType, Environment
+from app.schemas.care import CareGoal, ContentType, Environment, Lang
 from app.schemas.evidence import InterventionOrder
 
 
@@ -35,3 +35,5 @@ class PlannerContext(AgentContext):
     excluded_protocol_ids: tuple[str, ...] = ()
     # 이 사용자가 지난 세션들에서 최근에 한 활동 — 추천 순서에서 가중치를 낮춘다
     recent_protocol_ids: tuple[str, ...] = ()
+    # 세션 언어 — 그 언어로 할 수 없는 활동은 후보에서 뺀다(protocols.KOREAN_ONLY)
+    lang: Lang = "ko"

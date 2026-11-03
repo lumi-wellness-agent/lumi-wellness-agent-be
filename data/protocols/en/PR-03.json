@@ -1,0 +1,25 @@
+{
+  "protocol_id": "PR-03",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "스트레스 전 자연 장면 보기(예방)",
+      "en": "Viewing nature scenes before stress (prevention)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "예정된 긴장 상황에 들어가기 전 자연 장면을 바라봅니다. 화면을 편안한 밝기로 맞추고, 불편하면 언제든 멈춰 주세요.",
+      "en": "Before you go into a stressful situation you're expecting, you'll look at nature scenes. Set the screen to a comfortable brightness, and stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "예정된 스트레스 전 자연 장면 감상",
+      "en": "Viewing nature scenes before an expected stressor"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

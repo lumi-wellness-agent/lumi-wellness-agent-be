@@ -155,7 +155,7 @@ def make_intake_nodes(intaker: Intaker) -> dict:
         # 추론한 목표가 상황과 엇갈리면 환경보다 먼저 지금 상태를 묻는다 — 답하면 목표를 다시 정한다
         if question := rules.goal_mismatch_question(state["intake"], turns, lang):
             return {"pending_question": question}
-        groups = rules.context_groups(state["intake"])
+        groups = rules.context_groups(state["intake"], lang)
         return {"pending_question": rules.context_question(groups, used + 1, lang)}
 
     def intake_finish(state: CareState) -> dict:
@@ -216,6 +216,6 @@ async def intake_once(intaker: Intaker, request: CareRequest) -> tuple[IntakeRes
     intake = rules.apply_goal(intake, inference, request)
     if not would_ask and rules.goal_mismatch_question(intake, [], lang):
         would_ask.append(QuestionSlot.STATE_FOLLOWUP.value)
-    if groups := rules.context_groups(intake):
+    if groups := rules.context_groups(intake, lang):
         would_ask.append("context:" + "+".join(groups))
     return rules.finish(intake), would_ask
