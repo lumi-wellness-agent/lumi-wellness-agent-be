@@ -1,0 +1,55 @@
+{
+  "protocol_id": "PR-12",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연 속 걷기 + 좋은 것 3가지 알아차리기",
+      "en": "Walking in nature + noticing 3 good things"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "자연 속을 편안하게 걸으며 좋은 것 3가지를 알아차려 기록합니다.",
+      "en": "Walk comfortably in nature, notice 3 good things, and write them down."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 속 걷기와 알아차림",
+      "en": "Walking in nature and noticing"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "권장 시간 동안 편안하게 걸으며 주변의 좋은 것을 알아차려 보세요. 불편하거나 위험하면 중단하세요.",
+      "en": "For the recommended time, walk comfortably and notice the good things around you. Stop if you feel uncomfortable or unsafe."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "자연 속을 편안하게 걸으며 주변을 살펴보세요.",
+      "en": "Walk comfortably in nature and look around you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/2/text",
+      "ko": "권장 시간에 도달했습니다. 활동을 마쳤다면 다음 단계로 이동하세요.",
+      "en": "You've reached the recommended time. If you've finished the activity, move on to the next step."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/3/text",
+      "ko": "활동을 중단하시겠습니까?",
+      "en": "Do you want to stop the activity?"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/4/text",
+      "ko": "이 활동은 실제 보행 여부나 개인별 효과를 자동으로 확인하거나 검증하지 않습니다.",
+      "en": "This activity doesn't automatically check whether you actually walked, and it doesn't verify its effect for you."
+    },
+    {
+      "path": "/content_spec/slots/1/scripts/0/text",
+      "ko": "자연에서 발견한 좋은 것을 한 가지 이상 기록해 주세요.",
+      "en": "Write down at least one good thing you found in nature."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

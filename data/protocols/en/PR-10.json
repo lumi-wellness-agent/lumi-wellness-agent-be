@@ -1,0 +1,95 @@
+{
+  "protocol_id": "PR-10",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연환경 알아차리기 20분 (ReST 참고)",
+      "en": "Nature awareness meditation, 20 min (ReST-informed)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "편안하고 안전한 곳에 앉아 주세요. 지금부터 20분 동안 몸과 주변의 자연을 천천히 알아차려 보겠습니다.",
+      "en": "Sit somewhere comfortable and safe. For the next 20 minutes, you'll slowly notice your body and the nature around you."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "앉아서 자연 알아차리기 20분",
+      "en": "Seated nature awareness, 20 min"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "편안하고 안전한 곳에 앉아 주세요.\n\n지금부터 20분 동안 몸과 주변의 자연을 천천히 알아차려 보겠습니다.\n\n실제 자연환경에 있다면 주변을 살펴보고, 실내에 있다면 화면의 자연 영상을 편하게 바라봐 주세요.\n\n안내가 잠시 멈추면 자신의 속도로 주변을 느껴보세요. 불편하면 언제든 활동을 멈춰도 괜찮습니다.",
+      "en": "Sit somewhere comfortable and safe.\n\nFor the next 20 minutes, you'll slowly notice your body and the nature around you.\n\nIf you're in a real natural setting, look around you. If you're indoors, look comfortably at the nature video on the screen.\n\nWhen the guidance pauses, take in your surroundings at your own pace. If you feel uncomfortable, it's fine to stop the activity at any time."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "먼저 지금 앉아 있는 몸의 느낌을 가볍게 알아차려 보세요.\n\n몸이 의자나 바닥에 닿는 느낌이 어떤가요?\n\n자세를 바르게 만들려고 애쓰지 않아도 괜찮습니다. 지금 편안한 자세로 잠시 머물러 주세요.",
+      "en": "First, gently notice how your body feels as you sit.\n\nHow does it feel where your body touches the chair or the ground?\n\nThere's no need to try to correct your posture. Just stay for a moment in a position that's comfortable now."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/2/text",
+      "ko": "이제 호흡에 잠시 주의를 가져와 보세요.\n\n숨을 들이쉬고 내쉴 때 몸에서 느껴지는 움직임을 가볍게 알아차립니다.\n\n호흡을 바꾸려고 하지 않아도 괜찮아요. 자연스럽게 이어지는 호흡을 자신의 속도로 느껴보세요.",
+      "en": "Now bring your attention to your breathing for a moment.\n\nGently notice the movement you feel in your body as you breathe in and out.\n\nThere's no need to change your breathing. Feel it flowing naturally, at your own pace."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/3/text",
+      "ko": "이번에는 몸에 닿는 느낌을 조금 더 살펴보세요.\n\n발이 바닥에 닿는 느낌이나 손이 놓여 있는 곳의 감촉을 느껴볼 수 있습니다.\n\n공기의 온도나 바람이 느껴진다면 그것도 가볍게 알아차려 보세요. 특별한 느낌을 찾으려고 애쓰지 않아도 괜찮습니다.",
+      "en": "Now explore a little more of what you feel touching your body.\n\nYou might notice your feet on the ground, or the texture of wherever your hands are resting.\n\nIf you can feel the temperature of the air or a breeze, gently notice that too. There's no need to search for any particular sensation."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/4/text",
+      "ko": "이제 주변에서 들리는 소리에 귀를 기울여 보세요.\n\n가까운 곳이나 먼 곳에서 어떤 소리가 들리나요?\n\n자연의 소리가 들릴 수도 있고, 사람이나 다른 생활의 소리가 들릴 수도 있습니다. 소리가 없거나 잘 들리지 않아도 괜찮아요.",
+      "en": "Now listen to the sounds around you.\n\nWhat sounds can you hear, near or far?\n\nYou might hear sounds of nature, or of people and everyday life. It's okay if there's no sound or it's hard to hear."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/5/text",
+      "ko": "들리는 소리가 있다면 좋고 나쁨을 판단하기보다, 그저 소리가 들린다는 것을 알아차려 보세요.\n\n소리는 나타났다가 사라지고, 다시 다른 소리가 들릴 수도 있습니다.\n\n소리에 집중하는 것이 불편하다면 언제든 몸이 닿는 느낌이나 편안한 풍경으로 주의를 옮겨도 좋아요.",
+      "en": "If you can hear sounds, rather than judging them as good or bad, simply notice that you're hearing them.\n\nSounds appear and fade, and other sounds may come along.\n\nIf focusing on sounds feels uncomfortable, you can move your attention to the feeling of your body or to a comfortable view at any time."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/6/text",
+      "ko": "이제 눈앞의 자연을 천천히 살펴보세요.\n\n실제 주변을 보고 있다면 눈에 들어오는 나무나 식물, 하늘을 편하게 바라봐 주세요.\n\n영상을 보고 있다면 화면에 보이는 풍경을 부담 없이 살펴봅니다. 특별한 것을 찾아내려고 하지 않아도 괜찮아요.",
+      "en": "Now slowly take in the nature in front of you.\n\nIf you're looking at your real surroundings, look comfortably at the trees, plants or sky that catch your eye.\n\nIf you're watching the video, look over the scenery on the screen without any pressure. There's no need to find anything special."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/7/text",
+      "ko": "눈에 들어오는 빛과 색을 가볍게 알아차려 보세요.\n\n밝은 곳과 어두운 곳이 있을 수도 있고, 여러 가지 색이 보일 수도 있습니다.\n\n어떤 색을 꼭 찾아야 하는 것은 아닙니다. 지금 자연스럽게 눈길이 가는 곳을 편하게 바라봐 주세요.",
+      "en": "Gently notice the light and colors you see.\n\nThere may be bright places and shady places, and many different colors.\n\nYou don't have to find any particular color. Just look comfortably wherever your eyes are naturally drawn."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/8/text",
+      "ko": "주변이나 화면에서 움직이는 것이 있다면 천천히 살펴보세요.\n\n나뭇잎이나 물결처럼 작은 움직임이 보일 수도 있습니다.\n\n움직임이 없거나 잘 보이지 않아도 괜찮아요. 눈앞의 풍경을 지금 모습 그대로 바라보면 됩니다.",
+      "en": "If anything is moving around you or on the screen, slowly watch it.\n\nYou might see small movements, like leaves or ripples on water.\n\nIt's okay if nothing is moving or it's hard to see. Just look at the scene in front of you as it is."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/9/text",
+      "ko": "지금 마음이 가는 곳이 있다면 그곳에 잠시 머물러 보세요.\n\n하나의 나뭇잎일 수도 있고, 빛이 닿는 모습이나 풍경 전체일 수도 있습니다.\n\n시선이 다른 곳으로 옮겨가도 괜찮아요. 편안하게 느껴지는 대로 자연스럽게 살펴보세요.",
+      "en": "If there's a spot that draws you in right now, stay with it for a moment.\n\nIt might be a single leaf, the way the light falls, or the whole scene.\n\nIt's fine if your gaze moves elsewhere. Just explore naturally, however feels comfortable."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/10/text",
+      "ko": "이제 시선이나 소리, 몸의 느낌 중에서 자연스럽게 알아차려지는 것이 있다면 잠시 주의를 두어 보세요.\n\n하나만 계속 바라보려고 애쓰지 않아도 괜찮습니다.\n\n지금 이 순간에 느껴지는 것들이 어떻게 나타나고 바뀌는지 열린 마음으로 살펴봅니다.",
+      "en": "Now, if something naturally catches your attention — what you see, what you hear, or how your body feels — rest your attention on it for a moment.\n\nThere's no need to keep looking at only one thing.\n\nWith an open mind, notice how the things you feel in this moment appear and change."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/11/text",
+      "ko": "주변을 살펴보는 동안 떠오르는 생각이나 감정이 있을 수도 있습니다.\n\n생각을 멈추거나 다른 감정을 만들려고 하지 않아도 괜찮아요.\n\n지금 어떤 경험이 있는지 가볍게 알아차리고, 원할 때 다시 주변의 풍경이나 몸의 느낌으로 돌아와 보세요.",
+      "en": "While you take in your surroundings, thoughts or feelings may come up.\n\nThere's no need to stop your thoughts or to create different feelings.\n\nGently notice what you're experiencing right now, and when you want to, come back to the scenery around you or the feeling of your body."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/12/text",
+      "ko": "이제 활동을 마무리할 준비를 하겠습니다.\n\n다시 몸이 의자나 바닥에 닿아 있는 느낌을 알아차려 보세요.\n\n지금 있는 공간과 주변의 소리를 편안하게 느끼며 잠시 머물러 주세요. 바로 움직이지 않아도 괜찮습니다.",
+      "en": "Now let's get ready to bring the activity to a close.\n\nNotice again the feeling of your body resting on the chair or the ground.\n\nStay for a moment, comfortably taking in the space you're in and the sounds around you. There's no need to move right away."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/13/text",
+      "ko": "이제 자연을 알아차리는 활동을 마무리합니다.\n\n화면을 보고 있었다면 천천히 시선을 주변 공간으로 옮겨 보세요.\n\n몸을 가볍게 움직이고, 자신의 속도로 다음 활동을 시작하면 됩니다.",
+      "en": "We're now bringing the nature awareness activity to a close.\n\nIf you were looking at the screen, slowly move your gaze to the space around you.\n\nGently move your body, and start your next activity at your own pace."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

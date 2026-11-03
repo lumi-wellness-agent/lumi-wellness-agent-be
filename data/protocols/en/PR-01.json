@@ -1,0 +1,35 @@
+{
+  "protocol_id": "PR-01",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "자연 사진 감상",
+      "en": "Nature photo viewing"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 자연 사진을 약 6분 동안 조용히 바라봅니다. 소리나 호흡 안내는 없습니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 6 minutes, you'll quietly look at nature photos. There's no sound or breathing guidance. Start in a comfortable position, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 사진 슬라이드",
+      "en": "Nature photo slideshow"
+    },
+    {
+      "path": "/steps/1/label",
+      "ko": "지금 느낌 알아차리기",
+      "en": "Noticing how you feel now"
+    },
+    {
+      "path": "/content_spec/slots/0/generation/reference_card_note",
+      "ko": "AI 생성 이미지와 연구 사진 자극의 효과 동등성은 미검증(N24는 사진·영상·360° 등 실제 디지털 자연만 포함)",
+      "en": "AI-generated images haven't been tested for the same effect as the photo stimuli in the research (N24 included only real digital nature such as photos, videos and 360° views)."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

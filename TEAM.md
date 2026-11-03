@@ -73,6 +73,7 @@ payload·resume 모양은 각 노드 docstring에 있다. `make graph`가 Mermai
 | `data/protocols/PR-*.json` | 초안을 완성한다. `review.open_items`에 적힌 확인 항목부터. 시나리오가 지나가는 PR-06 · PR-01 · PR-02 · PR-09 · PR-21 · PR-11을 먼저 |
 | 같은 파일 `steps` · `content_spec.slots` · `guide.intro_text` | 단계 문안, 슬롯별 `selection` · `render` · `personalization` · `generation`(PR-01.json이 완성 예시), 시작 안내 문안 |
 | 같은 파일 `grades` · `evidence` | 등급 셀에서 푼 `support`/`conflicts`가 맞는지, `outcomes`에 더해 둔 지표가 실제 측정된 것인지 원문으로 확인 |
+| 같은 파일의 화면 문구를 고칠 때 | 영어판 `data/protocols/en/PR-*.json`의 그 자리 `ko` · `en`도 함께 고친다(`data/README.md`). 영어로 옮기기 어려우면 `ko`만 맞추고 PR에 적는다 — 테스트가 어긋난 자리를 알려 준다 |
 | 합격 기준 | `make test-protocols` 통과. 스키마를 바꿔야 하면 통합 담당과 먼저 맞춘다 |
 
 묶음 제안: A = PR-01 02 03 04 05 20 21(자연 자극 감상) · B = PR-06 07 08 09 10 17 22(호흡·이완·명상·그라운딩) ·

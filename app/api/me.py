@@ -35,6 +35,7 @@ from pydantic import AwareDatetime, BaseModel
 from app import protocols, records
 from app.auth import CurrentUser
 from app.records import Consent, SessionStore
+from app.schemas.care import Lang
 
 log = logging.getLogger(__name__)
 
@@ -88,10 +89,11 @@ async def get_sessions(
     limit: Annotated[int, Query(ge=1, le=100)] = HISTORY_LIMIT,
     since: Annotated[AwareDatetime | None, Query()] = None,
     until: Annotated[AwareDatetime | None, Query()] = None,
+    lang: Annotated[Lang, Query()] = "ko",
 ) -> dict:
     """활동 기록 {"sessions": [...], "first_started_at": ...} — 최근 세션부터, since 이상 ·
-    until 미만(시작 시각)만. 라운드마다 활동 이름을 붙인다. 시간대 없는 시각은 422 — 날의
-    경계가 모호하다."""
+    until 미만(시작 시각)만. 라운드마다 활동 이름을 붙인다 — lang(FE 화면 언어)으로. 시간대 없는
+    시각은 422 — 날의 경계가 모호하다."""
     if user.anonymous:
         message = "게스트 체험은 기록을 남기지 않습니다. 로그인하면 활동 기록을 볼 수 있습니다."
         raise HTTPException(403, {"code": "MEMBERS_ONLY", "message": message})
@@ -102,16 +104,18 @@ async def get_sessions(
     sessions = await store.history(user.id, limit, since, until)
     return {
         "sessions": [
-            {**session, "rounds": [_named(r) for r in session["rounds"]]} for session in sessions
+            {**session, "rounds": [_named(r, lang) for r in session["rounds"]]}
+            for session in sessions
         ],
         "first_started_at": await store.first_history(user.id),
     }
 
 
-def _named(round_row: dict) -> dict:
-    """활동 이름. 활동 노드 JSON에서 빠진 활동이면 None — FE는 protocol_id를 보인다."""
+def _named(round_row: dict, lang: Lang = "ko") -> dict:
+    """활동 이름(그 언어로). 활동 노드 JSON에서 빠진 활동이면 None — FE는 protocol_id를 보인다."""
     protocol = protocols.get_protocol(round_row["protocol_id"])
-    return {**round_row, "name": protocol.name if protocol else None}
+    name = protocols.localized(protocol, lang).name if protocol else None
+    return {**round_row, "name": name}
 
 
 @router.delete("", status_code=204)

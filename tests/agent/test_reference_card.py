@@ -249,3 +249,14 @@ def test_english_stai6_is_not_provisional_so_the_card_drops_the_translation_note
         "(Easing stress and tension)."
     ]
     assert en.limits[:2] == [EN.general_limit, EN.badge_limits[CardBadge.NO_VERIFIED_EVIDENCE]]
+
+
+def test_english_card_uses_the_english_activity_wording():
+    intake = IntakeResult(goal=CareGoal.S2, goal_source=GoalSource.DEFAULT)
+    en = card("PR-06", intake, lang="en")
+    assert en.name == "Cyclic sighing — 5 minutes"
+    note = protocols.localized(protocols.get_protocol("PR-06"), "en").content_spec.model_dump()[
+        "reference_card_note"
+    ]
+    assert note.startswith("Guidance adapted by LUMI")
+    assert en.limits[2:] == [note, "Not validated with adults in Korea."]

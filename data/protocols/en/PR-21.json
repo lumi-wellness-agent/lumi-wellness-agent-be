@@ -1,0 +1,30 @@
+{
+  "protocol_id": "PR-21",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "실내 자연 이미지 + 약 16분 명상(S1 핵심 조합)",
+      "en": "Indoor nature images + about 16 min of meditation (core S1 combination)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 자연 이미지를 바라보며 약 16분간 안내 명상을 합니다. 이 조합의 효과는 아직 충분히 검증되지 않았습니다. 편한 자세로 시작하고 불편하면 언제든 멈춰 주세요.",
+      "en": "For about 16 minutes, you'll do a guided meditation while looking at nature images. The effect of this combination hasn't been fully tested yet. Start in a comfortable position, and stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "자연 이미지를 보며 고정 안내 명상",
+      "en": "Fixed guided meditation while viewing nature images"
+    },
+    {
+      "path": "/steps/1/label",
+      "ko": "지금 느낌 알아차리기",
+      "en": "Noticing how you feel now"
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

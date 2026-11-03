@@ -1,0 +1,60 @@
+{
+  "protocol_id": "PR-09",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "3분 안내 마음챙김",
+      "en": "Brief guided mindfulness (3 minutes)"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "편안한 자세로 눈을 감거나 시선을 내려놓으세요.\n\n지금부터 잠시 생각과 감정, 호흡을 알아차려 보겠습니다.\n\n불편하면 언제든 눈을 뜨거나 멈춰도 괜찮습니다.",
+      "en": "Settle into a comfortable position and close your eyes or lower your gaze.\n\nFor a little while, let's notice your thoughts, feelings and breathing.\n\nIf you feel uncomfortable, it's fine to open your eyes or stop at any time."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "음성 안내 마음챙김 3분",
+      "en": "Voice-guided mindfulness, 3 min"
+    },
+    {
+      "path": "/steps/1/label",
+      "ko": "현재 감각 알아차리기",
+      "en": "Noticing present sensations"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "편안한 자세로 눈을 감거나 시선을 내려놓으세요.\n\n지금부터 잠시 생각과 감정, 호흡을 알아차려 보겠습니다.\n\n불편하면 언제든 눈을 뜨거나 멈춰도 괜찮습니다.",
+      "en": "Settle into a comfortable position and close your eyes or lower your gaze.\n\nFor a little while, let's notice your thoughts, feelings and breathing.\n\nIf you feel uncomfortable, it's fine to open your eyes or stop at any time."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "지금 떠오르는 생각과 느껴지는 감정을 가볍게 살펴보세요.\n\n바꾸거나 없애려고 애쓰지 않아도 괜찮아요. 지금 있는 그대로 잠시 바라보세요.",
+      "en": "Gently look at the thoughts that come up and the feelings you notice right now.\n\nThere's no need to change them or make them go away. Just look at them as they are for a moment."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/2/text",
+      "ko": "이제 주의를 호흡으로 옮겨 보세요.\n\n숨을 들이쉬고 내쉴 때의 감각을 알아차립니다. 호흡의 속도를 바꾸지 않아도 괜찮아요.",
+      "en": "Now move your attention to your breathing.\n\nNotice the sensations as you breathe in and out. You don't need to change the pace of your breath."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/3/text",
+      "ko": "다른 생각이나 소리에 주의가 옮겨갔다면 괜찮습니다.\n\n가볍게 알아차리고, 준비가 되면 다시 호흡으로 돌아와 보세요. 불편하다면 발이 바닥에 닿는 느낌이나 주변 소리에 주의를 두어도 좋습니다.",
+      "en": "If your attention has drifted to other thoughts or sounds, that's okay.\n\nGently notice it, and when you're ready, come back to your breathing. If that feels uncomfortable, you can rest your attention on the feeling of your feet on the floor or on the sounds around you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/4/text",
+      "ko": "이제 몸 전체로 주의를 조금 넓혀 보세요.\n\n몸이 의자나 바닥에 닿는 느낌과 주변의 소리를 가볍게 알아차립니다.",
+      "en": "Now widen your attention a little to your whole body.\n\nGently notice how your body rests on the chair or the floor, and the sounds around you."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/5/text",
+      "ko": "이제 활동을 마무리합니다.\n\n눈을 감고 있었다면 준비가 되었을 때 천천히 눈을 떠 주세요. 자신의 속도로 일상으로 돌아가면 됩니다.",
+      "en": "Now we'll bring the activity to a close.\n\nIf your eyes were closed, open them slowly when you're ready. Return to your day at your own pace."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

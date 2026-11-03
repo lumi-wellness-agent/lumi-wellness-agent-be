@@ -490,10 +490,11 @@ EARPHONE_OPTIONS: tuple[tuple[str, bool], ...] = (
 )
 
 
-def candidate_ids(intake: IntakeResult, **override: Any) -> frozenset[str]:
+def candidate_ids(intake: IntakeResult, lang: Lang = "ko", **override: Any) -> frozenset[str]:
     """이 조건일 때 후보 활동. 플래너와 같은 후보 조회(protocols.plan_candidates — 환경 필터 ·
-    완화 순서)를 봐야 '이 칸이 추천을 바꾸는가'가 실제 계획과 맞는다. plan은 후보를 등급 가중 추첨
-    순서로 세우므로(protocols.recommendation_order) 1순위가 아니라 후보 묶음 전체를 본다."""
+    완화 순서 · 세션 언어)를 봐야 '이 칸이 추천을 바꾸는가'가 실제 계획과 맞는다. plan은 후보를
+    등급 가중 추첨 순서로 세우므로(protocols.recommendation_order) 1순위가 아니라 후보 묶음 전체를
+    본다."""
     if intake.goal is None:
         return frozenset()
     setting = override.get("setting", intake.setting)
@@ -503,12 +504,13 @@ def candidate_ids(intake: IntakeResult, **override: Any) -> frozenset[str]:
         order=intake.order_condition,
         minutes=override.get("minutes", intake.minutes),
         environment=environment_for(setting, earphones),
+        lang=lang,
     ).protocols
     return frozenset(p.protocol_id for p in found)
 
 
-def context_groups(intake: IntakeResult) -> list[str]:
-    """물어볼 환경 칸 — 비어 있고, 값에 따라 후보 활동이 달라지는 것만.
+def context_groups(intake: IntakeResult, lang: Lang = "ko") -> list[str]:
+    """물어볼 환경 칸 — 비어 있고, 값에 따라 후보 활동이 달라지는 것만(그 세션 언어의 후보로).
 
     setting · earphones · minutes 순서다.
     """
@@ -516,7 +518,7 @@ def context_groups(intake: IntakeResult) -> list[str]:
     if intake.setting is None:
         earphones = bool(intake.earphones)
         sets = {
-            candidate_ids(intake, setting=setting, earphones=earphones)
+            candidate_ids(intake, lang, setting=setting, earphones=earphones)
             for _, setting in SETTING_OPTIONS
         }
         if len(sets) > 1:
@@ -524,13 +526,13 @@ def context_groups(intake: IntakeResult) -> list[str]:
     if intake.earphones is None:
         places = [intake.setting] if intake.setting else [s for _, s in SETTING_OPTIONS]
         if any(
-            candidate_ids(intake, setting=s, earphones=True)
-            != candidate_ids(intake, setting=s, earphones=False)
+            candidate_ids(intake, lang, setting=s, earphones=True)
+            != candidate_ids(intake, lang, setting=s, earphones=False)
             for s in places
         ):
             groups.append("earphones")
     if intake.minutes is None:
-        if len({candidate_ids(intake, minutes=m) for m in MINUTES_ASK_BOUNDARIES}) > 1:
+        if len({candidate_ids(intake, lang, minutes=m) for m in MINUTES_ASK_BOUNDARIES}) > 1:
             groups.append("minutes")
     return groups
 

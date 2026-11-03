@@ -23,7 +23,7 @@ from collections.abc import Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 
-from app import instruments, intake_cues
+from app import instruments, intake_cues, protocols
 from app.agent.card_texts import TEXTS
 from app.agent.state import IntakeResult, PlannedActivity
 from app.schemas.card import (
@@ -97,20 +97,21 @@ def build_card(
     if goal is None:  # plan 노드는 목표 없이 계획하지 않는다
         raise ValueError("목표 없이 Reference 카드를 만들 수 없다")
     texts = TEXTS[lang]
+    shown = protocols.localized(protocol, lang)  # 활동 이름 · 대상 메모 · 카드 메모는 세션 언어로
     evidence = card_evidence(cited, lang)
     goal_section = goal_section_for(intake, goal, lang)
     badges = card_badges(protocol, goal, evidence, delivered, relaxed, goal_section)
-    notes = protocol_notes(protocol, delivered)
+    notes = protocol_notes(shown, delivered)
     limits = [texts.general_limit]
     for badge in badges:
         note = notes.get(badge)
         if note or badge in texts.badge_limits:
             limits.append(note or texts.badge_limits[badge])
-    if protocol.population_note:
-        limits.append(protocol.population_note)
+    if shown.population_note:
+        limits.append(shown.population_note)
     return ReferenceCard(
         protocol_id=protocol.protocol_id,
-        name=protocol.name,
+        name=shown.name,
         minutes=activity.minutes,
         composition=protocol.composition,
         badges=badges,

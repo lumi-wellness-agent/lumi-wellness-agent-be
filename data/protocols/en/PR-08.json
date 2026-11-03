@@ -1,0 +1,105 @@
+{
+  "protocol_id": "PR-08",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "유도 심상 20분",
+      "en": "Guided imagery, 20 minutes"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 20분 동안 음성 안내를 들으며 편안한 장소를 떠올려 보겠습니다.",
+      "en": "For the next 20 minutes, you'll listen to voice guidance and picture a comfortable place."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "녹음 안내 심상 20분",
+      "en": "Recorded guided imagery, 20 min"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "지금부터 20분 동안 음성 안내를 들으며 편안한 장소를 떠올려 보겠습니다.\n\n편하게 앉거나 누워 주세요. 눈을 감거나 편안한 곳에 시선을 두어도 좋습니다.\n\n안내가 멈추면 자신의 속도로 장면을 떠올려 보세요. 불편하다면 눈을 뜨고 주변을 살펴보거나 언제든 멈춰도 괜찮습니다.\n\n이제 실제로 가봤거나 마음속으로 만든 편안한 장소를 하나 떠올려 보세요.",
+      "en": "For the next 20 minutes, you'll listen to voice guidance and picture a comfortable place.\n\nSit or lie down comfortably. You can close your eyes or rest your gaze somewhere comfortable.\n\nWhen the guidance pauses, picture the scene at your own pace. If you feel uncomfortable, it's fine to open your eyes and look around, or to stop at any time.\n\nNow picture one comfortable place — somewhere you've actually been, or a place you create in your mind."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "장면이 선명하게 보이지 않아도 괜찮아요.\n\n그저 자신에게 편안하게 느껴지는 장소를 떠올리며 잠시 머물러 보세요.",
+      "en": "It's okay if the scene isn't vivid.\n\nJust picture a place that feels comfortable to you, and stay there for a while."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/2/text",
+      "ko": "이제 떠올린 장소의 전체적인 모습을 가볍게 살펴보세요.\n\n넓게 펼쳐진 곳일 수도 있고, 아늑한 작은 공간일 수도 있습니다.\n\n어떤 모습이어야 한다고 정할 필요는 없어요. 지금 떠오르는 모습 그대로 두어도 괜찮습니다.",
+      "en": "Now gently take in the overall look of the place you've pictured.\n\nIt might be a wide-open space, or a small, cozy one.\n\nThere's no need to decide what it should look like. You can leave it just as it comes to mind."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/3/text",
+      "ko": "그 장소에서 마음이 가는 부분이 있나요?\n\n특별한 무언가를 찾아내지 않아도 괜찮습니다. 편안하게 느껴지는 곳이 있다면, 그곳에 잠시 머물러 보세요.\n\n다른 장소가 더 편하게 느껴진다면 언제든 바꾸어도 좋습니다.",
+      "en": "Is there any part of this place that draws you in?\n\nYou don't need to find anything special. If there's a spot that feels comfortable, stay there for a moment.\n\nIf another place feels more comfortable, you can switch at any time."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/4/text",
+      "ko": "이번에는 그 장소의 빛이나 색을 천천히 떠올려 보세요.\n\n밝은 곳일 수도 있고, 은은한 빛이 있는 곳일 수도 있습니다.\n\n떠오르는 색이 있다면 가볍게 바라보고, 아무 색도 떠오르지 않는다면 편안한 느낌만 따라가도 괜찮습니다.",
+      "en": "Now slowly picture the light or the colors of this place.\n\nIt might be bright, or it might have a soft glow.\n\nIf a color comes to mind, look at it gently. If no color comes, you can simply follow the feeling of comfort."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/5/text",
+      "ko": "그 장소에서 내가 어디에 있는지 가볍게 떠올려 보세요.\n\n앉아 있을 수도 있고, 누워 있거나 편안하게 서 있을 수도 있습니다.\n\n내 주변이 어떤 모습인지 천천히 살펴보되, 떠오르지 않는 부분은 그대로 두어도 괜찮아요.",
+      "en": "Gently picture where you are in this place.\n\nYou might be sitting, lying down, or standing comfortably.\n\nSlowly look at what's around you, and leave any part that doesn't come to mind just as it is."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/6/text",
+      "ko": "원한다면 그 장소에서 들려올 것 같은 소리를 떠올려 보세요.\n\n조용한 소리가 있을 수도 있고, 아무 소리도 들리지 않는 편안한 공간일 수도 있습니다.\n\n어떤 소리가 떠오르든, 지금 자신에게 편안한 정도로만 머물러 보세요.",
+      "en": "If you like, imagine the sounds you might hear in this place.\n\nThere may be quiet sounds, or it may be a comfortable space with no sound at all.\n\nWhatever sounds come to mind, stay with them only as much as feels comfortable for you now."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/7/text",
+      "ko": "이번에는 그곳의 온도나 공기를 떠올려 볼 수 있습니다.\n\n따뜻하거나 시원한 느낌이 들 수도 있고, 그저 온화하고 편안하게 느껴질 수도 있어요.\n\n특별한 감각이 떠오르지 않아도 괜찮습니다. 자신의 속도로 잠시 머물러 보세요.",
+      "en": "Now you can picture the temperature or the air of this place.\n\nIt might feel warm or cool, or simply mild and comfortable.\n\nIt's okay if no particular sensation comes to mind. Stay here for a while at your own pace."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/8/text",
+      "ko": "상상 속에서 몸이 닿아 있는 곳을 가볍게 떠올려 보세요.\n\n의자나 침대일 수도 있고, 다른 편안한 곳일 수도 있습니다.\n\n지금 실제로 몸을 움직일 필요는 없어요. 편안하게 지지받는 느낌을 상상하며 잠시 머물러 보세요.",
+      "en": "Gently picture where your body is resting in this imagined place.\n\nIt might be a chair or a bed, or somewhere else comfortable.\n\nThere's no need to actually move right now. Imagine the feeling of being comfortably supported, and stay with it for a while."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/9/text",
+      "ko": "지금까지 떠올린 모습이나 감각 중에 마음에 드는 것이 있다면 하나를 골라 보세요.\n\n빛이나 색일 수도 있고, 소리나 온도일 수도 있습니다. 단지 편안한 장소라는 느낌이어도 괜찮아요.\n\n고르기 어렵다면 아무것도 정하지 않고 조용히 머물러도 좋습니다.",
+      "en": "Of the images and sensations you've pictured so far, if there's one you like, choose it.\n\nIt could be a light or a color, a sound or a temperature. It can even just be the feeling of a comfortable place.\n\nIf it's hard to choose, you can simply stay quietly without deciding anything."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/10/text",
+      "ko": "이제 잠시, 자신이 선택한 장소에 그대로 머물러 보겠습니다.\n\n무언가를 더 만들어내거나 바꾸려고 애쓰지 않아도 괜찮아요.\n\n다른 생각이 떠오르면 그대로 알아차리고, 원할 때 다시 편안한 장소나 느낌으로 돌아와 보세요.",
+      "en": "Now, for a while, simply stay in the place you've chosen.\n\nThere's no need to create anything more or to change anything.\n\nIf other thoughts come up, just notice them, and when you want to, come back to your comfortable place or feeling."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/11/text",
+      "ko": "이제 잠시 후 이 활동을 마무리할 준비를 하겠습니다.\n\n떠올린 장소를 천천히 한 번 더 살펴보세요. 마음에 남는 모습이나 느낌이 있다면 가볍게 기억해 두어도 좋습니다.\n\n서두르지 않고, 자신의 속도로 장면에서 조금씩 돌아올 준비를 해보세요.",
+      "en": "In a moment, we'll get ready to bring this activity to a close.\n\nSlowly take one more look at the place you've pictured. If an image or a feeling stays with you, you can gently keep it in mind.\n\nWithout rushing, get ready to come back from the scene little by little, at your own pace."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/12/text",
+      "ko": "이제 마음속 장면에서 잠시 벗어나, 지금 몸이 닿아 있는 곳에 주의를 가져와 보세요.\n\n의자나 바닥, 침대에 몸이 닿아 있는 느낌을 가볍게 알아차립니다.\n\n특별히 자세를 바꿀 필요는 없습니다. 지금 편안한 자세 그대로 있어도 좋아요.",
+      "en": "Now step away from the scene in your mind for a moment, and bring your attention to where your body is resting right now.\n\nGently notice the feeling of your body against the chair, the floor or the bed.\n\nThere's no need to change your position. You can stay just as you are, comfortably."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/13/text",
+      "ko": "지금 내가 있는 공간을 천천히 의식해 보세요.\n\n주변에서 들리는 소리가 있다면 가볍게 알아차리고, 몸이 닿은 곳의 느낌도 다시 느껴봅니다.\n\n원한다면 손이나 발을 가볍게 움직여도 괜찮습니다.",
+      "en": "Slowly become aware of the space you're in now.\n\nIf there are sounds around you, gently notice them, and feel again where your body is touching.\n\nIf you like, you can gently move your hands or feet."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/14/text",
+      "ko": "이제 활동이 곧 끝납니다.\n\n눈을 감고 있었다면 준비가 되었을 때 천천히 눈을 떠 보세요. 눈을 뜨고 있었다면 주변을 편안하게 둘러보아도 좋습니다.\n\n바로 움직이기보다 잠시 현재의 공간에 머물러 주세요.",
+      "en": "The activity will end soon.\n\nIf your eyes were closed, open them slowly when you're ready. If they were open, you can look around you comfortably.\n\nRather than moving right away, stay in the space you're in for a moment."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/15/text",
+      "ko": "유도 심상 활동을 마무리합니다.\n\n자신의 속도로 천천히 일상으로 돌아가세요.",
+      "en": "We're bringing the guided imagery activity to a close.\n\nReturn to your day slowly, at your own pace."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}

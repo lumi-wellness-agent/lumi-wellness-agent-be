@@ -1,0 +1,35 @@
+{
+  "protocol_id": "PR-18",
+  "texts": [
+    {
+      "path": "/name",
+      "ko": "강렬한 긍정 경험 글쓰기 20분",
+      "en": "Writing about an intensely positive experience, 20 min"
+    },
+    {
+      "path": "/guide/intro_text",
+      "ko": "지금부터 강렬한 긍정 경험 글쓰기를 약 20분 동안 합니다. 편한 자세로 시작하고, 불편하면 언제든 멈출 수 있습니다.",
+      "en": "For about 20 minutes, you'll write about an intensely positive experience. Start in a comfortable position, and you can stop anytime if you feel uncomfortable."
+    },
+    {
+      "path": "/steps/0/label",
+      "ko": "글쓰기 20분",
+      "en": "Writing, 20 min"
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/0/text",
+      "ko": "살면서 가장 멋졌던 경험, 가장 행복했던 순간, 황홀했던 순간, 벅차올랐던 순간을 생각해 보세요. 사랑에 빠졌을 때, 음악을 들을 때, 책이나 그림이 갑자기 마음을 사로잡았을 때, 또는 무언가를 만들어 내던 멋진 순간일 수도 있습니다. 그런 경험이나 순간을 하나 고르세요. 그 순간에 있는 자신을, 그 경험에 얽힌 느낌과 감정까지 모두 떠올려 보세요. 이제 그 경험을 되도록 자세히 써 보세요. 그때 들었던 느낌과 생각, 감정을 담아 주세요. 그 감정을 최대한 다시 느껴 보세요.",
+      "en": "Think about the most wonderful experiences of your life — your happiest moments, moments of ecstasy, moments when you were completely overwhelmed. It might be when you fell in love, when you were listening to music, when a book or a painting suddenly captured you, or a great moment of creating something. Choose one such experience or moment. Picture yourself in that moment, along with all the feelings and emotions tied to the experience. Now write about that experience in as much detail as you can, including the feelings, thoughts and emotions you had then. Try your best to feel those emotions again."
+    },
+    {
+      "path": "/content_spec/slots/0/scripts/1/text",
+      "ko": "지난번과 같은 경험을 써도 되고, 새로운 경험을 골라도 됩니다.",
+      "en": "You can write about the same experience as last time, or choose a new one."
+    },
+    {
+      "path": "/population_note",
+      "ko": "한국 성인 대상 검증 없음",
+      "en": "Not validated with adults in Korea."
+    }
+  ]
+}
