@@ -277,9 +277,9 @@ unchanged. The rationale character rules also check English sentences (see “Ra
 nodes' on-screen wording (activity names · step names · start guidance · scripts · PMR areas · NOTICE popup · card
 notes) is also sent from the language version (`data/protocols/en/`, `protocols.localized`), and activities that
 can only be done in Korean (`protocols.KOREAN_ONLY` — PR-21, a recorded Korean meditation) are left out of the
-candidates (in planning, intake's environment question and activity changes alike). The English version is in
-progress — evidence metadata is still Korean, and the FE does not send `lang` yet. A request without `lang` is
-Korean, the same session as before.
+candidates (in planning, intake's environment question and activity changes alike). Card-visible evidence metadata
+is translated with a phrase glossary (`data/evidence_texts/en.json`, see “Reference card”). The English version is
+in progress — the FE does not send `lang` yet. A request without `lang` is Korean, the same session as before.
 
 **Errors.** The body is `{"detail": {code, message, …}}`.
 
@@ -450,7 +450,12 @@ results are never stretched into diagnosis or treatment effects.
   STAI-6 · BSRI are the original items, so they get no badge or sentence, and only MFVAS is disclosed.
 - Sentences the code writes (goal name · fixed limit sentences · scale notes) are in the session language
   (`app/agent/card_texts.py`). Sentences written in the protocol (name · population note · `reference_card_note`)
-  and evidence metadata are still Korean.
+  follow the activity node's language version (`protocols.localized`). Of the evidence metadata, the fields shown on
+  the card (`population` · results' `measure` · `comparison` · `stat`) are translated with a phrase glossary
+  (`data/evidence_texts/en.json`, `card_texts.evidence_text`) — values repeat across evidence, so it works per
+  phrase rather than per record. If reloading the evidence changes the Korean in these fields, update the glossary
+  too (`tests/agent/test_evidence_texts_db.py` catches it on lumi-pg). Fields not shown on the card (`arm_label` ·
+  `regimen` · `n_detail` · timepoint) stay Korean.
 - With no evidence DB, or no evidence that passed validation, `evidence` is empty and `NO_VERIFIED_EVIDENCE` is
   added.
 
@@ -1111,6 +1116,7 @@ data/
 ├─ instruments/         4 measurement instruments (SAM · STAI-6 · BSRI · MFVAS) — en/ holds English wording · status
 ├─ evidence_overrides.json evidence metadata confirmed by people (overrides the sheet values at load)
 ├─ evidence_excerpts.json  per-record METHODS · RESULTS excerpts from the papers (used as content at load)
+├─ evidence_texts/      language versions of card-visible evidence metadata — Korean phrase → English (en.json)
 ├─ manifest.csv         manifest of 84 papers
 ├─ intake_cues.json     intake cue table S1·S2·S3 (expression cues · boundaries · summary sources) + state hints
 ├─ goal_definitions.json intake concept definitions S1·S2·S3 — verbatim sentences from R1 papers (paper_id · page)
