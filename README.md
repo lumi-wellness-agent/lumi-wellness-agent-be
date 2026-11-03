@@ -243,9 +243,9 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 한국어 세션의 LLM 입력은 그대로입니다. 추천 이유 글자 규칙도 영어 문장에 맞춰 봅니다(「추천 이유 평가」). 활동
 노드의 화면 문구(활동 이름 · 단계 이름 · 시작 안내 · 대본 · PMR 부위 · NOTICE 팝업 · 카드 메모)도 언어판
 (`data/protocols/en/`, `protocols.localized`)으로 싣고, 한국어로만 할 수 있는 활동(`protocols.KOREAN_ONLY` —
-PR-21 한국어 녹음 명상)은 후보에서 뺍니다(계획 · intake 환경 질문 · 활동 변경 모두). 영어판은 만드는 중입니다 —
-근거 메타데이터는 아직 한국어이고 FE도 아직 `lang`을 보내지 않습니다. `lang`을 빠뜨린 요청은 한국어라 전과 같은
-세션입니다.
+PR-21 한국어 녹음 명상)은 후보에서 뺍니다(계획 · intake 환경 질문 · 활동 변경 모두). 카드에 보이는 근거
+메타데이터는 문구 사전(`data/evidence_texts/en.json`)으로 옮깁니다(「Reference 카드」). 영어판은 만드는 중입니다 —
+FE가 아직 `lang`을 보내지 않습니다. `lang`을 빠뜨린 요청은 한국어라 전과 같은 세션입니다.
 
 **오류.** 본문은 `{"detail": {code, message, …}}`입니다.
 
@@ -397,7 +397,12 @@ payload의 `plan.reference_card`를 그대로 그립니다(계약 `app/schemas/c
   검증되지 않았다고 적습니다. `PROVISIONAL`은 세션 언어의 문항 기준이라, 영어 세션의 STAI-6 · BSRI는 원척도
   문항이어서 배지 · 문장이 붙지 않고 MFVAS만 밝힙니다.
 - 코드가 쓰는 문장(목표 이름 · 고정 한계 문장 · 척도 안내)은 세션 언어로 씁니다(`app/agent/card_texts.py`).
-  프로토콜이 적은 문장(이름 · 대상 메모 · `reference_card_note`)과 근거 메타데이터는 아직 한국어입니다.
+  프로토콜이 적은 문장(이름 · 대상 메모 · `reference_card_note`)은 활동 노드 언어판(`protocols.localized`)을
+  따릅니다. 근거 메타데이터 중 카드에 보이는 칸(대상 `population` · 결과의 `measure` · `comparison` · `stat`)은
+  문구 사전(`data/evidence_texts/en.json`, `card_texts.evidence_text`)으로 옮깁니다 — 값이 근거마다 반복돼
+  레코드가 아니라 문구 단위입니다. 근거를 다시 적재해 이 칸의 한국어가 바뀌면 사전도 고칩니다
+  (`tests/agent/test_evidence_texts_db.py`가 lumi-pg로 잡습니다). 카드에 보이지 않는 칸(`arm_label` · `regimen` ·
+  `n_detail` · 측정 시점)은 한국어로 둡니다.
 - 근거 DB가 없거나 검증을 통과한 근거가 없으면 `evidence`가 비고 `NO_VERIFIED_EVIDENCE`가 붙습니다.
 
 ## 시작하기
@@ -972,6 +977,7 @@ data/
 ├─ instruments/         측정 도구 4개 (SAM · STAI-6 · BSRI · MFVAS) — en/는 영어 제시 문구 · 상태
 ├─ evidence_overrides.json 사람이 확정한 근거 메타데이터 (적재 때 시트 값을 덮어씀)
 ├─ evidence_excerpts.json  레코드별 논문 원문 METHODS · RESULTS 발췌 (적재 때 content로 씀)
+├─ evidence_texts/      카드에 보이는 근거 메타데이터의 언어판 — 한국어 문구 → 영어 (en.json)
 ├─ manifest.csv         논문 84편 매니페스트
 ├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 ├─ goal_definitions.json intake 개념 정의 S1·S2·S3 — R1 논문 원문 문장(paper_id · 쪽)

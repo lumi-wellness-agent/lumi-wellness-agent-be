@@ -2,12 +2,16 @@
 세션 언어마다 하나.
 
 한국어가 원본이고 영어는 같은 뜻을 옮긴 것이다. 영어 목표 이름은 FE 영어 화면의 목표 이름
-(src/session/labels.ts)과 같다. 프로토콜이 적은 문장(이름 · 대상 메모 · reference_card_note)과 근거
-메타데이터(대상 · 실험 조건)는 여기 없다 — 프로토콜 · 근거의 언어판을 따른다.
+(src/session/labels.ts)과 같다. 프로토콜이 적은 문장(이름 · 대상 메모 · reference_card_note)은
+프로토콜 언어판(app/protocols.localized)을 따른다. 근거 메타데이터 중 카드에 보이는 칸(대상 · 결과의
+척도 · 비교 · 통계)은 data/evidence_texts/<lang>.json의 문구 사전으로 옮긴다(evidence_text).
 """
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 from app.schemas.card import CardBadge
 from app.schemas.care import CareGoal, Lang
@@ -166,3 +170,24 @@ EN = CardTexts(
 )
 
 TEXTS: dict[Lang, CardTexts] = {"ko": KO, "en": EN}
+
+EVIDENCE_TEXT_DIR = Path(__file__).resolve().parents[2] / "data" / "evidence_texts"
+
+
+@lru_cache
+def evidence_glossary(lang: Lang) -> dict[str, str]:
+    """카드에 보이는 근거 메타데이터의 문구 사전 — 한국어 원문 → 그 언어. 한국어는 비어 있다.
+
+    값이 근거마다 반복되므로(성인(영국) · 자연 vs 도시 …) 레코드가 아니라 문구로 옮긴다.
+    """
+    if lang == "ko":
+        return {}
+    doc = json.loads((EVIDENCE_TEXT_DIR / f"{lang}.json").read_text(encoding="utf-8"))
+    return doc["texts"]
+
+
+def evidence_text(value: str | None, lang: Lang) -> str | None:
+    """근거 메타데이터 한 칸을 세션 언어로. 사전에 없으면 원문 그대로(영어 원문 · 숫자 …)."""
+    if value is None:
+        return None
+    return evidence_glossary(lang).get(value, value)

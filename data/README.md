@@ -51,6 +51,14 @@ SAM은 READY. STAI-6와 BSRI는 원척도 문항의 한국어 번역 초안, MFV
 (PR-10이 #63에서 영상 모드가 됐다) 연구 매체가 따라 바뀌므로, 그런 연구는 여기에 연구 매체를 고정한다 — 실제
 자연환경 명상 연구가 영상 연구로 적재되면 영상 제공의 자극 변형(ADAPTED_STIMULUS)이 사라진다.
 
+## evidence_texts/ — 카드에 보이는 근거 메타데이터의 언어판
+
+`en.json`의 `texts`는 한국어 문구 → 영어다. 영어 세션의 Reference 카드가 근거의 대상(`population_detail`)과 결과의
+척도(`measure`) · 비교(`comparison`) · 통계(`stat`)를 이 사전으로 옮긴다(`app/agent/card_texts.evidence_text`, 없으면
+원문 그대로). 값이 근거마다 반복되므로 레코드가 아니라 문구로 둔다. 통계의 숫자 · 기호는 원문 그대로다. 근거를 다시
+적재해 이 칸의 한국어 값이 바뀌면 사전도 고친다 — `TEST_DATABASE_URL`(lumi-pg)로 `make test`를 돌리면
+`tests/agent/test_evidence_texts_db.py`가 빠진 문구와 사라진 문구를 보인다.
+
 ## evidence_excerpts.json — 레코드별 원문 발췌
 
 `scripts/extract_excerpts.py`(`make extract-excerpts`)가 만든다. 키는 `evidence_overrides.json`과 같고

@@ -24,7 +24,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app import instruments, intake_cues, protocols
-from app.agent.card_texts import TEXTS
+from app.agent.card_texts import TEXTS, evidence_text
 from app.agent.state import IntakeResult, PlannedActivity
 from app.schemas.card import (
     CardBadge,
@@ -37,7 +37,7 @@ from app.schemas.card import (
     ReferenceCard,
 )
 from app.schemas.care import CareGoal, Lang
-from app.schemas.evidence import Medium, Section
+from app.schemas.evidence import Medium, OutcomeResult, Section
 from app.schemas.intake import GoalSource
 from app.schemas.measure import GOAL_SCALE
 from app.schemas.protocol import CareProtocol, Composition
@@ -129,7 +129,8 @@ def build_card(
 def card_evidence(
     cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]], lang: Lang = "ko"
 ) -> list[CardEvidence]:
-    """같은 실험의 chunk를 하나로 묶는다(실험 ID가 없으면 논문 단위). 순서는 처음 나온 순서."""
+    """같은 실험의 chunk를 하나로 묶는다(실험 ID가 없으면 논문 단위). 순서는 처음 나온 순서.
+    카드에 보이는 메타데이터(대상 · 결과의 척도 · 비교 · 통계)는 세션 언어로 옮긴다."""
     flag_limits = TEXTS[lang].flag_limits
     groups: dict[str, list[tuple[EvidenceHit, EvidenceVerdict]]] = {}
     for hit, verdict in cited:
@@ -150,13 +151,13 @@ def card_evidence(
                 arm_label=meta.arm_label,
                 theories=meta.theories,
                 study_design=meta.study_design,
-                population=meta.population_detail,
+                population=evidence_text(meta.population_detail, lang),
                 n=meta.n,
                 n_detail=meta.n_detail,
                 exposure_minutes=meta.exposure_minutes,
                 regimen=meta.regimen,
                 studied_orders=meta.intervention_orders,
-                results=verdict.goal_results,
+                results=[_shown_result(r, lang) for r in verdict.goal_results],
                 supports_goal=any(v.supports_goal for _, v in items),
                 supported_outcomes=supported,
                 flags=flags,
@@ -171,6 +172,18 @@ def card_evidence(
             )
         )
     return out
+
+
+def _shown_result(result: OutcomeResult, lang: Lang) -> OutcomeResult:
+    if lang == "ko":
+        return result
+    return result.model_copy(
+        update={
+            "measure": evidence_text(result.measure, lang),
+            "comparison": evidence_text(result.comparison, lang),
+            "stat": evidence_text(result.stat, lang),
+        }
+    )
 
 
 def goal_section_for(intake: IntakeResult, goal: CareGoal, lang: Lang = "ko") -> GoalSection:
