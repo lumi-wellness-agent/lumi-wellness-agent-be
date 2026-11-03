@@ -47,6 +47,14 @@ INTAKE = IntakeResult(goal=CareGoal.S1, order_condition=InterventionOrder.POST_S
 STATE = {"request": REQUEST, "intake": INTAKE}
 
 
+# 대역 추천 이유 — PR-21(AI 생성 이미지)은 꼭 밝힐 것이 있어 '다만' 문장을 넣는다
+# (rationale_rules의 disclosure 규칙)
+DEFAULT_RATIONALE = (
+    "같은 생각이 계속 돌아 잠시 주의를 옮길 활동을 골랐어요. "
+    "다만 AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다."
+)
+
+
 class RecordingPlanner:
     """정해 둔 선택을 차례로 내고, choose · explain이 받은 것을 남긴다. rationale에 여럿을 주면
     explain마다 차례로 내고 마지막 것을 되풀이한다."""
@@ -54,7 +62,7 @@ class RecordingPlanner:
     def __init__(
         self,
         *choices: ActivityChoice,
-        rationale: str | list[str] = "추천 이유",
+        rationale: str | list[str] = DEFAULT_RATIONALE,
         factors: ContentFactors | None = None,
     ):
         self.choices = list(choices)
@@ -118,7 +126,7 @@ def test_pipeline_chooses_searches_verifies_and_explains(fake_backends):
     # 시간은 코드가 정한다 — 프로토콜 기본값(≤ 쓸 수 있는 20분)
     assert plan.activity.minutes == round(protocols.get_protocol("PR-21").duration_minutes.default)
     assert plan.activity.evidence_record_ids == [102, 101, 112, 111]
-    assert plan.rationale == "추천 이유"
+    assert plan.rationale == DEFAULT_RATIONALE
     assert planner.explained == [("PR-21", "-", [102, 101, 112, 111])]
 
 

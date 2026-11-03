@@ -13,6 +13,10 @@
   배지가 있을 때만
 - years: 인용한 연도가 근거 목록에 있다
 - no_evidence: 근거가 없으면 찾지 못했다고 밝힌다(근거가 있으면 해당 없음 — None)
+- disclosure: 꼭 밝힐 것(prompts.must_disclose — 카드 배지와 같은 판정)이 있으면 '다만 …' 문장이
+  있다(없으면 해당 없음 — None). 내용을 빠짐없이 옮겼는지는 뜻을 읽어야 해서 추천 이유 평가의
+  Judge(disclosure)가 본다 — 여기서는 고지 문장 자체를 빠뜨린 것만 잡는다(2026-11-03 운영 영어
+  세션의 PR-06이 각색 고지를 빠뜨렸다)
 
 영어 세션(RationaleFacts.lang = "en")은 같은 규칙을 영어 문장에 맞춰 본다 — 글자는 라틴 문자뿐,
 한계 문장은 'That said' · 'However'로 시작, '실험적' 대신 'experimental', 근거 없음 · Factor 이름은
@@ -103,6 +107,7 @@ class RationaleFacts:
     badges: tuple[str, ...] = ()
     factors: Mapping[str, Any] | None = None  # ContentFactors.model_dump(mode="json")
     lang: Lang = "ko"  # 추천 이유의 언어(세션 언어)
+    disclose: tuple[str, ...] = ()  # 꼭 밝힐 것(prompts.must_disclose) — 설명 입력에 실은 문장
 
 
 def evidence_row(hit: EvidenceHit, verdict: EvidenceVerdict) -> dict[str, Any]:
@@ -125,6 +130,7 @@ def facts_for(
     badges: Sequence[str] = (),
     factors: Mapping[str, Any] | None = None,
     lang: Lang = "ko",
+    disclose: Sequence[str] = (),
 ) -> RationaleFacts:
     """plan 노드의 값으로 대조할 것을 만든다."""
     primary = GOAL_OUTCOMES[goal].primary if goal else []
@@ -135,6 +141,7 @@ def facts_for(
         badges=tuple(badges),
         factors=factors,
         lang=lang,
+        disclose=tuple(disclose),
     )
 
 
@@ -243,6 +250,14 @@ def check_no_evidence(text: str, facts: RationaleFacts) -> RuleResult:
     return bool(pattern.search(text)), "근거가 없다는 말이 없다"
 
 
+def check_disclosure(text: str, facts: RationaleFacts) -> RuleResult:
+    """꼭 밝힐 것이 있으면 '다만'(영어 'That said' · 'However')으로 시작하는 문장이 있다."""
+    if not facts.disclose:
+        return None, ""
+    prefixes = DISCLOSE_PREFIXES[facts.lang]
+    return any(s.startswith(prefixes) for s in sentences(text)), "; ".join(facts.disclose)
+
+
 RULES: dict[str, Callable[[str, RationaleFacts], RuleResult]] = {
     "sentences": check_sentences,
     "script": check_script,
@@ -252,6 +267,7 @@ RULES: dict[str, Callable[[str, RationaleFacts], RuleResult]] = {
     "experimental": check_experimental,
     "years": check_years,
     "no_evidence": check_no_evidence,
+    "disclosure": check_disclosure,
 }
 CHECKS = tuple(RULES)
 # plan 노드가 어기면 설명을 다시 묻는 규칙 — 문장 수는 보기 문제라 호출을 더 쓰지 않는다
@@ -268,6 +284,9 @@ _PROBLEMS = {
     "experimental": "'실험적'을 조건 밖에서 썼다",
     "years": "근거 목록에 없는 연도({})를 인용했다",
     "no_evidence": "검증된 근거가 없다는 것을 밝히지 않았다",
+    "disclosure": (
+        "꼭 밝힐 것({})을 '다만 …' 한 문장으로 마지막에 밝히지 않았다 — 빠짐없이 모아 쓴다"
+    ),
 }
 # 영어 세션에서 말이 달라지는 사유 — 나머지는 한국어 세션과 같다(사유는 LLM에 다시 묻는 입력이다)
 _PROBLEMS_EN = {
@@ -277,6 +296,9 @@ _PROBLEMS_EN = {
     ),
     "script": "영어 문장에 다른 문자({})가 섞였다 — 영어로만 쓰고 저자 이름은 원문 그대로 둔다",
     "experimental": "'experimental'을 조건 밖에서 썼다 — 연구는 'study' · 'experiment'로 쓴다",
+    "disclosure": (
+        "꼭 밝힐 것({})을 'That said, …' 한 문장으로 마지막에 밝히지 않았다 — 빠짐없이 모아 쓴다"
+    ),
 }
 PROBLEMS: dict[Lang, dict[str, str]] = {"ko": _PROBLEMS, "en": _PROBLEMS_EN}
 

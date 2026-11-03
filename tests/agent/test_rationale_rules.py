@@ -35,9 +35,16 @@ def facts(
     badges=(),
     factors: dict | None = None,
     lang="ko",
+    disclose=(),
 ) -> RationaleFacts:
     return RationaleFacts(
-        tuple(evidence), composition, grades or {"RUMINATION": "B"}, tuple(badges), factors, lang
+        tuple(evidence),
+        composition,
+        grades or {"RUMINATION": "B"},
+        tuple(badges),
+        factors,
+        lang,
+        tuple(disclose),
     )
 
 
@@ -51,6 +58,7 @@ def test_a_clean_rationale_passes_every_rule():
         "experimental": True,
         "years": True,
         "no_evidence": None,  # 근거가 있으면 해당 없음
+        "disclosure": None,  # 꼭 밝힐 것이 없으면 해당 없음
     }
 
 
@@ -198,6 +206,7 @@ def test_a_clean_english_rationale_passes_every_rule():
         "experimental": True,
         "years": True,
         "no_evidence": None,
+        "disclosure": None,
     }
 
 
@@ -289,3 +298,22 @@ def test_english_problems_name_the_english_rule():
     reasons = rationale_rules.problems(text, facts(lang="en"))
     assert any(r.startswith("영어 문장에 다른 문자") for r in reasons)
     assert any("'experimental'" in r for r in reasons)
+
+
+ADAPTED = (
+    "연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다.",
+)
+
+
+def test_a_rationale_must_disclose_what_the_card_flags():
+    # 2026-11-03 운영 영어 세션 — PR-06의 각색 고지를 빠뜨렸다
+    told = GOOD + " 다만 연구 안내를 LUMI에 맞게 바꿔 같은 효과는 확인되지 않았어요."
+    assert rationale_rules.check_disclosure(told, facts(disclose=ADAPTED))[0] is True
+    assert rationale_rules.check_disclosure(GOOD, facts(disclose=ADAPTED))[0] is False
+    assert rationale_rules.check_disclosure(GOOD, facts())[0] is None  # 밝힐 것이 없다
+    english = GOOD_EN + " That said, the guidance was adapted for LUMI."
+    assert rationale_rules.check_disclosure(english, facts(lang="en", disclose=ADAPTED))[0]
+    assert not rationale_rules.check_disclosure(GOOD_EN, facts(lang="en", disclose=ADAPTED))[0]
+    # 다시 물을 때의 사유에 밝힐 것을 싣는다
+    (reason,) = rationale_rules.problems(GOOD_EN, facts(lang="en", disclose=ADAPTED))
+    assert "'That said, …'" in reason and ADAPTED[0] in reason

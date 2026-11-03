@@ -77,7 +77,17 @@ def test_a_clean_rationale_passes_every_rule():
         "experimental": True,
         "years": True,
         "no_evidence": None,  # 근거가 있으면 해당 없음
+        "disclosure": None,  # 꼭 밝힐 것이 없으면 해당 없음
     }
+
+
+def test_the_disclosure_rule_reads_the_items_from_the_explainer_input():
+    items = rationale_eval.disclosed_items(
+        EXPLAIN_INPUT
+        + "\n\n## 꼭 밝힐 것\n- 같은 방식의 연구 중에는 반대인 결과도 있습니다.\n\n## 끝"
+    )
+    assert items == ("같은 방식의 연구 중에는 반대인 결과도 있습니다.",)
+    assert rationale_eval.disclosed_items("## 꼭 밝힐 것\n없음\n\n## 끝") == ()
 
 
 def test_the_judge_sees_the_explainer_input_without_the_factor_menu():

@@ -59,6 +59,7 @@ from app.agent.prompts import (
     EXPLAIN_PROMPTS,
     build_choice_input,
     build_rationale_input,
+    must_disclose,
 )
 from app.agent.state import (
     CarePlan,
@@ -495,13 +496,16 @@ async def write_rationale(
     """
     cited = [(c.hit, c.verdict) for c in evidence]
     badges = [b.value for b in card.badges]
+    lang = state["request"].lang
+    delivered = protocols.delivered_media(protocol, state["request"].profile.content_type)
+    disclose = must_disclose(protocol, evidence, delivered, lang)  # 설명 입력에 실은 것과 같다
     problems: list[str] = []
     for attempt in (1, 2):
         explained = await planner.explain(state, choice, protocol, evidence, problems)
         factors = content_factors.sanitize(protocol, explained.content_factors)
         chosen = None if factors.is_empty() else factors.model_dump(mode="json")
         facts = rationale_rules.facts_for(
-            protocol, state["intake"].goal, cited, badges, chosen, lang=state["request"].lang
+            protocol, state["intake"].goal, cited, badges, chosen, lang=lang, disclose=disclose
         )
         problems = rationale_rules.problems(explained.rationale, facts)
         if not problems:
