@@ -244,8 +244,13 @@ Audio로 짧은 소리를 냅니다. 활동이 끝나면 `SessionReport`(`comple
 노드의 화면 문구(활동 이름 · 단계 이름 · 시작 안내 · 대본 · PMR 부위 · NOTICE 팝업 · 카드 메모)도 언어판
 (`data/protocols/en/`, `protocols.localized`)으로 싣고, 한국어로만 할 수 있는 활동(`protocols.KOREAN_ONLY` —
 PR-21 한국어 녹음 명상)은 후보에서 뺍니다(계획 · intake 환경 질문 · 활동 변경 모두). 카드에 보이는 근거
-메타데이터는 문구 사전(`data/evidence_texts/en.json`)으로 옮깁니다(「Reference 카드」). 영어판은 만드는 중입니다 —
-FE가 아직 `lang`을 보내지 않습니다. `lang`을 빠뜨린 요청은 한국어라 전과 같은 세션입니다.
+메타데이터는 문구 사전(`data/evidence_texts/en.json`)으로 옮깁니다(「Reference 카드」). FE는 세션을 시작할 때 화면
+언어를 `lang`으로 보냅니다(FE #128). `lang`을 빠뜨린 요청은 한국어입니다.
+
+영어 세션은 다음만큼 확인했습니다 — intake 경계 사례 26개(한국어 17개의 영어판 + 영어 줄임말 · 우회 표현 · 영어
+과장 관용구 · 영어 진단명 · 영어 화면의 한국어 입력)를 3회씩 돌려 26/26 · 안전 신호 놓침 0 · 오탐 0/51
+(`scripts/intake_eval.py --lang en`, `docs/intake-eval/2026-11-03-en.md`, 약 $0.51), 스모크 테스트(intake 24 · 계획 6
+· 재계획 3)와 운영 세션 1회. 계획 · 추천 이유는 한국어처럼 평가 세트(시나리오 30 · Judge)로 재지 않았습니다.
 
 **오류.** 본문은 `{"detail": {code, message, …}}`입니다.
 
@@ -982,6 +987,8 @@ data/
 ├─ intake_cues.json     intake 단서표 S1·S2·S3(표현 단서 · 경계 · 요약 출처) + 상태 단서
 ├─ goal_definitions.json intake 개념 정의 S1·S2·S3 — R1 논문 원문 문장(paper_id · 쪽)
 ├─ eval_scenarios.jsonl 평가 시나리오 30개 — 목표 × 사용자 상태 × 문장 · 칩 (검색 질의 수집 · 계획 평가)
+├─ intake_eval_cases.jsonl intake 경계 사례 17개 — 안전 · 과장 · 부정문 · 남의 위험 · 진단 · 주입 · 관계없는 말 (make intake-eval)
+├─ intake_eval_cases.en.jsonl 영어 경계 사례 26개 — 한국어 17개의 영어판 + 영어에만 있는 표현 (--lang en)
 ├─ rag_eval_queries.jsonl 운영 choose 프롬프트로 모은 검색 질의 220개 (make rag-eval ARGS="collect")
 └─ rag_eval.jsonl       근거 검색 평가셋 180문항 — 질의 · 필터 · 정답 레코드 (make rag-eval)
 scripts/scaffold_protocols.py   워크북 → 활동 노드 JSON 초안

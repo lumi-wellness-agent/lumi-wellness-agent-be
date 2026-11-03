@@ -3,8 +3,8 @@
 [한국어](README.md) · **English**
 
 > **This file is a translation.** [README.md](README.md) (Korean) is the source of truth; where the two
-> disagree, the Korean one is right. LUMI currently runs in Korean only — intake questions, measures,
-> activity guidance and rationales are written in Korean. Korean strings that are real values in the
+> disagree, the Korean one is right. LUMI runs in Korean by default; a session started on the English screen
+> gets English questions, measures, guidance and rationales (see “Session language”). Korean strings that are real values in the
 > running system (fixed questions, chip labels, words the rationale rules look for) are kept as they are,
 > with an English gloss next to them. Linked documents marked (Korean) have no English version yet.
 
@@ -278,8 +278,15 @@ nodes' on-screen wording (activity names · step names · start guidance · scri
 notes) is also sent from the language version (`data/protocols/en/`, `protocols.localized`), and activities that
 can only be done in Korean (`protocols.KOREAN_ONLY` — PR-21, a recorded Korean meditation) are left out of the
 candidates (in planning, intake's environment question and activity changes alike). Card-visible evidence metadata
-is translated with a phrase glossary (`data/evidence_texts/en.json`, see “Reference card”). The English version is
-in progress — the FE does not send `lang` yet. A request without `lang` is Korean, the same session as before.
+is translated with a phrase glossary (`data/evidence_texts/en.json`, see “Reference card”). The FE sends the screen
+language as `lang` when it starts a session (FE #128). A request without `lang` is Korean.
+
+English sessions have been checked this far — 26 intake edge cases (English versions of the 17 Korean ones + English
+abbreviations · euphemisms · English exaggeration idioms · English diagnosis names · Korean typed on the English
+screen) run 3 times each: 26/26 · 0 missed safety signals · 0/51 false alarms (`scripts/intake_eval.py --lang en`,
+`docs/intake-eval/2026-11-03-en.md`, about $0.51), plus smoke tests (intake 24 · plans 6 · replans 3) and one
+production session. Plans · rationales have not been measured with an evaluation set (30 scenarios · Judge) as the
+Korean ones were.
 
 **Errors.** The body is `{"detail": {code, message, …}}`.
 
@@ -1121,6 +1128,8 @@ data/
 ├─ intake_cues.json     intake cue table S1·S2·S3 (expression cues · boundaries · summary sources) + state hints
 ├─ goal_definitions.json intake concept definitions S1·S2·S3 — verbatim sentences from R1 papers (paper_id · page)
 ├─ eval_scenarios.jsonl 30 evaluation scenarios — goal × user state × phrasing · chips (search-query collection · plan evaluation)
+├─ intake_eval_cases.jsonl 17 intake edge cases — safety · exaggeration · negation · someone else at risk · diagnosis · injection · off-topic (make intake-eval)
+├─ intake_eval_cases.en.jsonl 26 English edge cases — English versions of the 17 Korean ones + English-only expressions (--lang en)
 ├─ rag_eval_queries.jsonl 220 search queries collected with the production choose prompt (make rag-eval ARGS="collect")
 └─ rag_eval.jsonl       evidence retrieval evaluation set, 180 cases — query · filters · gold records (make rag-eval)
 scripts/scaffold_protocols.py   workbook → activity node JSON drafts

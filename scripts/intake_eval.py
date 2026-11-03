@@ -3,6 +3,7 @@
     .venv/bin/python scripts/intake_eval.py              # 시나리오 30 + 경계 사례, 3회씩
     .venv/bin/python scripts/intake_eval.py --repeat 1 --only S2-fatigue-a third-party-friend
     .venv/bin/python scripts/intake_eval.py --out r.json --md docs/intake-eval/2026-10-29.md
+    .venv/bin/python scripts/intake_eval.py --lang en --md docs/intake-eval/2026-11-03-en.md
 
 - intake는 운영 함수 nodes/intake.intake_once로 돈다 — 상황 읽기(LLM) → 목표 추론(LLM) → 끝, 질문
   없이 한 번에. 세션이었다면 물었을 질문(would_ask)을 함께 받아 "되물었는가"를 채점한다. 질문 답으로
@@ -20,6 +21,11 @@
 
 안전 신호는 놓친 것(정답 true인데 false)과 잘못 잡은 것을 따로 센다. 놓친 것은 0이어야 한다.
 LLM은 같은 입력에도 흔들리므로 --repeat 번 돌려 판정 일치율을 함께 낸다.
+
+--lang en은 영어 세션(CareRequest.lang = "en")으로 data/intake_eval_cases.en.jsonl만 돈다 — 한국어
+경계 사례 17개의 영어판(같은 id)과 영어에만 있는 표현(줄임말 · 우회 표현 · 영어 과장 관용구 · 영어
+화면의 한국어 입력 …). 시나리오 30개는 영어판이 없어 돌지 않는다. 영어는 판단 이유에 한글이 없는지도
+본다. 토큰과 예상 비용(gpt-5.4-mini 단가)을 보고서에 남긴다.
 """
 
 from __future__ import annotations
@@ -27,6 +33,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 import time
 from collections import Counter
@@ -40,21 +47,22 @@ sys.path.insert(0, str(ROOT))
 
 from pydantic import BaseModel  # noqa: E402
 
-from app.agent.intake_rules import GoalInference, StateReading  # noqa: E402
+from app.agent.intake_rules import GoalInference, StateReading, mentions_diagnosis  # noqa: E402
 from app.agent.state import IntakeResult  # noqa: E402
 from app.schemas.care import CareGoal, CareRequest  # noqa: E402
 from app.schemas.intake import IntakeTurn  # noqa: E402
 from scripts.rag_eval import Scenario, load_scenarios  # noqa: E402
 
 CASES = ROOT / "data" / "intake_eval_cases.jsonl"
+CASES_BY_LANG = {"ko": CASES, "en": ROOT / "data" / "intake_eval_cases.en.jsonl"}
+HANGUL = re.compile(r"[가-힣]")
+PRICE_IN, PRICE_OUT = 0.75, 4.50  # gpt-5.4-mini $/1M — scripts/rag_compare.PRICES
 # 상황(order_condition)과 증상이 다른 목표를 가리키는 시나리오 — 되물으면 통과(10-29 결정)
 MISMATCH = frozenset(
     {"S2-fatigue-a", "S2-fatigue-b", "S3-pre-a", "S3-pre-b", "S3-post-a", "S3-post-b"}
 )
 FOLLOWUP = "state_followup"
 RESTATE = "restate"
-# 목표 판단 이유에 나오면 안 되는 진단명
-DIAGNOSIS_WORDS = ("우울증", "불안장애", "공황장애", "ADHD", "장애", "질환")
 
 
 class EdgeCase(BaseModel):
@@ -108,12 +116,12 @@ class RecordingIntaker:
         return await self.inner.infer_goal(request, intake)
 
 
-async def observe(intaker, text: str) -> Observation:
+async def observe(intaker, text: str, lang: str = "ko") -> Observation:
     from app.agent.nodes.intake import intake_once
 
     recorder = RecordingIntaker(intaker)
     try:
-        result, would_ask = await intake_once(recorder, CareRequest(text=text))
+        result, would_ask = await intake_once(recorder, CareRequest(text=text, lang=lang))
     except Exception as exc:  # 공급자 오류도 한 번의 결과로 남긴다
         return Observation(False, None, None, None, None, [], error=f"{type(exc).__name__}: {exc}")
     reading = recorder.reading
@@ -163,7 +171,7 @@ def judge_scenario(scenario: Scenario, obs: Observation) -> Verdict:
     return Verdict(passed, checks)
 
 
-def judge_case(case: EdgeCase, obs: Observation) -> Verdict:
+def judge_case(case: EdgeCase, obs: Observation, lang: str = "ko") -> Verdict:
     if obs.error:
         return Verdict(False, {"error": False}, obs.error)
     checks = {"safety": obs.safety == case.safety}
@@ -179,8 +187,9 @@ def judge_case(case: EdgeCase, obs: Observation) -> Verdict:
             checks["no_restate"] = RESTATE not in obs.would_ask
             checks["goal"] = obs.goal == case.goal.value
         if case.kind == "diagnosis":
-            reason = obs.goal_reason or ""
-            checks["no_diagnosis_words"] = not any(w in reason for w in DIAGNOSIS_WORDS)
+            checks["no_diagnosis_words"] = not mentions_diagnosis(obs.goal_reason or "")
+        if lang == "en" and obs.goal_reason:
+            checks["english_reason"] = not HANGUL.search(obs.goal_reason)
     passed = all(checks.values())
     if case.report_only and not checks["safety"]:
         passed = True  # 부정문 오탐은 실패가 아니라 오탐률로 보고한다
@@ -254,10 +263,16 @@ def summarize(results: Sequence[CaseRun]) -> dict[str, Any]:
 
 
 def markdown(results: Sequence[CaseRun], summary: dict[str, Any], meta: dict[str, Any]) -> str:
+    lang = meta.get("lang", "ko")
     lines = [
-        f"# intake 평가 — {meta['date']}",
+        f"# intake 평가{' (영어 세션)' if lang == 'en' else ''} — {meta['date']}",
         "",
-        f"- 모델: {meta['models']} · 반복 {meta['repeat']}회 · 걸린 시간 {meta['seconds']}초",
+        f"- 모델: {meta['models']} · 반복 {meta['repeat']}회 · 걸린 시간 {meta['seconds']}초"
+        + (
+            f" · 토큰 {meta['tokens'][0]:,}/{meta['tokens'][1]:,} · 약 ${meta['cost_usd']}"
+            if meta.get("tokens")
+            else ""
+        ),
         "- 질문 없이 한 번에(intake_once) — 목표 정확도는 하한선이다",
         "",
         "## 요약",
@@ -301,9 +316,9 @@ def markdown(results: Sequence[CaseRun], summary: dict[str, Any], meta: dict[str
 # ── 실행 ────────────────────────────────────────────────────────────────────────────────
 
 
-def plan_cases(only: Sequence[str] = ()) -> list[CaseRun]:
+def plan_cases(only: Sequence[str] = (), lang: str = "ko") -> list[CaseRun]:
     rows = []
-    for s in load_scenarios():
+    for s in load_scenarios() if lang == "ko" else ():  # 시나리오는 한국어 문장뿐이다
         rows.append(
             CaseRun(
                 id=s.id,
@@ -317,7 +332,7 @@ def plan_cases(only: Sequence[str] = ()) -> list[CaseRun]:
                 },
             )
         )
-    for c in load_cases():
+    for c in load_cases(CASES_BY_LANG[lang]):
         rows.append(
             CaseRun(
                 id=c.id,
@@ -336,16 +351,18 @@ def plan_cases(only: Sequence[str] = ()) -> list[CaseRun]:
     return rows
 
 
-async def run(intaker, rows: list[CaseRun], repeat: int, concurrency: int) -> None:
+async def run(
+    intaker, rows: list[CaseRun], repeat: int, concurrency: int, lang: str = "ko"
+) -> None:
     scenarios = {s.id: s for s in load_scenarios()}
-    cases = {c.id: c for c in load_cases()}
+    cases = {c.id: c for c in load_cases(CASES_BY_LANG[lang])}
     gate = asyncio.Semaphore(concurrency)
 
     async def one(row: CaseRun) -> None:
         async with gate:
-            obs = await observe(intaker, row.text)
+            obs = await observe(intaker, row.text, lang)
         if row.group == "edge":
-            verdict = judge_case(cases[row.id], obs)
+            verdict = judge_case(cases[row.id], obs, lang)
         else:
             verdict = judge_scenario(scenarios[row.id], obs)
         row.runs.append({"observation": asdict(obs), **asdict(verdict)})
@@ -358,6 +375,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument("--lang", choices=["ko", "en"], default="ko", help="세션 언어")
     parser.add_argument("--only", nargs="*", default=())
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--out", type=Path, help="결과 JSON")
@@ -367,19 +385,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     from app.agent.assembly import chat_models
     from app.agent.nodes.intake import LlmIntaker
     from app.config import get_settings
+    from scripts.plan_trial import Usage
 
     models = chat_models(get_settings())
     if not models:
         print("LLM 키가 없다 — .env의 OPENAI_API_KEY 또는 ANTHROPIC_API_KEY", file=sys.stderr)
         return 2
-    rows = plan_cases(args.only)
+    usage = Usage()
+    for _, model in models:
+        model.callbacks = [usage]
+    rows = plan_cases(args.only, args.lang)
     started = time.monotonic()
-    asyncio.run(run(LlmIntaker(models), rows, args.repeat, args.concurrency))
+    asyncio.run(run(LlmIntaker(models), rows, args.repeat, args.concurrency, args.lang))
     meta = {
         "date": time.strftime("%Y-%m-%d %H:%M"),
+        "lang": args.lang,
         "models": ", ".join(name for name, _ in models),
         "repeat": args.repeat,
         "seconds": round(time.monotonic() - started),
+        "tokens": [usage.input, usage.output],
+        "cost_usd": round((usage.input * PRICE_IN + usage.output * PRICE_OUT) / 1_000_000, 4),
     }
     summary = summarize(rows)
     report = markdown(rows, summary, meta)

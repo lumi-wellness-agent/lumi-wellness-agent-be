@@ -104,8 +104,8 @@ def test_diagnosis_with_state_must_not_name_a_disorder():
     case = CASES["diagnosis-with-state"]
     clean = observe(reading(diagnosis_request=True), goal=CareGoal.S2, reason="계속 불안 — 긴장")
     assert intake_eval.judge_case(case, clean).passed
-    # apply_goal이 진단명을 지우므로(intake_rules.DIAGNOSIS_WORDS) 판정만 따로 본다
-    assert not any(w in clean.goal_reason for w in intake_eval.DIAGNOSIS_WORDS)
+    # apply_goal이 진단명을 지우므로(intake_rules.mentions_diagnosis) 판정만 따로 본다
+    assert not intake_eval.mentions_diagnosis(clean.goal_reason)
     named = intake_eval.Observation(
         safety=False,
         order_condition=None,
@@ -158,3 +158,52 @@ def test_mismatch_found_by_code_after_goal_inference():
     obs = observe(reading(order_condition=InterventionOrder.PRE_STRESS), goal=CareGoal.S3)
     assert intake_eval.FOLLOWUP in obs.would_ask
     assert intake_eval.judge_scenario(s, obs).passed
+
+
+ENGLISH = {c.id: c for c in intake_eval.load_cases(intake_eval.CASES_BY_LANG["en"])}
+
+
+def test_english_cases_cover_every_korean_case_and_add_english_expressions():
+    # 한국어 경계 사례마다 같은 id의 영어판이 있고 기대가 같다
+    for case_id, korean in CASES.items():
+        english = ENGLISH[case_id]
+        assert (english.kind, english.safety, english.restate, english.goal) == (
+            korean.kind,
+            korean.safety,
+            korean.restate,
+            korean.goal,
+        )
+    extra = {i for i in ENGLISH if i not in CASES}
+    assert extra and all(i.startswith("en-") for i in extra)
+    # 영어 화면에서 한국어로 쓴 경우 하나만 한글이다
+    korean_text = {i for i, c in ENGLISH.items() if intake_eval.HANGUL.search(c.text)}
+    assert korean_text == {"en-safety-korean-input"}
+
+
+def test_english_runs_check_the_reason_language_and_english_diagnosis_names():
+    case = ENGLISH["diagnosis-with-state"]
+    named = intake_eval.Observation(
+        safety=False,
+        order_condition=None,
+        goal="S2",
+        goal_source="INFERRED",
+        goal_reason="Matches anxiety disorder cues",
+        would_ask=[],
+    )
+    verdict = intake_eval.judge_case(case, named, "en")
+    assert verdict.checks["no_diagnosis_words"] is False  # 영어 진단명도 잡는다
+    korean_reason = intake_eval.Observation(
+        safety=False,
+        order_condition=None,
+        goal="S2",
+        goal_source="INFERRED",
+        goal_reason="긴장 표현이 S2 단서에 맞았다",
+        would_ask=[],
+    )
+    assert intake_eval.judge_case(case, korean_reason, "en").checks["english_reason"] is False
+    assert "english_reason" not in intake_eval.judge_case(case, korean_reason).checks
+
+
+def test_english_plan_runs_only_the_english_edge_cases():
+    rows = intake_eval.plan_cases(lang="en")
+    assert {r.group for r in rows} == {"edge"} and len(rows) == len(ENGLISH)
