@@ -16,8 +16,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 # 세션 언어 — 코드가 만드는 문장(고정 질문 · 칩 · 안내 · Reference 카드 문장)과 측정 문항을
-# 이 언어로 보낸다. 사용자 글 · LLM 지시문 · 근거 원문은 언어와 상관없다. FE 화면 언어로 정하고
-# 세션 내내 같다
+# 이 언어로 보내고, LLM이 사용자에게 보일 문장을 쓸 때도 이 언어로 쓰게 한다(지시문은 한국어 그대로,
+# 영어면 출력 언어 지시를 덧붙인다 — app/agent/prompts.py). 근거 원문은 언어와 상관없다. FE 화면
+# 언어로 정하고 세션 내내 같다
 Lang = Literal["ko", "en"]
 LANGS: tuple[Lang, ...] = ("ko", "en")
 

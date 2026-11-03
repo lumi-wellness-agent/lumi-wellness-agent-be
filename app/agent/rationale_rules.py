@@ -13,6 +13,10 @@
   배지가 있을 때만
 - years: 인용한 연도가 근거 목록에 있다
 - no_evidence: 근거가 없으면 찾지 못했다고 밝힌다(근거가 있으면 해당 없음 — None)
+
+영어 세션(RationaleFacts.lang = "en")은 같은 규칙을 영어 문장에 맞춰 본다 — 글자는 라틴 문자뿐,
+한계 문장은 'That said' · 'However'로 시작, '실험적' 대신 'experimental', 근거 없음 · Factor 이름은
+영어 표현으로(prompts.EXPLAIN_EN_NOTE).
 """
 
 import re
@@ -22,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.content import factors as content_factors
-from app.schemas.care import CareGoal, ContentType
+from app.schemas.care import CareGoal, ContentType, Lang
 from app.schemas.evidence import InterventionOrder, Outcome
 from app.schemas.protocol import CareProtocol, Composition, Grade
 from app.schemas.retrieval import GOAL_OUTCOMES, EvidenceHit, EvidenceVerdict, Flag
@@ -54,6 +58,38 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])(?<!al\.)(?<!\b[A-Z]\.)\s+")
 _NO_EVIDENCE = re.compile(
     r"(?:근거|연구)[^.!?]{0,20}(?:찾지 못|없|부족)|(?:찾지 못|없)[^.!?]{0,20}(?:근거|연구)"
 )
+# 부정어(no · not · haven't · haven’t …) 뒤의 근거 · 연구, 또는 근거 · 연구 뒤의 부족하다는 말
+_NO_EVIDENCE_EN = re.compile(
+    r"(?:\b(?:no|not|yet to|lack(?:s|ing)?)|n['’]t)\b[^.!?]{0,40}"
+    r"\b(?:evidence|research|stud(?:y|ies))"
+    r"|\b(?:evidence|research|stud(?:y|ies))\b[^.!?]{0,40}"
+    r"\b(?:lacking|limited|scarce|missing|not (?:yet )?(?:been )?found)",
+    re.I,
+)
+# 한계를 밝히는 마지막 문장의 머리말 — 한국어 '다만', 영어 'That said' · 'However'
+DISCLOSE_PREFIXES: dict[Lang, tuple[str, ...]] = {"ko": ("다만",), "en": ("That said", "However")}
+_EXPERIMENTAL_EN = re.compile(r"\bexperimental\b", re.I)
+# 영어 추천 이유에서 고른 콘텐츠 Factor를 알아볼 말 — 카탈로그 값(키)마다. 카탈로그에 값을 더하면
+# 여기도 더한다(tests/agent/test_rationale_rules.py가 지킨다). 단어 경계로 보고 복수형도 잡는다
+FACTOR_TERMS_EN: dict[tuple[str, str], tuple[str, ...]] = {
+    ("scenery", "forest"): ("forest",),
+    ("scenery", "lake river"): ("lake", "river"),
+    ("scenery", "sea"): ("sea", "ocean"),
+    ("scenery", "mountain"): ("mountain", "hill"),
+    ("scenery", "meadow"): ("meadow",),
+    ("scenery", "flowers"): ("flower",),
+    ("scenery", "sky"): ("sky", "skies"),
+    ("soundscape", "birdsong"): ("birdsong", "bird"),
+    ("soundscape", "stream"): ("stream",),
+    ("soundscape", "rain"): ("rain",),
+    ("soundscape", "ocean_waves"): ("wave",),
+    ("soundscape", "forest_wind"): ("breeze", "forest wind"),
+    ("art_subject", "waterscape"): ("waterscape",),
+    ("art_subject", "landscape"): ("landscape",),
+    ("music", "miserere"): ("Miserere", "Allegri"),
+    ("music", "mozart_k448"): ("Mozart",),
+    ("music", "vivaldi_spring"): ("Vivaldi", "Four Seasons"),
+}
 
 
 @dataclass(frozen=True)
@@ -66,6 +102,7 @@ class RationaleFacts:
     grades: Mapping[str, str] = field(default_factory=dict)  # 목표 1차 지표 → 등급
     badges: tuple[str, ...] = ()
     factors: Mapping[str, Any] | None = None  # ContentFactors.model_dump(mode="json")
+    lang: Lang = "ko"  # 추천 이유의 언어(세션 언어)
 
 
 def evidence_row(hit: EvidenceHit, verdict: EvidenceVerdict) -> dict[str, Any]:
@@ -87,6 +124,7 @@ def facts_for(
     cited: Sequence[tuple[EvidenceHit, EvidenceVerdict]],
     badges: Sequence[str] = (),
     factors: Mapping[str, Any] | None = None,
+    lang: Lang = "ko",
 ) -> RationaleFacts:
     """plan 노드의 값으로 대조할 것을 만든다."""
     primary = GOAL_OUTCOMES[goal].primary if goal else []
@@ -96,6 +134,7 @@ def facts_for(
         grades={o.value: protocol.grades[o].grade.value for o in primary},
         badges=tuple(badges),
         factors=factors,
+        lang=lang,
     )
 
 
@@ -110,17 +149,20 @@ def check_sentences(text: str, facts: RationaleFacts) -> RuleResult:
     """2~3문장. 한계를 밝히는 '다만 …' 문장(셋째 이후)이 있으면 4문장까지 — 꼭 밝힐 것을 넣으면
     문장이 하나 는다(2026-10-29 plan eval 36개 중 7개)."""
     found = sentences(text)
-    limit = 4 if any(s.startswith("다만") for s in found[2:]) else 3
+    prefixes = DISCLOSE_PREFIXES[facts.lang]
+    limit = 4 if any(s.startswith(prefixes) for s in found[2:]) else 3
     return 2 <= len(found) <= limit, f"{len(found)}문장"
 
 
 def check_script(text: str, facts: RationaleFacts) -> RuleResult:
-    """글자는 한글 · 라틴 문자(저자 이름의 ö · é 포함)뿐이다. 숫자 · 부호 · 기호는 보지 않는다."""
+    """글자는 한글 · 라틴 문자(저자 이름의 ö · é 포함)뿐이다 — 영어 세션은 라틴 문자뿐. 숫자 ·
+    부호 · 기호는 보지 않는다."""
+    allowed = ("HANGUL", "LATIN") if facts.lang == "ko" else ("LATIN",)
     foreign = [
         ch
         for ch in text
         if unicodedata.category(ch).startswith("L")
-        and not unicodedata.name(ch, "").startswith(("HANGUL", "LATIN"))
+        and not unicodedata.name(ch, "").startswith(allowed)
     ]
     return not foreign, "".join(dict.fromkeys(foreign))
 
@@ -147,9 +189,26 @@ def factor_labels(factors: Mapping[str, Any] | None) -> list[str]:
     return labels
 
 
+def factor_terms_en(factors: Mapping[str, Any] | None) -> list[str]:
+    """고른 콘텐츠 Factor 값을 영어 문장에서 알아볼 말(FACTOR_TERMS_EN)."""
+    terms = []
+    for axis in FACTOR_AXES:
+        keys = (factors or {}).get(axis) or []
+        for key in keys if isinstance(keys, list) else [keys]:
+            terms += FACTOR_TERMS_EN.get((axis, key), (key,))
+    return terms
+
+
 def check_factors(text: str, facts: RationaleFacts) -> RuleResult:
-    found = [label for label in factor_labels(facts.factors) if label in text]
-    return not found, ", ".join(found)
+    if facts.lang == "ko":
+        found = [label for label in factor_labels(facts.factors) if label in text]
+    else:
+        found = [
+            term
+            for term in factor_terms_en(facts.factors)
+            if re.search(rf"\b{re.escape(term)}(?:e?s)?\b", text, re.I)
+        ]
+    return not found, ", ".join(dict.fromkeys(found))
 
 
 def experimental_allowed(facts: RationaleFacts) -> bool:
@@ -164,7 +223,8 @@ def experimental_allowed(facts: RationaleFacts) -> bool:
 
 
 def check_experimental(text: str, facts: RationaleFacts) -> RuleResult:
-    if "실험적" not in text:
+    used = "실험적" in text if facts.lang == "ko" else bool(_EXPERIMENTAL_EN.search(text))
+    if not used:
         return True, ""
     return experimental_allowed(facts), f"구성 {facts.composition} · 등급 {dict(facts.grades)}"
 
@@ -179,7 +239,8 @@ def check_years(text: str, facts: RationaleFacts) -> RuleResult:
 def check_no_evidence(text: str, facts: RationaleFacts) -> RuleResult:
     if facts.evidence:
         return None, ""
-    return bool(_NO_EVIDENCE.search(text)), "근거가 없다는 말이 없다"
+    pattern = _NO_EVIDENCE if facts.lang == "ko" else _NO_EVIDENCE_EN
+    return bool(pattern.search(text)), "근거가 없다는 말이 없다"
 
 
 RULES: dict[str, Callable[[str, RationaleFacts], RuleResult]] = {
@@ -208,6 +269,16 @@ _PROBLEMS = {
     "years": "근거 목록에 없는 연도({})를 인용했다",
     "no_evidence": "검증된 근거가 없다는 것을 밝히지 않았다",
 }
+# 영어 세션에서 말이 달라지는 사유 — 나머지는 한국어 세션과 같다(사유는 LLM에 다시 묻는 입력이다)
+_PROBLEMS_EN = {
+    **_PROBLEMS,
+    "sentences": (
+        "추천 이유가 2~3문장(한계를 밝히는 'That said' 문장이 있으면 4문장)이 아니다({})"
+    ),
+    "script": "영어 문장에 다른 문자({})가 섞였다 — 영어로만 쓰고 저자 이름은 원문 그대로 둔다",
+    "experimental": "'experimental'을 조건 밖에서 썼다 — 연구는 'study' · 'experiment'로 쓴다",
+}
+PROBLEMS: dict[Lang, dict[str, str]] = {"ko": _PROBLEMS, "en": _PROBLEMS_EN}
 
 
 def check(text: str, facts: RationaleFacts) -> dict[str, RuleResult]:
@@ -218,4 +289,5 @@ def check(text: str, facts: RationaleFacts) -> dict[str, RuleResult]:
 def problems(text: str, facts: RationaleFacts, names: Sequence[str] = RUNTIME_CHECKS) -> list[str]:
     """names 규칙 중 어긴 것의 사유 — 비어 있으면 통과."""
     results = check(text, facts)
-    return [_PROBLEMS[name].format(results[name][1]) for name in names if results[name][0] is False]
+    reasons = PROBLEMS[facts.lang]
+    return [reasons[name].format(results[name][1]) for name in names if results[name][0] is False]

@@ -20,7 +20,7 @@
 import asyncio
 import importlib
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from enum import StrEnum
 from functools import partial
 from typing import Any
@@ -108,3 +108,16 @@ def with_fallback(providers: Sequence[Provider]) -> AsyncCall:
         raise LlmExhaustedError(failures)
 
     return call
+
+
+def per_language(model: Any, schemas: Mapping[str, type]) -> Callable[[str], Any]:
+    """세션 언어별 구조화 출력(json_schema) — 그 언어를 처음 쓸 때 만든다. 한국어 세션만 도는 동안은
+    한국어 출력 모델 하나만 만든다(언어마다 필드 설명이 다른 출력 모델 — prompts 모듈 docstring)."""
+    made: dict[str, Any] = {}
+
+    def structured(lang: str) -> Any:
+        if lang not in made:
+            made[lang] = model.with_structured_output(schemas[lang], method="json_schema")
+        return made[lang]
+
+    return structured

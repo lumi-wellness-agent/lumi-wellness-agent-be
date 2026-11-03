@@ -34,9 +34,10 @@ def facts(
     grades: dict[str, str] | None = None,
     badges=(),
     factors: dict | None = None,
+    lang="ko",
 ) -> RationaleFacts:
     return RationaleFacts(
-        tuple(evidence), composition, grades or {"RUMINATION": "B"}, tuple(badges), factors
+        tuple(evidence), composition, grades or {"RUMINATION": "B"}, tuple(badges), factors, lang
     )
 
 
@@ -176,3 +177,115 @@ def test_facts_for_reads_the_activity_and_the_goal_grades():
     assert found.composition == protocol.composition.value
     assert set(found.grades) == {o.value for o in GOAL_OUTCOMES[CareGoal.S1].primary}
     assert found.evidence == () and found.badges == ("PROVISIONAL_MEASURE",)
+
+
+# ── 영어 세션 ──────────────────────────────────────────────────────────────────────────────
+
+GOOD_EN = (
+    "When the same thoughts keep circling, shifting your attention elsewhere for a while can help. "
+    "In a study by Berman and colleagues (2008), rumination decreased after viewing nature."
+)
+
+
+def test_a_clean_english_rationale_passes_every_rule():
+    results = rationale_rules.check(GOOD_EN, facts(lang="en"))
+    assert {name: ok for name, (ok, _) in results.items()} == {
+        "sentences": True,
+        "script": True,
+        "codes": True,
+        "stats": True,
+        "factors": True,
+        "experimental": True,
+        "years": True,
+        "no_evidence": None,
+    }
+
+
+def test_english_script_allows_only_latin_letters():
+    ok, _ = rationale_rules.check_script(
+        "Nature images helped Öhman (2020) — 10 min.", facts(lang="en")
+    )
+    assert ok
+    ok, found = rationale_rules.check_script("This 활동 can help you rest.", facts(lang="en"))
+    assert not ok and found == "활동"
+    # 한국어 세션은 한글이 맞다
+    assert rationale_rules.check_script("이 활동이 도움이 돼요.", facts())[0]
+
+
+def test_english_limit_sentence_starts_with_that_said_or_however():
+    four = (
+        "You seem tense before the presentation. Slow breathing suits a short break. "
+        "A study by Balban and colleagues (2023) found less anxiety after breathing practice. "
+        "That said, the guidance was adapted for LUMI, so the same effect isn't confirmed."
+    )
+    assert rationale_rules.check_sentences(four, facts(lang="en"))[0]
+    assert rationale_rules.check_sentences(
+        four.replace("That said,", "However,"), facts(lang="en")
+    )[0]
+    assert not rationale_rules.check_sentences(
+        four.replace("That said, the", "The"), facts(lang="en")
+    )[0]
+
+
+def test_english_experimental_follows_the_same_condition():
+    text = "This is an experimental combination, so its combined effect hasn't been tested."
+    assert not rationale_rules.check_experimental(text, facts(lang="en"))[0]
+    assert rationale_rules.check_experimental(text, facts(lang="en", composition="EXPERIMENTAL"))[0]
+    # 연구를 'Experimental study'라고 불러도 조건 밖이면 걸린다 — 프롬프트가 'study'로 쓰게 한다
+    assert not rationale_rules.check_experimental(
+        "An Experimental study found …", facts(lang="en")
+    )[0]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "We haven't found verified research evidence for this activity yet.",
+        "We haven’t found a verified study for this activity yet.",  # 곡선 아포스트로피
+        "There is no verified study behind this activity yet.",
+        "Research on this activity is still limited, so treat it as a gentle try.",
+        "Evidence for this exact activity has not been found yet.",
+    ],
+)
+def test_an_empty_english_card_needs_an_honest_sentence(text):
+    assert rationale_rules.check_no_evidence(text, facts(evidence=(), lang="en"))[0] is True
+
+
+def test_an_empty_english_card_without_the_sentence_fails():
+    text = "This activity can help you settle down. Give it a few minutes."
+    assert rationale_rules.check_no_evidence(text, facts(evidence=(), lang="en"))[0] is False
+
+
+def test_english_factors_catch_the_chosen_content_by_word():
+    chosen = {
+        "scenery": ["sea", "lake river"],
+        "soundscape": None,
+        "art_subject": None,
+        "music": None,
+    }
+    ok, found = rationale_rules.check_factors(
+        "Pictures of lakes can calm you, as research shows.", facts(lang="en", factors=chosen)
+    )
+    assert not ok and found == "lake"
+    # 'research' 안의 'sea'는 단어가 아니다
+    assert rationale_rules.check_factors(
+        "As research shows, it helps.", facts(lang="en", factors=chosen)
+    )[0]
+
+
+def test_every_catalog_value_has_english_factor_terms():
+    from app.content import factors as content_factors
+
+    catalog = {
+        (axis, key)
+        for axis in rationale_rules.FACTOR_AXES
+        for key in content_factors.load_catalog().axes[axis].values
+    }
+    assert set(rationale_rules.FACTOR_TERMS_EN) == catalog
+
+
+def test_english_problems_name_the_english_rule():
+    text = "This 활동 is experimental. It may help."
+    reasons = rationale_rules.problems(text, facts(lang="en"))
+    assert any(r.startswith("영어 문장에 다른 문자") for r in reasons)
+    assert any("'experimental'" in r for r in reasons)

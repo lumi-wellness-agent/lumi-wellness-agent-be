@@ -225,3 +225,18 @@ class StateQuestionDraft(BaseModel):
     options: list[StateOptionDraft] = Field(
         description="보기 2~4개. '잘 모르겠어요'는 넣지 않는다(코드가 붙인다)"
     )
+
+
+# 영어 세션의 질문 초안 — 문구의 언어 설명만 다르고 칸 · 검증은 같다. 필드 설명이 LLM에 보이므로
+# '(한국어)'를 남기면 출력 언어 지시와 엇갈린다(app/agent/intake_rules.StateReadingEn)
+class StateOptionDraftEn(StateOptionDraft):
+    label: str = Field(
+        description="보기 문구(영어, 짧게 — 6단어 이내). 예: Something that just happened"
+    )
+
+
+class StateQuestionDraftEn(StateQuestionDraft):
+    text: str = Field(description="질문 한 문장(영어). 사건을 자세히 묻지 않고 시점·원인만 묻는다")
+    options: list[StateOptionDraftEn] = Field(
+        description="보기 2~4개. 'I'm not sure' 같은 모름 보기는 넣지 않는다(코드가 붙인다)"
+    )

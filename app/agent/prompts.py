@@ -4,6 +4,11 @@ plan 담당).
 LLM이 읽는 사용 설명서는 구조화 출력 모델의 Field(description)에도 있다
 (app/agent/intake_rules.py의 StateReading · GoalInference, app/agent/nodes/planner.py의
 ActivityChoice · PlanRationale, app/agent/nodes/replanner.py의 NextStepChoice).
+
+세션 언어(CareRequest.lang)가 영어면 사용자에게 보이는 문장을 쓰는 호출(① 상황 읽기 · ③ 목표 추론 ·
+추천 이유 · 다음 단계 추천)의 시스템 프롬프트 끝에 출력 언어 지시(*_EN_NOTE)를 붙이고, 출력
+모델도 언어 설명만 다른 *En을 쓴다. 한국어 세션의 LLM 입력은 그대로다(*_PROMPTS["ko"]는 원래
+문자열). 활동 선택(LLM 호출 1)의 이유는 내부 기록이라 언어를 바꾸지 않는다.
 """
 
 import json
@@ -16,7 +21,7 @@ from app.agent import reference_card
 from app.agent.state import CareState, IntakeResult, NextStep, ReplanProposal, changed_away
 from app.content import factors as content_factors
 from app.intake_cues import cues_json, definitions_json
-from app.schemas.care import CareGoal, CareRequest, ContentType
+from app.schemas.care import CareGoal, CareRequest, ContentType, Lang
 from app.schemas.evidence import (
     OUTCOME_LABELS,
     Effect,
@@ -93,6 +98,37 @@ GOAL_SYSTEM_PROMPT = """\
 
 - 진단하지 않는다. reason은 어떤 표현이 어느 단서에 맞았는지 한 문장으로. 사용자가 진단명을 말했어도
   reason에 진단명(우울증 · 불안장애 · ADHD …)을 옮겨 쓰지 않는다 — 상태 표현만 인용한다."""
+
+# 영어 세션의 출력 언어 지시 — 판단 기준은 한국어 지시문 그대로이고 사용자에게 보이는 문장의 언어와
+# 영어 예시만 더한다. 안전 · 관련성 예시는 영어 표현이 한국어 예시와 달라 따로 든다
+READ_EN_NOTE = """\
+## 출력 언어 — 영어
+이 세션의 사용자는 영어 화면을 쓴다. 판단 기준은 위와 같고, 사용자에게 보이는 문장(restate_text ·
+question.text · question.options[].label)과 summary · event는 자연스러운 영어로 쓴다. 위 한국어
+예시는 뜻만 참고한다. cues는 사용자 표현을 원문 그대로 옮긴다.
+- safety 예: I want to die · I wish I could just disappear · I want to end it all · there's no
+  reason to live. 과장(I'm dying of boredom · this commute is killing me)은 false.
+- OFF_TOPIC 예: what should I have for lunch? · write some code for me · lol · asdf. 짧아도 상태를
+  말하면 RELEVANT(meh · tired · not great).
+- restate_text 예: "Sounds like you're thinking about lunch! How's your day going? Tell me in a word
+  or two — for example: I'm drained after back-to-back meetings"
+- 보기 label은 짧게(6단어 이내). 예: Something that just happened · Worried about something
+  coming up"""
+
+GOAL_EN_NOTE = """\
+## 출력 언어 — 영어
+이 세션의 사용자는 영어로 말했다. 판단 기준은 위와 같고, reason은 영어 한 문장으로 쓴다(사용자
+표현은 원문 그대로 인용한다). 사용자가 진단명(depression · anxiety disorder · panic disorder ·
+ADHD …)을 말했어도 reason에 옮겨 쓰지 않는다."""
+
+
+def with_language(base: str, english_note: str) -> dict[Lang, str]:
+    """언어별 시스템 프롬프트 — 한국어는 원래 문자열 그대로, 영어는 끝에 출력 언어 지시."""
+    return {"ko": base, "en": f"{base}\n\n{english_note}"}
+
+
+READ_PROMPTS = with_language(READ_SYSTEM_PROMPT, READ_EN_NOTE)
+GOAL_PROMPTS = with_language(GOAL_SYSTEM_PROMPT, GOAL_EN_NOTE)
 
 
 def _turn_lines(turns: Sequence[IntakeTurn]) -> list[str]:
@@ -214,6 +250,20 @@ content_factors — 이 활동의 콘텐츠(풍경 · 자연음 · 작품 주제
 - 지난 라운드에 쓴 Factor가 있으면 다른 값을 골라 콘텐츠를 바꾼다.
 - Factor는 연구 자극 범위 안의 개인화다. 어떤 풍경 · 소리가 효과가 더 크다고 말하지 않고,
   rationale에는 Factor를 쓰지 않는다(화면이 따로 보인다). reason은 고른 까닭 한 문장(한국어)."""
+
+# 영어 세션의 추천 이유 — 규칙은 위 그대로, 한국어 전용 지시('다만' · '실험적')의 영어를 정한다.
+# rationale_rules가 같은 말로 후검증한다(DISCLOSE_PREFIXES · 'experimental')
+EXPLAIN_EN_NOTE = """\
+## 출력 언어 — 영어
+이 세션의 사용자는 영어 화면을 쓴다. rationale은 위 규칙을 모두 지키되 한국어 대신 자연스러운 영어
+2~3문장으로 쓰고 한글을 쓰지 않는다.
+- 꼭 밝힐 것은 'That said, …'로 시작하는 한 문장에 모아 마지막에 쓴다(최대 4문장).
+- '실험적'에 해당하는 말은 'experimental'이고 같은 조건에서만 쓴다. 연구를 가리킬 때도
+  'experimental study' 대신 'study' · 'experiment'라고 쓴다.
+- 개선 지표 이름(주관적 스트레스 · 불안 · 이완 상태 …)은 뜻을 바꾸지 않고 영어로 옮긴다
+  (subjective stress · anxiety · relaxation …). 활동 이름도 영어로 옮긴다."""
+
+EXPLAIN_PROMPTS = with_language(EXPLAIN_SYSTEM_PROMPT, EXPLAIN_EN_NOTE)
 
 GOAL_NAMES: dict[CareGoal, str] = {
     CareGoal.S1: "반복되는 생각에서 벗어나기(반추 완화)",
@@ -339,31 +389,64 @@ def build_choice_input(
 IMAGE_MEDIA = frozenset({Medium.STATIC_IMAGE, Medium.AI_IMAGE})
 
 
+# 꼭 밝힐 것 — 사용자에게 보일 합니다체 문장이라 모델이 그대로 옮겨도 어색하지 않게 쓴다. 평서체에
+# 괄호를 단 문구는 그대로 붙어 나왔다(2026-10-29 "…좋아졌습니다. 제공 콘텐츠가 … 다르다(LUMI에
+# 맞게 바꿨다)"). 영어 세션은 영어 문장을 받는다
+DISCLOSURES: dict[Lang, dict[str, str]] = {
+    "ko": {
+        "no_evidence": "이 활동에 맞는 검증된 연구 근거는 아직 찾지 못했습니다.",
+        "not_supporting": "검증된 연구는 있지만 이 목표가 좋아졌다는 결과는 없습니다.",
+        "conflicting": "같은 방식의 연구 중에는 효과가 없거나 반대인 결과도 있습니다.",
+        "ai_image": "AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다.",
+        "adapted": (
+            "연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다."
+        ),
+        "population": "진단을 받은 사람들에게서 나온 결과라 참고로만 봐 주세요.",
+    },
+    "en": {
+        "no_evidence": "We haven't found verified research evidence for this activity yet.",
+        "not_supporting": (
+            "There is verified research, but it didn't show an improvement for this goal."
+        ),
+        "conflicting": "Some studies of the same approach found no effect or the opposite effect.",
+        "ai_image": "These are AI-generated images, so they differ from the photos used in the "
+        "research.",
+        "adapted": (
+            "This content adapts the stimulus used in the research for LUMI, so it hasn't been "
+            "confirmed to have the same effect."
+        ),
+        "population": (
+            "These results come from people with a diagnosis, so please treat them as a "
+            "reference only."
+        ),
+    },
+}
+
+
 def must_disclose(
-    protocol: CareProtocol, evidence: Sequence["CitedEvidence"], delivered: Sequence[Medium]
+    protocol: CareProtocol,
+    evidence: Sequence["CitedEvidence"],
+    delivered: Sequence[Medium],
+    lang: Lang = "ko",
 ) -> list[str]:
     """추천 이유가 꼭 밝힐 한계 — 근거 판정과 활동 노드 표시로 코드가 정한다. Reference 카드의
     배지(근거 없음 · 반대 결과 · 자극 변형 · AI 이미지)를 모두 덮어 카드와 추천 이유가 어긋나지
     않는다 — 2026-10-29에는 PR-06 · PR-07 카드의 자극 변형 배지가 설명 입력에 없었다."""
     flags = {f for c in evidence for f in c.verdict.flags}
-    # 사용자에게 보일 합니다체 문장 — 모델이 그대로 옮겨도 어색하지 않게 쓴다. 평서체에 괄호를 단
-    # 문구는 그대로 붙어 나왔다(2026-10-29 "…좋아졌습니다. 제공 콘텐츠가 … 다르다(LUMI에 맞게
-    # 바꿨다)")
+    said = DISCLOSURES[lang]
     out = []
     if not evidence:
-        out.append("이 활동에 맞는 검증된 연구 근거는 아직 찾지 못했습니다.")
+        out.append(said["no_evidence"])
     elif not any(c.verdict.supports_goal for c in evidence):
-        out.append("검증된 연구는 있지만 이 목표가 좋아졌다는 결과는 없습니다.")
+        out.append(said["not_supporting"])
     if Flag.CONFLICTING_EVIDENCE in flags:
-        out.append("같은 방식의 연구 중에는 효과가 없거나 반대인 결과도 있습니다.")
+        out.append(said["conflicting"])
     if Medium.AI_IMAGE in delivered:
-        out.append("AI 생성 이미지라 연구에서 쓴 사진과는 다릅니다.")
+        out.append(said["ai_image"])
     elif Flag.ADAPTED_STIMULUS in flags or reference_card.adapted_protocol(protocol):
-        out.append(
-            "연구에서 쓴 자극을 LUMI에 맞게 바꾼 콘텐츠라 같은 효과가 나는지는 확인되지 않았습니다."
-        )
+        out.append(said["adapted"])
     if Flag.POPULATION_MISMATCH in flags:
-        out.append("진단을 받은 사람들에게서 나온 결과라 참고로만 봐 주세요.")
+        out.append(said["population"])
     return out
 
 
@@ -409,7 +492,7 @@ def build_rationale_input(
         evidence_part = f"## 검증된 근거 ({len(shown)}건)\n" + "\n".join(evidence_lines)
     else:
         evidence_part = "## 검증된 근거\n검증을 통과한 근거가 없다."
-    disclose = must_disclose(protocol, evidence, delivered)
+    disclose = must_disclose(protocol, evidence, delivered, request.lang)
     images = bool(IMAGE_MEDIA & set(delivered))
     parts = [
         f"## 사용자 입력\n{request.text}",
@@ -478,6 +561,13 @@ RECOMMEND_SYSTEM_PROMPT = """\
 reason — 사용자에게 보여 줄 1~2문장(한국어, '~해요' 체). 무엇이 어떻게 달라졌는지 쉬운 말로 짚고
 (긴장이 조금 내려갔어요) 무엇을 권하는지 말한다. 숫자 · 척도 이름(SAM · MFVAS …) · enum(END ·
 CHANGE_ACTIVITY …)을 쓰지 않는다. 치료 효과를 단정하거나 진단하지 않는다."""
+
+RECOMMEND_EN_NOTE = """\
+## 출력 언어 — 영어
+이 세션의 사용자는 영어 화면을 쓴다. reason은 위 규칙을 모두 지키되 한국어 대신 다정하고 쉬운 영어
+1~2문장으로 쓴다. 예: Your tension eased a little. How about one more round of the same activity?"""
+
+RECOMMEND_PROMPTS = with_language(RECOMMEND_SYSTEM_PROMPT, RECOMMEND_EN_NOTE)
 
 # evaluator.deltas_between의 키 — SAM valence · arousal, S3는 MFVAS도
 DELTA_NAMES: dict[str, str] = {
