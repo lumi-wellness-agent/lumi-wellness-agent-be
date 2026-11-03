@@ -720,7 +720,7 @@ docs/rag-eval/YYYY-MM-DD-<주제>.md`가 만든 실행 기록(구성 · 규칙 �
 
 | 층 | 항목 | 판정 |
 | --- | --- | --- |
-| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장(한계를 밝히는 '다만' 문장이 있으면 4문장), 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘 |
+| 규칙(코드, `check`) | sentences · script · codes · stats · factors · experimental · years · no_evidence · disclosure | 설명 프롬프트의 지시 중 글자로 판정되는 것 — 2~3문장(한계를 밝히는 '다만' 문장이 있으면 4문장), 글자는 한글 · 라틴 문자뿐(다른 문자가 섞이는 출력 오류), enum · 플래그 · ID를 그대로 쓰지 않음, 통계값을 쓰지 않음, 고른 콘텐츠 Factor 이름을 쓰지 않음, '실험적'은 구성 EXPERIMENTAL · 목표 지표 등급 D뿐 · 카드 실험적 배지일 때만, 인용 연도가 근거 목록 안, 근거가 없으면 찾지 못했다고 밝힘, 꼭 밝힐 것이 있으면 '다만' 문장이 있음(내용을 다 옮겼는지는 Judge의 disclosure가 본다 — 규칙은 설명 입력의 '## 꼭 밝힐 것'을 읽는다) |
 | Judge(LLM, `judge`) | faithful · outcomes · hedged · disclosure · personal | 뜻을 읽어야 하는 것 — 근거 · 발췌에 없는 연구 · 결과를 말하지 않음, 개선 지표에 있는 것만 개선으로 말함(정서 결과를 스트레스 감소로 바꾸지 않음), 효과를 단정하거나 임상으로 넓히지 않음, 플래그 · 근거 없음을 뜻으로 밝힘, 사용자 상태 → 고른 이유 → 근거 |
 
 - 규칙은 `app/agent/rationale_rules.py`에 있고 운영 plan 노드도 같은 규칙으로 추천 이유를 후검증합니다 — 어기면

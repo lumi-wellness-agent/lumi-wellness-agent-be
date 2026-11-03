@@ -78,8 +78,22 @@ class Case:
     @property
     def facts(self) -> RationaleFacts:
         return RationaleFacts(
-            self.evidence, self.composition, self.grades, self.badges, self.factors
+            self.evidence,
+            self.composition,
+            self.grades,
+            self.badges,
+            self.factors,
+            disclose=disclosed_items(self.explain_input),
         )
+
+
+def disclosed_items(explain_input: str) -> tuple[str, ...]:
+    """설명 입력의 '## 꼭 밝힐 것' 항목 — 운영 plan 노드가 disclosure 규칙에 넘긴 것과 같다."""
+    _, found, rest = explain_input.partition("## 꼭 밝힐 것\n")
+    if not found:
+        return ()
+    block = rest.split("\n\n", 1)[0]
+    return tuple(line[2:] for line in block.splitlines() if line.startswith("- "))
 
 
 def load_cases(paths: Sequence[Path]) -> list[Case]:
