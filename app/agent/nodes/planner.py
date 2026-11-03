@@ -53,10 +53,10 @@ from pydantic import BaseModel, Field
 from app import protocols
 from app.agent import rationale_rules, reference_card, validation
 from app.agent.context import AgentContext, PlannerContext
-from app.agent.llm import with_fallback
+from app.agent.llm import per_language, with_fallback
 from app.agent.prompts import (
     CHOOSE_SYSTEM_PROMPT,
-    EXPLAIN_SYSTEM_PROMPT,
+    EXPLAIN_PROMPTS,
     build_choice_input,
     build_rationale_input,
 )
@@ -72,6 +72,7 @@ from app.agent.state import (
 from app.content import factors as content_factors
 from app.retrieval import hybrid
 from app.schemas.card import ReferenceCard
+from app.schemas.care import Lang
 from app.schemas.content import ContentFactors
 from app.schemas.evidence import study_medium
 from app.schemas.protocol import CareProtocol, Composition
@@ -109,6 +110,18 @@ class PlanRationale(BaseModel):
     def text(cls, rationale: str) -> "PlanRationale":
         """Factor 없이 추천 이유만 — 테스트 대역 · 콘텐츠 칸이 없는 활동."""
         return cls(rationale=rationale, content_factors=ContentFactors.none())
+
+
+class PlanRationaleEn(PlanRationale):
+    """영어 세션의 LLM 호출 2 — 추천 이유의 언어 설명만 다르다(필드 설명이 LLM에 보인다)."""
+
+    rationale: str = Field(
+        description="사용자에게 보여 줄 추천 이유 2~3문장(영어). 꼭 밝힐 것이 있으면 "
+        "'That said, …' 한 문장을 더한다(최대 4문장)"
+    )
+
+
+RATIONALE_MODELS: dict[Lang, type[PlanRationale]] = {"ko": PlanRationale, "en": PlanRationaleEn}
 
 
 @dataclass(frozen=True)
@@ -328,8 +341,9 @@ def make_chooser(model: BaseChatModel):
 
 
 def make_explainer(model: BaseChatModel):
-    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓰고 콘텐츠 Factor를 고른다."""
-    structured = model.with_structured_output(PlanRationale, method="json_schema")
+    """LLM 호출 2 — 검증된 근거로 추천 이유(rationale)를 쓰고 콘텐츠 Factor를 고른다. 지시문 ·
+    출력 모델은 세션 언어로 고른다 — 한국어는 원래 그대로."""
+    structured = per_language(model, RATIONALE_MODELS)
 
     async def explain(
         state: CareState,
@@ -338,11 +352,12 @@ def make_explainer(model: BaseChatModel):
         evidence: Sequence[CitedEvidence],
         problems: Sequence[str] = (),
     ) -> PlanRationale:
+        lang = state["request"].lang
         messages = [
-            SystemMessage(EXPLAIN_SYSTEM_PROMPT),
+            SystemMessage(EXPLAIN_PROMPTS[lang]),
             HumanMessage(build_rationale_input(state, choice, protocol, evidence, problems)),
         ]
-        return await structured.ainvoke(messages)
+        return await structured(lang).ainvoke(messages)
 
     return explain
 
@@ -478,7 +493,9 @@ async def write_rationale(
         explained = await planner.explain(state, choice, protocol, evidence, problems)
         factors = content_factors.sanitize(protocol, explained.content_factors)
         chosen = None if factors.is_empty() else factors.model_dump(mode="json")
-        facts = rationale_rules.facts_for(protocol, state["intake"].goal, cited, badges, chosen)
+        facts = rationale_rules.facts_for(
+            protocol, state["intake"].goal, cited, badges, chosen, lang=state["request"].lang
+        )
         problems = rationale_rules.problems(explained.rationale, facts)
         if not problems:
             break

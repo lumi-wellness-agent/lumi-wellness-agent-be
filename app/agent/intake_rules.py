@@ -58,6 +58,7 @@ from app.schemas.intake import (
     QuestionOption,
     QuestionSlot,
     StateQuestionDraft,
+    StateQuestionDraftEn,
     parse_set,
 )
 from app.schemas.retrieval import GOAL_OUTCOMES
@@ -157,6 +158,29 @@ class GoalInference(BaseModel):
         description="함께 보인 다른 목표(S1·S2 혼합 등). goal과 같으면 안 된다. 없으면 null"
     )
     reason: str = Field(description="판단 이유 한 문장(한국어) — 어떤 표현이 어느 단서에 맞았나")
+
+
+# 영어 세션의 ① · ③ — 사용자에게 보이는 문장(되묻기 · 질문 초안 · 판단 이유)과 요약의 언어 설명만
+# 다르다. 필드 설명이 LLM에 보이므로 '(한국어)'를 남기면 출력 언어 지시(prompts.READ_EN_NOTE)와
+# 엇갈린다. 한국어 세션은 위 모델 그대로다
+class StateReadingEn(StateReading):
+    restate_text: str | None = Field(
+        description="OFF_TOPIC일 때만 — 사용자 말을 가볍게 받아 주고, 오늘 상황이나 하루를 한두 "
+        "마디로 들려 달라는 영어 1~2문장(예시 한 구절 포함, 160자 이내). 감정을 자세히 캐묻지 "
+        "않고, 다른 요청(메뉴 · 코드 …)은 들어주지 않는다. RELEVANT면 null"
+    )
+    summary: str = Field(description="사용자 상황 한 줄(영어, 80자 이내, 진단 용어 금지)")
+    question: StateQuestionDraftEn | None = Field(
+        description="order_condition을 정하지 못했을 때만 시점 질문 초안. 정했으면 null"
+    )
+
+
+class GoalInferenceEn(GoalInference):
+    reason: str = Field(description="판단 이유 한 문장(영어) — 어떤 표현이 어느 단서에 맞았나")
+
+
+READING_MODELS: dict[Lang, type[StateReading]] = {"ko": StateReading, "en": StateReadingEn}
+GOAL_MODELS: dict[Lang, type[GoalInference]] = {"ko": GoalInference, "en": GoalInferenceEn}
 
 
 # ── ① 합치기 ──────────────────────────────────────────────────────────────────────────────

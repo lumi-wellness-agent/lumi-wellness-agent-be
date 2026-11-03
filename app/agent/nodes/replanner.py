@@ -29,10 +29,11 @@ from langgraph.types import interrupt
 from pydantic import BaseModel, Field
 
 from app.agent.context import AgentContext
-from app.agent.llm import with_fallback
+from app.agent.llm import per_language, with_fallback
 from app.agent.nodes.planner import planner_context, search_candidates
-from app.agent.prompts import RECOMMEND_SYSTEM_PROMPT, build_recommend_input
+from app.agent.prompts import RECOMMEND_PROMPTS, build_recommend_input
 from app.agent.state import CareState, NextStep, ReplanDecision, ReplanProposal, Round
+from app.schemas.care import Lang
 from app.schemas.measure import final_scale
 
 log = logging.getLogger(__name__)
@@ -72,6 +73,15 @@ class NextStepChoice(BaseModel):
     reason: str = Field(description="사용자에게 보여 줄 권하는 이유 1~2문장(한국어, '~해요' 체)")
 
 
+class NextStepChoiceEn(NextStepChoice):
+    """영어 세션의 replan LLM — 권하는 이유의 언어 설명만 다르다."""
+
+    reason: str = Field(description="사용자에게 보여 줄 권하는 이유 1~2문장(영어, 다정하고 쉽게)")
+
+
+CHOICE_MODELS: dict[Lang, type[NextStepChoice]] = {"ko": NextStepChoice, "en": NextStepChoiceEn}
+
+
 class Replanner(Protocol):
     """replan의 LLM 판단. 운영은 LlmReplanner, 테스트는 대역을 넣는다."""
 
@@ -79,15 +89,17 @@ class Replanner(Protocol):
 
 
 def make_recommender(model: BaseChatModel):
-    """구조화 출력(json_schema) 한 번으로 NextStepChoice를 받는다."""
-    structured = model.with_structured_output(NextStepChoice, method="json_schema")
+    """구조화 출력(json_schema) 한 번으로 NextStepChoice를 받는다. 지시문 · 출력 모델은 세션
+    언어로 고른다 — 한국어는 원래 그대로."""
+    structured = per_language(model, CHOICE_MODELS)
 
     async def recommend(state: CareState, rule: ReplanProposal) -> NextStepChoice:
+        lang = state["request"].lang
         messages = [
-            SystemMessage(RECOMMEND_SYSTEM_PROMPT),
+            SystemMessage(RECOMMEND_PROMPTS[lang]),
             HumanMessage(build_recommend_input(state, rule)),
         ]
-        return await structured.ainvoke(messages)
+        return await structured(lang).ainvoke(messages)
 
     return recommend
 

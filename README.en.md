@@ -269,10 +269,13 @@ stream is read with fetch.
 writes — intake fixed questions and options · fixed re-ask sentences · environment chips · goal reasons written by
 code (`app/agent/intake_texts.py`), measurement items (`data/instruments/en/`), and the Reference card's goal name ·
 limit sentences · scale notes (`app/agent/card_texts.py`) — are sent in this language. The values an option fills
-in and the measurement scoring are the same in every language. The English version is in progress — sentences an
-LLM writes (re-asks · question drafts · goal reasons · rationales), activity node wording and evidence metadata
-are still Korean, and the FE does not send `lang` yet. A request without `lang` is Korean, the same session as
-before.
+in and the measurement scoring are the same in every language. The LLM calls that write sentences shown to the
+user (① state reading's re-asks · question drafts, ③ goal reasons, rationales, next-step recommendation reasons)
+add an output-language note (`prompts.*_EN_NOTE`) to the end of the Korean instructions in an English session and
+use output models (`*En`) that differ only in their field descriptions — the LLM input of a Korean session is
+unchanged. The rationale character rules also check English sentences (see “Rationale evaluation”). The English
+version is in progress — activity node wording and evidence metadata are still Korean, and the FE does not send
+`lang` yet. A request without `lang` is Korean, the same session as before.
 
 **Errors.** The body is `{"detail": {code, message, …}}`.
 
@@ -804,6 +807,10 @@ verdicts · limitations). 2026-10-29 (Korean): [verdict memo](docs/rag-eval/2026
   rules — on a violation it asks for the explanation once more with the reason (sentence count is a presentation
   issue, so it is not re-asked), and if it still violates, the second one is used. 「추천 이유를 다시 씀」
   (rationale rewritten) in the plan-eval summary is that count.
+- English sessions (`RationaleFacts.lang`) check the same rules against English sentences — Latin letters only,
+  the limit sentence starts with 'That said' · 'However', 'experimental' instead of '실험적', English wording for
+  "no evidence" (`_NO_EVIDENCE_EN`), and the chosen content found by English terms set per value
+  (`FACTOR_TERMS_EN`).
 - The '개선 지표' (improved outcomes) on each evidence line is written as what that evidence actually measured, not
   the outcome category name (`prompts.outcome_display`, split by `results[].measure`). Anxiety · subjective stress
   share one category (`SUBJECTIVE_STRESS`), so writing the category name attached '불안' (anxiety) even to

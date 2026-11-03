@@ -37,14 +37,9 @@ from langgraph.graph import END
 from langgraph.types import interrupt
 
 from app.agent import intake_rules as rules
-from app.agent.intake_rules import GoalInference, StateReading
-from app.agent.llm import with_fallback
-from app.agent.prompts import (
-    GOAL_SYSTEM_PROMPT,
-    READ_SYSTEM_PROMPT,
-    build_goal_input,
-    build_read_input,
-)
+from app.agent.intake_rules import GOAL_MODELS, READING_MODELS, GoalInference, StateReading
+from app.agent.llm import per_language, with_fallback
+from app.agent.prompts import GOAL_PROMPTS, READ_PROMPTS, build_goal_input, build_read_input
 from app.agent.state import CareState, IntakeResult, SessionEnd
 from app.schemas.care import CareRequest
 from app.schemas.intake import MAX_TURNS, IntakeAnswer, IntakeTurn, QuestionSlot
@@ -63,27 +58,29 @@ class Intaker(Protocol):
 
 
 def make_reader(model: BaseChatModel):
-    structured = model.with_structured_output(StateReading, method="json_schema")
+    """① 상황 읽기. 지시문 · 출력 모델은 세션 언어로 고른다 — 한국어는 원래 그대로."""
+    structured = per_language(model, READING_MODELS)
 
     async def read(request: CareRequest, turns: Sequence[IntakeTurn]) -> StateReading:
         messages = [
-            SystemMessage(READ_SYSTEM_PROMPT),
+            SystemMessage(READ_PROMPTS[request.lang]),
             HumanMessage(build_read_input(request, turns)),
         ]
-        return await structured.ainvoke(messages)
+        return await structured(request.lang).ainvoke(messages)
 
     return read
 
 
 def make_goal_inferrer(model: BaseChatModel):
-    structured = model.with_structured_output(GoalInference, method="json_schema")
+    """③ 목표 추론. 지시문 · 출력 모델은 세션 언어로 고른다 — 한국어는 원래 그대로."""
+    structured = per_language(model, GOAL_MODELS)
 
     async def infer_goal(request: CareRequest, intake: IntakeResult) -> GoalInference:
         messages = [
-            SystemMessage(GOAL_SYSTEM_PROMPT),
+            SystemMessage(GOAL_PROMPTS[request.lang]),
             HumanMessage(build_goal_input(request, intake)),
         ]
-        return await structured.ainvoke(messages)
+        return await structured(request.lang).ainvoke(messages)
 
     return infer_goal
 
